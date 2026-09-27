@@ -4,7 +4,10 @@ Changes after the initial public source snapshot will be recorded here.
 Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 [ROADMAP.md](ROADMAP.md).
 
-## Unreleased
+## 0.1.0-beta.1 — 2026-09-27
+
+- First public Full download for Apple silicon/macOS 26+, including Chromium.
+  Developer ID-signed, notarized and stapled; final exported app smoke-tested.
 
 - Repeatable local Full release command for Developer ID signing, notarization,
   GitHub uploads and verified feed publication.
@@ -24,6 +27,5 @@ Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 - Optional iCloud record sync and experimental cross-engine cookie sharing.
 - Public source, build instructions and GPLv3 licensing for original code.
 
-This is a development source release. Signed public binaries, automatic updates,
-Apple credential integration, daily-use and compatibility qualification remain
-open; source availability does not imply production readiness.
+This is a development source release. Apple credential integration, installed-upgrade testing, daily-use and
+compatibility qualification remain open; source availability does not imply production readiness.

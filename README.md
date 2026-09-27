@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="#build">Build</a> · <a href="ARCHITECTURE.md">Architecture</a> · <a href="FEATURES.md">Features</a> · <a href="ROADMAP.md">Roadmap</a>
+  <a href="https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.1">Download beta</a> · <a href="#build">Build</a> · <a href="ARCHITECTURE.md">Architecture</a> · <a href="FEATURES.md">Features</a> · <a href="ROADMAP.md">Roadmap</a>
 </p>
 
 ![Cobble in dark mode, with spaces, pinned sites, folders, and the Pretzel Rated website open](docs/images/cobble-browser.png)
@@ -40,6 +40,13 @@ Engine-neutral contracts keep browser state separate from rendering. Saved organ
 
 Use system WebKit or the experimental [Chrome SDK](https://github.com/ignaciojuarez/chrome-sdk). Both projects publish their source. Chromium requires a separate engine build; **it isn’t required for WebKit**. See [Chromium build instructions](CHROMIUM.md).
 
+## Download
+
+**[Download Cobble 0.1.0 beta · ZIP](https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.1/Cobble-v0.1.0-beta.1.zip)** — Apple silicon · macOS 26+ · includes WebKit and Chromium.
+
+Extract and drag Cobble into Applications. Developer ID-signed and notarized by Apple.
+Opt into update checks to receive future releases inside Cobble; you choose when to install and restart.
+
 ## Build
 
 Requires macOS 26+ and Xcode. The command below was verified with **Xcode 27.0**. Open `Cobble.xcodeproj` and use the **Cobble** scheme, or build without signing:
@@ -59,7 +66,7 @@ The app is at `.build/webkit/Build/Products/Debug/Cobble.app`. Replace `build` w
 
 Full release builds include [Sparkle updates](docs/features/updates.md), hosted on GitHub with signed archives and a signed feed. Release qualification is still pending.
 
-**No signed public download is available yet.** Source availability is separate from a production browser release. Apple Passwords/passkeys, accessibility, real-site compatibility, signed distribution, updates, and daily-use qualification still have open gates.
+**This is an early beta.** Apple Passwords/passkeys, accessibility, real-site compatibility, installed version-to-version updates, clean-Mac distribution and daily-use qualification still have open gates.
 
 → [Authentication checklist](docs/features/passwords.md) · [Apple browser requirements](docs/features/apple-browser.md) · [Release gates](ROADMAP.md)
 
