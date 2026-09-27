@@ -6,6 +6,9 @@ Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 
 ## Unreleased
 
+- Repeatable local Full release command for Developer ID signing, notarization,
+  GitHub uploads and verified feed publication.
+
 - Sparkle updates for opted-in Full release builds: sidebar reminder, Settings and
   menu controls, signed GitHub feed, framework packaging and release staging.
   Signed installed-update qualification remains open.

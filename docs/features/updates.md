@@ -47,7 +47,36 @@ Contributors distributing forks must use their own key, bundle ID and feed URL.
 Apple Developer ID Application signing and notarization are separate from Sparkle
 signing. A development certificate alone does not qualify a public download.
 
-## Publish a release
+## Repeatable release command
+
+Requires Python 3.11+, Xcode, GitHub CLI (`gh auth login`), Sparkle 2.10.0 tools,
+a matching prebuilt Chromium runtime, and a clean committed public checkout.
+Store Apple notarization credentials once with `xcrun notarytool store-credentials
+cobble-notary`; enter credentials only in its local prompts, never in the repo.
+
+```sh
+export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+python3 Scripts/release.py build --version 0.1.0 --build 1 --tag v0.1.0-beta.1 \
+  --team YOUR_TEAM_ID --notary-profile cobble-notary \
+  --chromium /path/to/Chromium.app --tools "$SPARKLE_BIN" \
+  --output /path/outside/repo/release-1 --notes /path/to/notes.md
+```
+
+This archives and Developer ID-signs the shell, packages Full, notarizes/staples,
+and generates signed release assets. It does not compile Chromium or publish.
+After the installation/update checks below, publish from the same source commit:
+
+```sh
+python3 Scripts/release.py publish /path/outside/repo/release-1/assets --tools "$SPARKLE_BIN"
+```
+
+Publishing checks signatures, checksums and the source commit, creates the GitHub
+Release, verifies the public download, then commits/pushes the feed last. Existing
+release assets are never overwritten. If publishing stops after creating a release,
+inspect that release and finish feed publication only after verifying its bytes.
+Build numbers must increase for every release. Keep signing keys backed up privately.
+
+## Individual release steps
 
 1. Increase Xcode’s `CURRENT_PROJECT_VERSION` to a new positive integer and set
    `MARKETING_VERSION`. Build the Release shell with Developer ID Application.
