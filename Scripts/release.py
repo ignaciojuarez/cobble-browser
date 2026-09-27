@@ -44,9 +44,6 @@ def build_release(args):
     output = args.output.resolve()
     if output.exists() or output.is_relative_to(ROOT):
         raise ValueError("Choose a new release directory outside the repository")
-    # Fail before building when Apple authentication is not configured.
-    run("xcrun", "notarytool", "history", "--keychain-profile", args.notary_profile,
-        "--output-format", "json", capture=True)
     output.mkdir(parents=True)
     archive = output / "shell.xcarchive"
     run("xcodebuild", "-project", "Cobble.xcodeproj", "-scheme", "Cobble",
@@ -63,18 +60,39 @@ def build_release(args):
     run(sys.executable, ROOT / "Scripts/assemble_chromium.py", args.chromium.resolve(),
         "--cobble-app", output / "shell/Cobble.app", "--configuration", "Release",
         "--enable-updates", "--output", app)
-    submission = output / "notarization.zip"
-    run("ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", app, submission)
-    result = json.loads(run("xcrun", "notarytool", "submit", submission,
-        "--keychain-profile", args.notary_profile, "--wait", "--output-format", "json", capture=True))
-    (output / "notarization.json").write_text(json.dumps(result, indent=2) + "\n")
-    if result.get("status") != "Accepted":
-        raise ValueError(f"Notarization was not accepted; inspect {output / 'notarization.json'}")
-    run("xcrun", "stapler", "staple", app)
+    metadata = dict(tag=args.tag, revision=revision, version=args.version, build=args.build)
+    (output / "release.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    if args.notes:
+        shutil.copy2(args.notes, output / "release-notes.md")
+    # Keep the original shell archive; notarize the complete Chromium app.
+    full_archive = output / "Full.xcarchive"
+    full_archive.mkdir()
+    shutil.copy2(archive / "Info.plist", full_archive / "Info.plist")
+    run("ditto", app, full_archive / "Products/Applications/Cobble.app")
+    upload_options = plistlib.loads(options.read_bytes())
+    upload_options["destination"] = "upload"
+    upload = output / "upload-options.plist"
+    upload.write_bytes(plistlib.dumps(upload_options))
+    run("xcodebuild", "-exportArchive", "-archivePath", full_archive,
+        "-exportOptionsPlist", upload, "-allowProvisioningUpdates")
+    print(f"If Apple is still processing, resume later with: python3 Scripts/release.py finish {output} --tools {args.tools}", flush=True)
+    args.directory = output
+    finish(args)
+
+
+def finish(args):
+    output = args.directory.resolve()
+    metadata = json.loads((output / "release.json").read_text())
+    if metadata["revision"] != clean_revision():
+        raise ValueError("Finish from the same clean source commit used to build")
+    run("xcodebuild", "-exportNotarizedApp", "-archivePath", output / "Full.xcarchive",
+        "-exportPath", output / "notarized")
+    app = output / "notarized/Cobble.app"
+    run("xcrun", "stapler", "validate", app)
+    notes = output / "release-notes.md"
     assets = output / "assets"
-    prepare(app, args.tools.resolve(), assets, args.tag, args.notes)
-    (assets / "release.json").write_text(json.dumps(dict(tag=args.tag, revision=revision,
-        version=args.version, build=args.build), indent=2) + "\n")
+    prepare(app, args.tools.resolve(), assets, metadata["tag"], notes if notes.is_file() else None)
+    shutil.copy2(output / "release.json", assets / "release.json")
     print(f"Ready for install/update testing: {app}\nAfter testing: python3 Scripts/release.py publish {assets} --tools {args.tools}")
 
 
@@ -161,19 +179,22 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
     build = sub.add_parser("build", help="Archive, sign, notarize and stage; does not publish")
-    for name in ("version", "tag", "team", "notary-profile"):
+    for name in ("version", "tag", "team"):
         build.add_argument("--" + name, required=True)
     build.add_argument("--build", type=int, required=True)
     for name in ("chromium", "tools", "output"):
         build.add_argument("--" + name, type=Path, required=True)
     build.add_argument("--notes", type=Path)
+    resume = sub.add_parser("finish", help="Resume after Apple finishes notarization")
+    resume.add_argument("directory", type=Path)
+    resume.add_argument("--tools", type=Path, required=True)
     release = sub.add_parser("publish", help="Publish a staged release AFTER install/update qualification")
     release.add_argument("assets", type=Path)
     release.add_argument("--tools", type=Path, required=True)
     args = parser.parse_args()
     if os.environ.get("COBBLE_CHROMIUM_SDK_PATH"):
         raise ValueError("Public releases must use the pinned SDK, not a local override")
-    (build_release if args.command == "build" else publish)(args)
+    {"build": build_release, "finish": finish, "publish": publish}[args.command](args)
 
 
 if __name__ == "__main__":

@@ -51,19 +51,26 @@ signing. A development certificate alone does not qualify a public download.
 
 Requires Python 3.11+, Xcode, GitHub CLI (`gh auth login`), Sparkle 2.10.0 tools,
 a matching prebuilt Chromium runtime, and a clean committed public checkout.
-Store Apple notarization credentials once with `xcrun notarytool store-credentials
-cobble-notary`; enter credentials only in its local prompts, never in the repo.
+Sign into your developer team in Xcode first. The command uses that existing
+sign-in for notarization; no separate notarization password/profile is required.
 
 ```sh
 export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
 python3 Scripts/release.py build --version 0.1.0 --build 1 --tag v0.1.0-beta.1 \
-  --team YOUR_TEAM_ID --notary-profile cobble-notary \
+  --team YOUR_TEAM_ID \
   --chromium /path/to/Chromium.app --tools "$SPARKLE_BIN" \
   --output /path/outside/repo/release-1 --notes /path/to/notes.md
 ```
 
 This archives and Developer ID-signs the shell, packages Full, notarizes/staples,
 and generates signed release assets. It does not compile Chromium or publish.
+Apple processing is asynchronous. If Xcode reports that the archive is still
+processing, resume without rebuilding or re-uploading:
+
+```sh
+python3 Scripts/release.py finish /path/outside/repo/release-1 --tools "$SPARKLE_BIN"
+```
+
 After the installation/update checks below, publish from the same source commit:
 
 ```sh
