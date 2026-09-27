@@ -181,6 +181,13 @@ def assemble(chromium_app, cobble_app, output, configuration="Release", enable_u
         (resources / filename).unlink(missing_ok=True)
     install_cobble_resources(cobble_app / "Contents/Resources", resources)
     run(["ditto", ROOT / "docs/licenses/Sparkle.txt", resources / "Sparkle-LICENSE.txt"])
+    run(["ditto", ROOT / "LICENSE", resources / "Cobble-LICENSE.txt"])
+    run(["ditto", ROOT / "THIRD_PARTY_NOTICES.md", resources / "Cobble-NOTICES.md"])
+    credits = chromium_app.parent / "gen/components/resources/about_credits.html"
+    if credits.is_file():
+        run(["ditto", credits, resources / "Chromium-CREDITS.html"])
+    if enable_updates and not (resources / "Chromium-CREDITS.html").is_file():
+        raise ValueError("Release packaging requires Chromium's generated about_credits.html")
     apply_cobble_branding(output, cobble_info)
     app_metadata(engine_info, cobble_info, lock["version"])
     engine_info["CobbleUpdatesEnabled"] = enable_updates
