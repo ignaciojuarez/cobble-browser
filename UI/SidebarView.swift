@@ -171,6 +171,24 @@ struct SidebarView: View {
                         withTransaction(transaction) { proxy.scrollTo("sidebar.top", anchor: .top) }
                     }
                 }
+                if let reminder = window.app.updates.reminder {
+                    Button(action: window.app.updates.checkForUpdates) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "arrow.up.circle.fill").font(.title3)
+                            Text(reminder).font(.callout.weight(.semibold))
+                            Spacer(minLength: 0)
+                            Image(systemName: "chevron.right").font(.caption.weight(.semibold))
+                        }
+                        .foregroundStyle(theme.primary)
+                        .padding(10)
+                        .background(theme.accent.opacity(0.18), in: RoundedRectangle(cornerRadius: 10))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!window.app.updates.canCheck)
+                    .help("Check for Updates…")
+                    .padding(.horizontal, ThemeMetrics.spacing)
+                    .padding(.bottom, 8)
+                }
                 Divider()
                     #if DEBUG
                     .overlay(alignment: .bottomLeading) {

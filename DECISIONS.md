@@ -33,3 +33,5 @@ Current product and engineering choices. Update a decision in place when it chan
 - **Private windows use nonpersistent stores.** Their tabs do not enter durable sessions or history. Private mode is not anonymity. Downloads and deliberate saved-organization edits must have explicit behavior.
 - **Keep trust and permissions tied to the actual request.** Never bypass TLS. Prompts identify the requesting site and window; stale, ambiguous, or dismissed requests resolve safely once. Only explicit remembered grants persist, and private or embedded requests do not inherit normal grants.
 - **Diagnostics stay local and redacted.** Do not upload browsing data. Debug-only private WebKit process getters are adapter-local, runtime-checked, and absent from Release; missing counters remain unknown rather than invented.
+
+- **Full app updates use Sparkle.** Signed archives and a signed static GitHub feed; no custom installer or update server. Only explicitly enabled Full Release builds check for updates. Native dialogs, opt-in daily checks and user-controlled restart; existing quit/save handling remains authoritative. See [updates](docs/features/updates.md).

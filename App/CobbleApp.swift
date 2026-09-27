@@ -140,6 +140,7 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard !testing else { return }
         if ProcessInfo.processInfo.environment["COBBLE_DATA_DIRECTORY"] == nil { model.sync.start() }
+        model.updates.start()
         CobbleScriptTabs.app = model
         buildMenus()
         model.preferences.onChange = { [weak self] in self?.buildMenus() }
@@ -339,6 +340,10 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         }
         let application = menu("Cobble")
         native("About Cobble", #selector(NSApplication.orderFrontStandardAboutPanel(_:)), "", in: application)
+        let updateItem = NSMenuItem(title: String(localized: "Check for Updates…"),
+            action: #selector(checkForUpdates), keyEquivalent: "")
+        updateItem.target = self
+        application.addItem(updateItem)
         item(.settings, in: application)
         #if DEBUG
         let resourcesItem = NSMenuItem(title: "Resources…", action: #selector(showResources), keyEquivalent: "")
@@ -583,7 +588,10 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         model.library.clearHistory(profileID: window.record.profileID)
         return true
     }
+    @objc private func checkForUpdates() { model.updates.checkForUpdates() }
+
     func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(checkForUpdates) { return model.updates.canCheck }
         if menuItem.action == #selector(selectSpaceAtIndex(_:)) {
             return activeWindow?.spaces.indices.contains(menuItem.tag) == true
         }

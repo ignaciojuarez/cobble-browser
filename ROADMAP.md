@@ -57,7 +57,7 @@ Chromium uses its native output-mute operation (C11).
 - [ ] Complete seven consecutive daily-use days; restart the gate after fixing a data-loss or isolation defect.
 - [ ] Produce Developer ID-signed, notarized and stapled app artifacts with stable identity, complete helper/framework signing, licenses/notices and retained symbols.
 - [ ] Verify fresh download, quarantine/Gatekeeper, relocation, default-browser choice and external links on a clean Mac.
-- [ ] Verify upgrade, login continuity, migration, interrupted update and rollback without overwriting newer-schema records. Use manual beta replacement initially; qualify a signed update mechanism before public v1.
+- [ ] Verify upgrade, login continuity, migration, interrupted update and rollback without overwriting newer-schema records. Sparkle integration is implemented; qualify [signed Full updates](docs/features/updates.md) before publishing an update entry.
 - [ ] Verify every advertised architecture and supported OS. Development/ad-hoc signing and cross-compilation do not qualify distribution.
 
 ## Advanced capabilities — P8

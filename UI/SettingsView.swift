@@ -53,6 +53,24 @@ struct SettingsView: View {
                     }
                 }
             }
+            SettingsGroup("Updates") {
+                if app.updates.isEnabled {
+                    Toggle("Automatically check for updates", isOn: Binding(
+                        get: { app.updates.automaticChecks },
+                        set: { app.updates.setAutomaticChecks($0) }
+                    ))
+                    Text("Updates download from GitHub. You choose when to install and restart.")
+                        .font(.caption).foregroundStyle(.secondary)
+                } else {
+                    Text("Automatic updates are available in Full release builds.")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Button("Check for Updates…", action: app.updates.checkForUpdates)
+                    .disabled(!app.updates.canCheck)
+                if let error = app.updates.errorMessage {
+                    Text(error).font(.callout).foregroundStyle(.orange)
+                }
+            }
             SettingsGroup("Browser") {
                 SettingsRow("Default web engine", detail: "Used for new sites unless a site rule chooses another engine.") {
                     Picker("Default web engine", selection: Binding(

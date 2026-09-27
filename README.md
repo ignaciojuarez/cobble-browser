@@ -57,6 +57,8 @@ The app is at `.build/webkit/Build/Products/Debug/Cobble.app`. Replace `build` w
 
 ## Still in development
 
+Full release builds include [Sparkle updates](docs/features/updates.md), hosted on GitHub with signed archives and a signed feed. Release qualification is still pending.
+
 **No signed public download is available yet.** Source availability is separate from a production browser release. Apple Passwords/passkeys, accessibility, real-site compatibility, signed distribution, updates, and daily-use qualification still have open gates.
 
 → [Authentication checklist](docs/features/passwords.md) · [Apple browser requirements](docs/features/apple-browser.md) · [Release gates](ROADMAP.md)

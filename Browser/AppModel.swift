@@ -50,6 +50,7 @@ final class AppModel {
     var windows: [BrowserWindowModel] = []
     var persistenceMessage: String?
     @ObservationIgnored lazy var sync = SyncCoordinator(app: self, provider: CloudKitSyncProvider())
+    let updates = AppUpdater()
     let downloads: DownloadStore
     let preferences: BrowserPreferences
     var settingsSection = SettingsSection.general

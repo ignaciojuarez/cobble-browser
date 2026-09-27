@@ -94,7 +94,7 @@ def sign_app(output, cobble_app):
         for path in (output / "Contents").rglob("*"):
             if path.is_symlink():
                 continue
-            if path.is_dir() and path.suffix in (".app", ".framework"):
+            if path.is_dir() and path.suffix in (".app", ".framework", ".xpc"):
                 nested.append(path)
             elif path.is_file():
                 with path.open("rb") as stream:
@@ -103,7 +103,7 @@ def sign_app(output, cobble_app):
         for path in sorted(nested, key=lambda p: len(p.parts), reverse=True):
             command = ["codesign", "--force", "--sign", identity,
                        "--preserve-metadata=identifier,entitlements,flags,runtime"]
-            if path.is_dir() and path.suffix == ".app" and "Helpers" in path.parts:
+            if path.is_dir() and path.suffix == ".app" and "Helpers" in path.parts and "Sparkle.framework" not in path.parts:
                 # Match Chromium's installer/mac/signing/parts.py: renderer/GPU
                 # helpers (including Aperitif variants) need JIT. Other helpers
                 # use explicit library validation; dylibs have no runtime policy.
@@ -130,9 +130,11 @@ def sign_app(output, cobble_app):
     run(["codesign", "--verify", "--deep", "--strict", output])
 
 
-def assemble(chromium_app, cobble_app, output, configuration="Release"):
+def assemble(chromium_app, cobble_app, output, configuration="Release", enable_updates=False):
     configuration = configuration.lower()
     chromium_app, cobble_app, output = (path.resolve() for path in (chromium_app, cobble_app, output))
+    if enable_updates and configuration != "release":
+        raise ValueError("Automatic updates require a Release configuration")
     if output.exists():
         raise ValueError("Choose a new output path; existing apps are never replaced")
     local_sdk = os.environ.get("COBBLE_CHROMIUM_SDK_PATH")
@@ -147,6 +149,13 @@ def assemble(chromium_app, cobble_app, output, configuration="Release"):
     lock = read_lock()
     engine_info = read_plist(chromium_app / "Contents/Info.plist")
     cobble_info = read_plist(cobble_app / "Contents/Info.plist")
+    if enable_updates:
+        signature = subprocess.run(["codesign", "-dv", "--verbose=4", str(cobble_app)],
+                                   check=True, capture_output=True, text=True).stderr
+        if "Authority=Developer ID Application:" not in signature:
+            raise ValueError("Automatic updates require Developer ID Application signing")
+        if not cobble_info.get("SUPublicEDKey") or not cobble_info.get("SURequireSignedFeed"):
+            raise ValueError("Automatic updates require the public update key and signed feed policy")
     if engine_info.get("CFBundleShortVersionString") != lock["version"]:
         raise ValueError("The runtime version differs from Cobble's selected SDK")
     validate_embedded_manifest(chromium_app, lock)
@@ -162,13 +171,19 @@ def assemble(chromium_app, cobble_app, output, configuration="Release"):
     run(["ditto", chromium_app, output])
     destination = output / "Contents/Frameworks/CobbleChromiumClient.dylib"
     run(["ditto", client, destination])
+    sparkle = products / "Sparkle.framework"
+    if not sparkle.is_dir():
+        raise ValueError("SwiftPM did not stage Sparkle.framework beside the client")
+    run(["ditto", sparkle, output / "Contents/Frameworks/Sparkle.framework"])
     # Remove Chromium's app branding before copying Cobble's asset catalog and icons.
     resources = output / "Contents/Resources"
     for filename in ("app.icns", "Assets.car"):
         (resources / filename).unlink(missing_ok=True)
     install_cobble_resources(cobble_app / "Contents/Resources", resources)
+    run(["ditto", ROOT / "docs/licenses/Sparkle.txt", resources / "Sparkle-LICENSE.txt"])
     apply_cobble_branding(output, cobble_info)
     app_metadata(engine_info, cobble_info, lock["version"])
+    engine_info["CobbleUpdatesEnabled"] = enable_updates
     write_plist(output / "Contents/Info.plist", engine_info)
     profile = cobble_app / "Contents/embedded.provisionprofile"
     if profile.is_file():
@@ -190,6 +205,13 @@ def self_check():
                 assert "absolute path" in str(error)
             else:
                 raise AssertionError("expected relative SDK path rejection before building")
+        try:
+            assemble(root / "engine.app", root / "host.app", root / "output.app",
+                     configuration="Debug", enable_updates=True)
+        except ValueError as error:
+            assert "Release configuration" in str(error)
+        else:
+            raise AssertionError("expected Debug updates to be rejected")
         cobble, dest = root / "cobble", root / "dest"
         (cobble / "es.lproj").mkdir(parents=True)
         (dest / "es.lproj").mkdir(parents=True)
@@ -260,8 +282,10 @@ def main():
                         help="Built regular Cobble.app supplying native resources and metadata")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--configuration", choices=["Debug", "Release"], default="Release")
+    parser.add_argument("--enable-updates", action="store_true",
+                        help="Enable signed GitHub updates in a Developer ID Release build")
     args = parser.parse_args()
-    assemble(args.chromium_app, args.cobble_app, args.output, args.configuration)
+    assemble(args.chromium_app, args.cobble_app, args.output, args.configuration, args.enable_updates)
 
 
 if __name__ == "__main__":

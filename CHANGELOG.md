@@ -4,7 +4,13 @@ Changes after the initial public source snapshot will be recorded here.
 Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 [ROADMAP.md](ROADMAP.md).
 
-## Unreleased — initial public source
+## Unreleased
+
+- Sparkle updates for opted-in Full release builds: sidebar reminder, Settings and
+  menu controls, signed GitHub feed, framework packaging and release staging.
+  Signed installed-update qualification remains open.
+
+## Initial public source
 
 - Native AppKit windows and SwiftUI browser chrome for macOS 26+.
 - Spaces, favorites, pins, nested folders, profiles and independent window tabs.

@@ -1,6 +1,76 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Updates": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualizaciones"
+          }
+        }
+      }
+    },
+    "Update available": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Actualización disponible"
+          }
+        }
+      }
+    },
+    "Restart to update": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reiniciar para actualizar"
+          }
+        }
+      }
+    },
+    "Check for Updates…": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar actualizaciones…"
+          }
+        }
+      }
+    },
+    "Automatically check for updates": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Buscar actualizaciones automáticamente"
+          }
+        }
+      }
+    },
+    "Updates download from GitHub. You choose when to install and restart.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las actualizaciones se descargan de GitHub. Tú eliges cuándo instalar y reiniciar."
+          }
+        }
+      }
+    },
+    "Automatic updates are available in Full release builds.": {
+      "localizations": {
+        "es": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Las actualizaciones automáticas están disponibles en las versiones Full de distribución."
+          }
+        }
+      }
+    },
     "A page was unloaded because camera or microphone capture could not be stopped safely. Unsaved page content may be lost." : {
       "localizations" : {
         "es" : {
