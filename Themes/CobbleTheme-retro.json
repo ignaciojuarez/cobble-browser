@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "accentHex": "FFFFFF",
+  "font": "monospaced",
+  "loadingIndicator": "terminalSquares",
+  "defaultWindowStyle": "flat",
+  "controlCornerRadius": 0,
+  "darkSidebar": true,
+  "primaryUsesAccent": false,
+  "sidebarHex": "090C0A",
+  "colors": {
+    "selectedTab": 0.24,
+    "hover": 0.14,
+    "pin": 0.08,
+    "selectedPin": 0.18,
+    "selectedPinStroke": 0.5
+  },
+  "controls": {
+    "toolbar": {
+      "surface": {
+        "material": "flat",
+        "shape": "roundedRectangle",
+        "radius": 0,
+        "interactive": false,
+        "keepActive": false,
+        "fillOpacity": 1,
+        "strokeOpacity": 1,
+        "fillHex": "0C0F0D",
+        "strokeHex": "252925"
+      },
+      "side": 30,
+      "iconSize": 15,
+      "font": "monospaced",
+      "weight": "medium",
+      "hideWhenDisabled": false,
+      "hoverOpacity": 0.0196078431372549,
+      "hoverHex": "FFFFFF"
+    },
+    "navigation": {
+      "surface": {
+        "material": "flat",
+        "shape": "roundedRectangle",
+        "radius": 0,
+        "interactive": false,
+        "keepActive": false,
+        "fillOpacity": 1,
+        "strokeOpacity": 1,
+        "fillHex": "0C0F0D",
+        "strokeHex": "252925"
+      },
+      "side": 30,
+      "iconSize": 15,
+      "font": "monospaced",
+      "weight": "medium",
+      "hideWhenDisabled": false,
+      "hoverOpacity": 0.0196078431372549,
+      "hoverHex": "FFFFFF"
+    },
+    "space": {
+      "surface": {
+        "material": "none",
+        "shape": "roundedRectangle",
+        "radius": 0,
+        "interactive": false,
+        "keepActive": false,
+        "fillOpacity": 0,
+        "strokeOpacity": 0
+      },
+      "side": 24,
+      "iconSize": 12,
+      "font": "monospaced",
+      "weight": "medium",
+      "hideWhenDisabled": false,
+      "hoverOpacity": 0.0196078431372549,
+      "hoverHex": "FFFFFF"
+    },
+    "inline": {
+      "surface": {
+        "material": "flat",
+        "shape": "roundedRectangle",
+        "radius": 0,
+        "interactive": false,
+        "keepActive": false,
+        "fillOpacity": 1,
+        "strokeOpacity": 1,
+        "fillHex": "0C0F0D",
+        "strokeHex": "252925"
+      },
+      "side": 22,
+      "iconSize": 15,
+      "font": "monospaced",
+      "weight": "medium",
+      "hideWhenDisabled": false,
+      "hoverOpacity": 0.0196078431372549,
+      "hoverHex": "FFFFFF"
+    }
+  },
+  "groups": {
+    "navigation": {
+      "material": "none",
+      "shape": "roundedRectangle",
+      "radius": 7,
+      "interactive": false,
+      "keepActive": false,
+      "fillOpacity": 0,
+      "strokeOpacity": 0
+    },
+    "spaces": {
+      "material": "none",
+      "shape": "roundedRectangle",
+      "radius": 7,
+      "interactive": false,
+      "keepActive": false,
+      "fillOpacity": 0,
+      "strokeOpacity": 0
+    }
+  },
+  "selectedTabSurface": {
+    "material": "flat",
+    "shape": "roundedRectangle",
+    "radius": 0,
+    "interactive": false,
+    "keepActive": false,
+    "fillOpacity": 0.14,
+    "strokeOpacity": 0.22
+  },
+  "spacePreview": {
+    "mode": "icons",
+    "dotSize": 5,
+    "inactiveOpacity": 0.4
+  },
+  "symbols": {
+    "sidebar": "rectangle.split.2x1",
+    "back": "arrow.left",
+    "forward": "arrow.right",
+    "reload": "arrow.counterclockwise",
+    "stop": "xmark",
+    "add": "plus",
+    "downloads": "square.and.arrow.down",
+    "folder": "diamond"
+  },
+  "folderColorHex": "929991",
+  "hoveredTabSurface": {
+    "material": "flat",
+    "shape": "roundedRectangle",
+    "radius": 0,
+    "interactive": false,
+    "keepActive": false,
+    "fillOpacity": 0.0196078431372549,
+    "strokeOpacity": 1,
+    "fillHex": "FFFFFF",
+    "strokeHex": "252925"
+  },
+  "folderIconSize": 10,
+  "chromeHex": "070908",
+  "primaryHex": "F2F3EF"
+}

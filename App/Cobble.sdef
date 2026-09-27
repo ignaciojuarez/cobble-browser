@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
+<dictionary>
+    <suite name="Cobble Tab Suite" code="Cbbl" description="Normal-window tab automation.">
+        <record-type name="window info" code="CbWi">
+            <property name="id" code="ID  " type="text"><cocoa key="id"/></property>
+            <property name="profile id" code="CbPr" type="text"><cocoa key="profileID"/></property>
+            <property name="tab count" code="CbCt" type="integer"><cocoa key="tabCount"/></property>
+        </record-type>
+        <record-type name="tab info" code="CbTi">
+            <property name="id" code="ID  " type="text"><cocoa key="id"/></property>
+            <property name="url" code="pURL" type="text"><cocoa key="url"/></property>
+            <property name="title" code="pnam" type="text"><cocoa key="title"/></property>
+            <property name="selected" code="CbSl" type="boolean"><cocoa key="selected"/></property>
+        </record-type>
+        <command name="list windows" code="CbblLWin" description="List normal windows.">
+            <cocoa class="CobbleListWindowsCommand"/>
+            <result><type type="window info" list="yes"/></result>
+        </command>
+        <command name="list tabs" code="CbblLTbs" description="List tabs in one normal window.">
+            <cocoa class="CobbleListTabsCommand"/>
+            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <result><type type="tab info" list="yes"/></result>
+        </command>
+        <command name="open tab" code="CbblOTab" description="Open an HTTP or HTTPS URL in one normal window.">
+            <cocoa class="CobbleOpenTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="select tab" code="CbblSTab" description="Select a tab in one normal window.">
+            <cocoa class="CobbleSelectTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="close tab" code="CbblCTab" description="Close a tab when no confirmation is needed.">
+            <cocoa class="CobbleCloseTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+    </suite>
+</dictionary>

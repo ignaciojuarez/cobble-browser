@@ -1,0 +1,17 @@
+# Apple browser approval
+
+macOS default-browser registration, Apple Passwords, passkeys, Chromium's password helper, and notarization have separate gates. See [passwords and authentication](passwords.md) for feature behavior and [ROADMAP.md](../../ROADMAP.md) for release status.
+
+| Gate | Current state | Next proof |
+| --- | --- | --- |
+| macOS default browser | `App/Info.plist` declares HTTP(S), HTML/XHTML, and browsing activity. Settings registers both schemes; incoming links and files are routed. No Apple entitlement is required. | On a signed relocated build, verify the System Settings picker, links from another app, HTML double-click, and restart. P4/P7. |
+| [`com.apple.developer.web-browser`](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.web-browser) | Required for arbitrary-site WebKit system password AutoFill. Runtime probe and Settings explanation exist; grant is pending. | Account Holder [requests the capability](https://developer.apple.com/contact/request/web-browser); add only after approval, then qualify real-site fill/save on a signed build. P8e. |
+| [`com.apple.developer.web-browser.public-key-credential`](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.web-browser.public-key-credential) | Required for WebKit passkeys. `ApplePasskeys` is guarded; grant is pending. May also satisfy the Chromium helper's parent constraint. | Account Holder [requests the capability](https://developer.apple.com/contact/request/macos-browsers-passkeys/); qualify register/assert on a signed build and test helper launch separately. P8e. |
+| [Apple browser distribution list](https://github.com/apple/password-manager-resources#how-apple-uses-web-browser-extension-distribution-information) | Chromium's official iCloud Passwords helper requires an allowed parent. Cobble is not listed; no client is built. | File the actual Full parent's bundle ID, code-signing identifier, and Team ID. After Apple merges and an OS update ingests the entry, inspect the live helper constraint and qualify extension/pairing/fill. C21/P8e. |
+| Developer ID / notarization / stapling | Local builds do not close the public distribution gate. | Sign and notarize Fast and Full, verify Chromium child signing and sandbox, clean install, update, and rollback. P7/C27. |
+| Chromium WebAuthn | Debug native Views sheet can abort. | Fix and qualify the SDK dialog. The Apple entitlement and helper list are separate. C22/C34. |
+| Chromium Sign in with Apple | Nonmodal WKWebView authorize window and URL callback handling have isolated tests. | Qualify real accounts/sites; POST callbacks remain unsupported. C22. |
+
+Apple's [browser definition](https://developer.apple.com/documentation/bundleresources/entitlements/com.apple.developer.web-browser.public-key-credential) requires HTTP(S) handling, an address/search/bookmarks entry point, and navigation to the entered page. Cobble has these in code; a signed build and actual behavior still need qualification. The restricted capabilities require Apple approval: self-signing their keys cannot grant them. Developer ID notarization permits distribution but does not grant AutoFill, passkeys, or a helper-list entry.
+
+`ASAuthorizationPasswordProvider` with Associated Domains serves an app's own domains, not arbitrary browser sites. iOS marketplace and alternative-engine entitlements do not apply to this macOS project.
