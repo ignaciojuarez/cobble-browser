@@ -85,9 +85,13 @@ def finish(args):
     metadata = json.loads((output / "release.json").read_text())
     if metadata["revision"] != clean_revision():
         raise ValueError("Finish from the same clean source commit used to build")
-    run("xcodebuild", "-exportNotarizedApp", "-archivePath", output / "Full.xcarchive",
-        "-exportPath", output / "notarized")
     app = output / "notarized/Cobble.app"
+    if not app.exists():
+        run("xcodebuild", "-exportNotarizedApp", "-archivePath", output / "Full.xcarchive",
+            "-exportPath", output / "notarized")
+    info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    if str(info.get("CFBundleVersion")) != str(metadata["build"]) or info.get("CFBundleShortVersionString") != metadata["version"]:
+        raise ValueError("Exported app does not match the requested version/build")
     run("xcrun", "stapler", "validate", app)
     notes = output / "release-notes.md"
     assets = output / "assets"
