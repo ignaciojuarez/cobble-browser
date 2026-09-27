@@ -110,6 +110,8 @@ def publish(args):
     with tempfile.TemporaryDirectory() as directory:
         notes = Path(directory) / "notes.md"
         notes.write_text("Full Cobble browser for Apple silicon and macOS 26+.\n\nDownload the ZIP, extract Cobble, and drag it into Applications.\n\nIncludes WebKit, Chromium and signed in-app updates.\n")
+        if archive.with_suffix(".md").is_file():
+            notes = archive.with_suffix(".md")
         run("gh", "release", "create", tag, archive, assets / "SHA256SUMS", "--repo", REPO,
             "--target", metadata["revision"], "--title", f"Cobble {tag}", "--notes-file", notes,
             *( ["--prerelease"] if "-" in tag else [] ))
