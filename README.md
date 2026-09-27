@@ -38,7 +38,7 @@ flowchart LR
 
 Engine-neutral contracts keep browser state separate from rendering. Saved organization is shared; live tabs and selection belong to each window. Private tabs stay out of session snapshots.
 
-Use system WebKit or the experimental [Chromium SDK](https://github.com/ignaciojuarez/cobble-chromium). Both projects publish their source. Chromium requires a separate engine build; **it isn’t required for WebKit**. See [Chromium build instructions](CHROMIUM.md).
+Use system WebKit or the experimental [Chrome SDK](https://github.com/ignaciojuarez/chrome-sdk). Both projects publish their source. Chromium requires a separate engine build; **it isn’t required for WebKit**. See [Chromium build instructions](CHROMIUM.md).
 
 ## Build
 

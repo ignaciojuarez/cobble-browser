@@ -1,10 +1,10 @@
 {
-  "originHash" : "f67263ad3cd3c53a771c52dcc19e14bfde065440dbbb67712fc39567247930b1",
+  "originHash" : "f2fd00d2f19a330b8a12800f1c6cca7feef1ef5ed463495d08369ddd31e5add9",
   "pins" : [
     {
-      "identity" : "cobble-chromium",
+      "identity" : "chrome-sdk",
       "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ignaciojuarez/cobble-chromium.git",
+      "location" : "https://github.com/ignaciojuarez/chrome-sdk.git",
       "state" : {
         "revision" : "52647af3fac8d23cd0c44b2a5a8fd8e134052f76"
       }

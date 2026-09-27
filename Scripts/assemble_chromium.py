@@ -136,7 +136,7 @@ def assemble(chromium_app, cobble_app, output, configuration="Release"):
     if output.exists():
         raise ValueError("Choose a new output path; existing apps are never replaced")
     local_sdk = os.environ.get("COBBLE_CHROMIUM_SDK_PATH")
-    sdk = Path(local_sdk) if local_sdk else ROOT / ".build/checkouts/cobble-chromium"
+    sdk = Path(local_sdk) if local_sdk else ROOT / ".build/checkouts/chrome-sdk"
     if not sdk.is_absolute():
         raise ValueError("COBBLE_CHROMIUM_SDK_PATH must be an absolute path")
     run(["swift", "build", "--configuration", configuration, "--product", "CobbleNativeClient"])

@@ -6,7 +6,7 @@ code is licensed under GPLv3; upstream materials retain their own terms.
 | Repository | Contents |
 | --- | --- |
 | [Cobble](https://github.com/ignaciojuarez/cobble-browser) | Native browser, WebKit/Chromium adapters, UI, persistence and tests |
-| [Chromium SDK](https://github.com/ignaciojuarez/cobble-chromium) | Swift API, native bridge, Chromium patches, build tools and harness |
+| [Chrome SDK](https://github.com/ignaciojuarez/chrome-sdk) | Swift API, native bridge, Chromium patches, build tools and harness |
 
 The app’s Xcode project builds WebKit independently. Full combines the app with
 a matching SDK/runtime built from the pinned Chromium source. See

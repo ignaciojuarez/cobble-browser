@@ -9,7 +9,7 @@ Chromium tab is open.
 
 The SDK is a separate Swift package and Chromium patch/build project. This
 repository contains the app adapter, package pin and assembler, but not the
-Chromium source tree or runtime binary. Build the [SDK](https://github.com/ignaciojuarez/cobble-chromium) and its matching
+Chromium source tree or runtime binary. Build the [SDK](https://github.com/ignaciojuarez/chrome-sdk) and its matching
 runtime first, then assemble Full. Source checks and Swift package compilation
 do not compile the Chromium engine.
 

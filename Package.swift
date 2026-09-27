@@ -22,8 +22,8 @@ let localSDKABI: Int = localSDKPath.map { path in
 precondition([3, 10, 11, 12, 13, 14, 15, 16].contains(localSDKABI),
              "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 3 and 10 through 16")
 let chromiumSDK: Package.Dependency = localSDKPath.map {
-    .package(name: "cobble-chromium", path: $0)
-} ?? .package(url: "https://github.com/ignaciojuarez/cobble-chromium.git",
+    .package(name: "chrome-sdk", path: $0)
+} ?? .package(url: "https://github.com/ignaciojuarez/chrome-sdk.git",
               revision: "52647af3fac8d23cd0c44b2a5a8fd8e134052f76")
 let clientSettings: [SwiftSetting] = [.define("COBBLE_CHROMIUM_CLIENT")]
     + (ProcessInfo.processInfo.environment["COBBLE_AUTH_FIXTURE"] == "1" ? [.define("COBBLE_AUTH_FIXTURE", .when(configuration: .debug))] : [])
@@ -45,7 +45,7 @@ let package = Package(
     dependencies: [chromiumSDK],
     targets: [
         .target(name: "CobbleNativeClient",
-                dependencies: [.product(name: "CobbleChromium", package: "cobble-chromium")],
+                dependencies: [.product(name: "CobbleChromium", package: "chrome-sdk")],
                 path: ".",
                 exclude: ["App/Info.plist", "App/Localizable.xcstrings", "App/Cobble.sdef", "App/es.lproj", "Tests", "Assets.xcassets", "Cobble.xcodeproj",
                           "AGENTS.md", "ARCHITECTURE.md", "DECISIONS.md", "FEATURES.md",
