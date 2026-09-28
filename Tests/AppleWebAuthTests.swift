@@ -3,7 +3,7 @@ import XCTest
 @testable import Cobble
 
 final class AppleWebAuthTests: XCTestCase {
-    private let authorize = URL(string: "https://appleid.apple.com/auth/authorize?client_id=com.x.web&redirect_uri=https%3A%2F%2Fx.com%2Fcallback&response_type=code%20id_token&state=s1")!
+    private let authorize = URL(string: "https://appleid.apple.com/auth/authorize?client_id=com.x.web&redirect_uri=https%3A%2F%2Fx.com%2Fcallback&response_type=code%20id_token&response_mode=fragment&state=s1")!
 
     func testParsesAuthorizeURLAndRejectsLookalikes() throws {
         let request = try XCTUnwrap(AppleSignIn.request(from: authorize))
@@ -23,6 +23,23 @@ final class AppleWebAuthTests: XCTestCase {
         XCTAssertNil(AppleSignIn.request(from: URL(string: "https://appleid.apple.com/auth/authorize?redirect_uri=https://x.com/c")!))
     }
 
+    func testOnlyURLResponseModesLeaveChromium() throws {
+        var components = try XCTUnwrap(URLComponents(url: authorize, resolvingAgainstBaseURL: false))
+        let items = try XCTUnwrap(components.queryItems).filter { $0.name != "response_mode" }
+        for mode in ["query", "fragment"] {
+            components.queryItems = items + [URLQueryItem(name: "response_mode", value: mode)]
+            XCTAssertNotNil(AppleSignIn.request(from: try XCTUnwrap(components.url)))
+        }
+        for mode in [nil, "form_post", "web_message", "", "unknown"] as [String?] {
+            components.queryItems = items + (mode.map { [URLQueryItem(name: "response_mode", value: $0)] } ?? [])
+            XCTAssertNil(AppleSignIn.request(from: try XCTUnwrap(components.url)),
+                         "Must preserve Chromium's POST body, cookies and popup opener")
+        }
+        components.queryItems = items + [URLQueryItem(name: "response_mode", value: "query"),
+                                         URLQueryItem(name: "response_mode", value: "form_post")]
+        XCTAssertNil(AppleSignIn.request(from: try XCTUnwrap(components.url)))
+    }
+
     func testCallbackMustMatchRedirectAndCarryACredential() throws {
         let request = try XCTUnwrap(AppleSignIn.request(from: authorize))
         XCTAssertEqual(
@@ -35,13 +52,13 @@ final class AppleWebAuthTests: XCTestCase {
         XCTAssertNil(AppleSignIn.callback(from: URL(string: "https://x.com/other?code=abc")!, for: request))
         XCTAssertNil(AppleSignIn.callback(from: URL(string: "https://user@x.com/callback?code=abc&state=s1")!, for: request))
 
-        let stateful = try XCTUnwrap(AppleSignIn.request(from: URL(string: "https://appleid.apple.com/auth/authorize?client_id=a&redirect_uri=https%3A%2F%2Fx.com%2Fc%3Ftenant%3Done&state=expected")!))
+        let stateful = try XCTUnwrap(AppleSignIn.request(from: URL(string: "https://appleid.apple.com/auth/authorize?client_id=a&redirect_uri=https%3A%2F%2Fx.com%2Fc%3Ftenant%3Done&state=expected&response_mode=query")!))
         XCTAssertNotNil(AppleSignIn.callback(from: URL(string: "https://x.com/c?tenant=one&code=abc&state=expected")!, for: stateful))
         XCTAssertNil(AppleSignIn.callback(from: URL(string: "https://x.com/c?tenant=one&code=abc&state=wrong")!, for: stateful))
         XCTAssertNil(AppleSignIn.callback(from: URL(string: "https://x.com/c?code=abc&state=expected")!, for: stateful))
         XCTAssertNil(AppleSignIn.callback(from: URL(string: "https://x.com/c?tenant=one&tenant=two&code=abc&state=expected")!, for: stateful))
 
-        let injected = try XCTUnwrap(AppleSignIn.request(from: URL(string: "https://appleid.apple.com/auth/authorize?client_id=a&redirect_uri=https%3A%2F%2Fx.com%2Fc%3Fcode%3Dfixed%26state%3Dexpected&state=expected")!))
+        let injected = try XCTUnwrap(AppleSignIn.request(from: URL(string: "https://appleid.apple.com/auth/authorize?client_id=a&redirect_uri=https%3A%2F%2Fx.com%2Fc%3Fcode%3Dfixed%26state%3Dexpected&state=expected&response_mode=query")!))
         XCTAssertNil(AppleSignIn.callback(from: injected.redirectURI, for: injected))
     }
 

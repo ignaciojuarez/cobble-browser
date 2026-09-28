@@ -26,6 +26,11 @@ enum AppleSignIn {
         else { return nil }
         let states = items.filter { $0.name == "state" }
         guard states.count <= 1, states.isEmpty || states[0].value?.isEmpty == false else { return nil }
+        // The WebKit handoff can return only a URL. Keep POST bodies and
+        // opener-based web_message responses in their original Chromium context.
+        // An omitted mode is not a promise of a URL callback.
+        guard let mode = singleValue("response_mode", in: items),
+              ["query", "fragment"].contains(mode) else { return nil }
         return Request(url: url, clientID: clientID, redirectURI: redirectURI, state: states.first?.value)
     }
 
