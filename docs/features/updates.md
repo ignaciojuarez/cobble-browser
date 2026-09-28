@@ -2,10 +2,13 @@
 
 Sparkle 2.10.0 provides signed updates for **Full release builds**. GitHub hosts
 the archives and [signed feed](../../updates/appcast.xml); no updater account,
-server or paid service is needed. [The first Full beta](https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.1)
+server or paid service is needed. [The current Full beta](https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.2)
 is Developer ID-signed, Apple-notarized and stapled. Its public ZIP checksum and
 signed feed were verified; the final exported app passed isolated Chromium smoke
-checks. Installed N → N+1 and clean-Mac qualification remain open.
+checks. Beta 2 also passed an AppUpdater startup probe using the exported app’s
+Sparkle framework and update configuration. **Beta 1 users must manually install
+beta 2 once:** beta 1’s updater cannot start. Installed N → N+1 and clean-Mac
+qualification remain open.
 
 ## In the app
 
