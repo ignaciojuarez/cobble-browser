@@ -12,7 +12,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.2">Download beta</a> · <a href="#build">Build</a> · <a href="ARCHITECTURE.md">Architecture</a> · <a href="FEATURES.md">Features</a> · <a href="ROADMAP.md">Roadmap</a>
+  <a href="https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.3">Download beta</a> · <a href="#build">Build</a> · <a href="ARCHITECTURE.md">Architecture</a> · <a href="FEATURES.md">Features</a> · <a href="ROADMAP.md">Roadmap</a>
 </p>
 
 ![Cobble in dark mode, with spaces, pinned sites, folders, and the Pretzel Rated website open](docs/images/cobble-browser.png)
@@ -42,7 +42,7 @@ Use system WebKit or the experimental [Chrome SDK](https://github.com/ignaciojua
 
 ## Download
 
-**[Download Cobble 0.1.0 beta 2 · ZIP](https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.2/Cobble-v0.1.0-beta.2.zip)** — Apple silicon · macOS 26+ · includes WebKit and Chromium.
+**[Download Cobble 0.1.0 beta 3 · ZIP](https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.3/Cobble-v0.1.0-beta.3.zip)** — Apple silicon · macOS 26+ · includes WebKit and Chromium.
 
 Extract and drag Cobble into Applications. Developer ID-signed and notarized by Apple.
 Opt into update checks to receive future releases inside Cobble; you choose when to install and restart.

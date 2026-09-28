@@ -42,6 +42,22 @@ move `legacyDefault` off `WKWebsiteDataStore.default()`. No legacy-store migrati
 is requested. Chromium assignments temporarily run in WebKit when Chromium is
 absent, without rewriting preferences. A workspace lock prevents concurrent writers.
 
+## Releasing updates
+
+When the user says **release**, **upload the build**, or **publish an update**,
+complete the public Full release **and** signed in-app update feed. A source
+push or PR alone is not a release. The destination is
+[`ignaciojuarez/cobble-browser`](https://github.com/ignaciojuarez/cobble-browser/releases),
+never the private development repository.
+
+Read `docs/features/updates.md` and use `Scripts/release.py` build/finish/publish.
+Use an increasing public build number, the pinned SDK and matched runtime,
+Developer ID signing, Apple notarization/stapling, and the existing Sparkle key.
+Keep binaries outside git. Verify the app, archive signatures and public download
+checksum; publish `updates/appcast.xml` last and verify its public build/asset.
+Return the public release link and feed status. Do not claim untested gates passed.
+Beta 1's updater cannot start: those users need one manual install of a later beta.
+
 ## Docs
 
 Keep these at the project root. Feature status lives under `docs/features/`.

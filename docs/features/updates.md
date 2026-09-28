@@ -2,13 +2,18 @@
 
 Sparkle 2.10.0 provides signed updates for **Full release builds**. GitHub hosts
 the archives and [signed feed](../../updates/appcast.xml); no updater account,
-server or paid service is needed. [The current Full beta](https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.2)
-is Developer ID-signed, Apple-notarized and stapled. Its public ZIP checksum and
-signed feed were verified; the final exported app passed isolated Chromium smoke
-checks. Beta 2 also passed an AppUpdater startup probe using the exported app’s
-Sparkle framework and update configuration. **Beta 1 users must manually install
-beta 2 once:** beta 1’s updater cannot start. Installed N → N+1 and clean-Mac
+server or paid service is needed. [The current Full beta](https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.3)
+is Developer ID-signed, Apple-notarized and stapled. Beta 3's public ZIP checksum,
+archive signature and signed feed were verified. Its exported app passed isolated
+Chromium smoke checks with clean shutdown; its AppUpdater startup probe reported
+`canCheck=true`. All 10 focused authentication/updater tests passed.
+**Beta 1 users must manually install beta 3 once:** beta 1's updater cannot start.
+Beta 2 can discover beta 3 through the signed feed. Installed N → N+1 and clean-Mac
 qualification remain open.
+
+“Release” means publishing to `ignaciojuarez/cobble-browser` and updating the
+signed feed, not creating a release in the private development repo. An archive
+uploaded elsewhere is invisible to Check for Updates.
 
 ## In the app
 
@@ -20,7 +25,7 @@ qualification remain open.
   Available updates appear in the sidebar without opening Settings. Users can
   disable checks in Settings; existing choices are preserved. Automatic installation
   is disabled; users choose when to install and restart. System-profile submission
-  is disabled. This default ships in the next build after beta 2.
+  is disabled. This default ships in beta 3.
 - Debug, tests, isolated fixtures and WebKit-only builds cannot start the updater.
   Full packaging must explicitly opt in with `--enable-updates`.
 - Update the complete app, including its matched Chromium runtime and helpers.
