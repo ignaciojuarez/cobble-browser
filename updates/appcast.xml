@@ -10,6 +10,27 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Mon, 28 Sep 2026 10:29:20 -0700</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+Download the ZIP, extract Cobble, quit the old app, and replace Cobble in Applications.
+
+### Fixed
+- Fixed Sparkle startup so Check for Updates works with signed update feeds.
+- Improved the message shown when the updater cannot start.
+
+**Beta 1 users: install this download manually once.** Beta 1 cannot start its updater. This build enables future signed update checks.
+
+Includes WebKit and Chromium. Installed version-to-version updates and clean-Mac qualification remain in progress.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.2/Cobble-v0.1.0-beta.2.zip" length="163521222" type="application/octet-stream" sparkle:edSignature="d3id7lN2PjqiyMVyOpS4mBPl7zsu3fgJGPypFiq1lgA51YmfHSWuLXZx2rT++/SzdBD68YfeH9zoTrKzaFJZAQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Sat, 26 Sep 2026 23:57:45 -0700</pubDate>
             <sparkle:version>1</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -34,6 +55,6 @@ important data. Report reproducible issues without including cookies or password
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: vs7IxO6SrFDSTkGzXhBpT+FbCjEkfNWdBpjPFka3MmhaVkjCZv7cx6irpujJeimC+WUO/+2U6gD3Wl5p2vkjAQ==
-length: 2022
+edSignature: L7ZIGtcF3tIG6g4uOHEiLfRSrGLqF/ByjmNRhllewHyRgWv7VT5QbA2S33y4avw3pFWYbdUvDUc6Aw5cGd2mCQ==
+length: 3349
 -->
