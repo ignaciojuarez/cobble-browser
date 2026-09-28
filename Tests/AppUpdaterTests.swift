@@ -3,6 +3,11 @@ import XCTest
 
 @MainActor
 final class AppUpdaterTests: XCTestCase {
+    func testSignedFeedPrerequisitesAreEmbeddedInBuiltApp() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "SURequireSignedFeed") as? Bool, true)
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "SUVerifyUpdateBeforeExtraction") as? Bool, true)
+    }
+
     func testOnlyOptedInFullReleasesUseUpdates() {
         let enabled: [String: Any] = ["CobbleUpdatesEnabled": true]
         XCTAssertTrue(AppUpdater.isEligible(info: enabled, environment: [:], fullRelease: true))

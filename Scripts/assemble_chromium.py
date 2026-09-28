@@ -154,8 +154,8 @@ def assemble(chromium_app, cobble_app, output, configuration="Release", enable_u
                                    check=True, capture_output=True, text=True).stderr
         if "Authority=Developer ID Application:" not in signature:
             raise ValueError("Automatic updates require Developer ID Application signing")
-        if not cobble_info.get("SUPublicEDKey") or not cobble_info.get("SURequireSignedFeed"):
-            raise ValueError("Automatic updates require the public update key and signed feed policy")
+        if not cobble_info.get("SUPublicEDKey") or not cobble_info.get("SURequireSignedFeed") or not cobble_info.get("SUVerifyUpdateBeforeExtraction"):
+            raise ValueError("Automatic updates require the public update key, signed feed and verification before extraction")
     if engine_info.get("CFBundleShortVersionString") != lock["version"]:
         raise ValueError("The runtime version differs from Cobble's selected SDK")
     validate_embedded_manifest(chromium_app, lock)

@@ -1,6 +1,9 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "The updater could not start." : {
+      "localizations" : { "es" : { "stringUnit" : { "state" : "translated", "value" : "No se pudo iniciar el actualizador." } } }
+    },
     "Updates": {
       "localizations": {
         "es": {

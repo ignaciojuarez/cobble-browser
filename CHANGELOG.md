@@ -4,6 +4,14 @@ Changes after the initial public source snapshot will be recorded here.
 Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+- Fix Sparkle startup by enabling verification before extraction, required by
+  signed feeds. Beta 1 users need a manual replacement download; its updater
+  cannot start. Release staging now rejects this invalid configuration.
+- Show an updater startup failure without incorrectly describing a Full release
+  as a development build.
+
 ## 0.1.0-beta.1 — 2026-09-27
 
 - First public Full download for Apple silicon/macOS 26+, including Chromium.

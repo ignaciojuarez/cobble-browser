@@ -5,6 +5,7 @@
     <key>SUFeedURL</key><string>https://raw.githubusercontent.com/ignaciojuarez/cobble-browser/main/updates/appcast.xml</string>
     <key>SUPublicEDKey</key><string>JbHQWYIdkd/iw/S+Nq40nxazHySnIMtCn1mfiJL1OSY=</string>
     <key>SURequireSignedFeed</key><true/>
+    <key>SUVerifyUpdateBeforeExtraction</key><true/>
     <key>SUAllowsAutomaticUpdates</key><false/>
     <key>SUScheduledCheckInterval</key><integer>86400</integer>
     <key>SUSendProfileInfo</key><false/>

@@ -61,6 +61,9 @@ struct SettingsView: View {
                     ))
                     Text("Updates download from GitHub. You choose when to install and restart.")
                         .font(.caption).foregroundStyle(.secondary)
+                } else if app.updates.errorMessage != nil {
+                    Text("The updater could not start.")
+                        .font(.callout).foregroundStyle(.secondary)
                 } else {
                     Text("Automatic updates are available in Full release builds.")
                         .font(.callout).foregroundStyle(.secondary)

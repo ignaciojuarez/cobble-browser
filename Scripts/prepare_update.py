@@ -25,6 +25,8 @@ def validate(info, expected, previous):
         raise ValueError("Expected the Cobble Full app")
     if not info.get("CobbleUpdatesEnabled") or not info.get("SURequireSignedFeed"):
         raise ValueError("Assemble a Release with --enable-updates first")
+    if info.get("SUVerifyUpdateBeforeExtraction") is not True:
+        raise ValueError("Signed feeds require SUVerifyUpdateBeforeExtraction")
     for key in ("SUPublicEDKey", "SUFeedURL"):
         if info.get(key) != expected.get(key):
             raise ValueError(f"App's {key} does not match this checkout")
@@ -81,12 +83,13 @@ def prepare(app, tools, output, tag, notes):
 def self_check():
     expected = {"SUPublicEDKey": "public", "SUFeedURL": "https://example.org/appcast.xml"}
     info = dict(expected, CFBundleIdentifier="com.ignacio.cobble", CobbleChromiumVersion="1",
-                CobbleUpdatesEnabled=True, SURequireSignedFeed=True, CFBundleVersion="2")
+                CobbleUpdatesEnabled=True, SURequireSignedFeed=True, SUVerifyUpdateBeforeExtraction=True, CFBundleVersion="2")
     assert validate(info, expected, ["1"]) == "2"
     for changed, previous in [({"CobbleUpdatesEnabled": False}, []),
                               ({"CobbleChromiumVersion": ""}, []),
                               ({"SUPublicEDKey": "wrong"}, []),
                               ({"SURequireSignedFeed": False}, []),
+                              ({"SUVerifyUpdateBeforeExtraction": False}, []),
                               ({"CFBundleVersion": "0"}, []), ({}, ["2"]), ({}, ["3"])]:
         try:
             validate(info | changed, expected, previous)
