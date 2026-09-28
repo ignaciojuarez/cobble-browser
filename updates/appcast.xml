@@ -10,6 +10,24 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Mon, 28 Sep 2026 16:40:48 -0700</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Apple sign-in POST and popup-message flows now stay in Chromium, avoiding the unsupported native handoff that could leave a white window. These flows use Apple's web login instead of the separate native Touch ID sheet.
+- Background update checks are enabled by default; existing preferences are preserved. Updates still require your approval to install.
+
+Includes WebKit, Chromium and signed in-app updates. Real Apple account sign-in and a full installed-update cycle remain unverified.
+
+Beta 1 users: manually download this ZIP and replace Cobble once; beta 1's updater cannot start. Beta 2 users can use Check for Updates after the signed feed is published.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.3/Cobble-v0.1.0-beta.3.zip" length="163521256" type="application/octet-stream" sparkle:edSignature="HU92Mm95YlHKZ2gj55qCfR8bt2EjE8zKv6cDpe13JBfnbclO1aiE3CNsgVaGy83X3f1agFL5ePjigFucQ1vsDQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Mon, 28 Sep 2026 10:29:20 -0700</pubDate>
             <sparkle:version>2</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -55,6 +73,6 @@ important data. Report reproducible issues without including cookies or password
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: L7ZIGtcF3tIG6g4uOHEiLfRSrGLqF/ByjmNRhllewHyRgWv7VT5QbA2S33y4avw3pFWYbdUvDUc6Aw5cGd2mCQ==
-length: 3349
+edSignature: kCspxfwdt8Mv7usFxdFtV15dkCQQVFnmR05Yl/5/lWFVVczgKBTmIMpN/STj/Z2YfS5/HBQquZZmhfzdOySYAg==
+length: 4850
 -->
