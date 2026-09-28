@@ -4,6 +4,11 @@ Changes after the initial public source snapshot will be recorded here.
 Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 [ROADMAP.md](ROADMAP.md).
 
+## Unreleased
+
+- Enable automatic daily update checks by default for new installs. Available
+  updates appear in the sidebar; existing opt-out choices remain respected.
+
 ## 0.1.0-beta.2 — 2026-09-28
 
 - Fix Sparkle startup by enabling verification before extraction, required by

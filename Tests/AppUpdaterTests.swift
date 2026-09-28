@@ -3,7 +3,9 @@ import XCTest
 
 @MainActor
 final class AppUpdaterTests: XCTestCase {
-    func testSignedFeedPrerequisitesAreEmbeddedInBuiltApp() {
+    func testUpdateDefaultsAreEmbeddedInBuiltApp() {
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "SUEnableAutomaticChecks") as? Bool, true)
+        XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "SUAllowsAutomaticUpdates") as? Bool, false)
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "SURequireSignedFeed") as? Bool, true)
         XCTAssertEqual(Bundle.main.object(forInfoDictionaryKey: "SUVerifyUpdateBeforeExtraction") as? Bool, true)
     }

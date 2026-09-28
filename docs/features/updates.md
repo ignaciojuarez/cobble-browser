@@ -16,8 +16,11 @@ qualification remain open.
   Downloaded updates use **Restart to update**; critical updates retain a prompt.
 - **Cobble → Check for Updates…** and Settings → General → Updates are always
   reachable, even with the sidebar hidden.
-- Sparkle asks permission for daily checks. Automatic installation is disabled;
-  users choose when to install and restart. System-profile submission is disabled.
+- Background checks are enabled by default, once daily while Cobble is running.
+  Available updates appear in the sidebar without opening Settings. Users can
+  disable checks in Settings; existing choices are preserved. Automatic installation
+  is disabled; users choose when to install and restart. System-profile submission
+  is disabled. This default ships in the next build after beta 2.
 - Debug, tests, isolated fixtures and WebKit-only builds cannot start the updater.
   Full packaging must explicitly opt in with `--enable-updates`.
 - Update the complete app, including its matched Chromium runtime and helpers.
