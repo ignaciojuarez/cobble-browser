@@ -8,7 +8,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-[[ ! -f "$ROOT/Scripts/run.local.config" ]] || source "$ROOT/Scripts/run.local.config"
+LOCAL_CONFIG="$ROOT/Scripts/run.local.config"
+if [[ ! -f "$LOCAL_CONFIG" ]]; then
+  COMMON_GIT_DIR="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+  [[ -z "$COMMON_GIT_DIR" ]] || LOCAL_CONFIG="$COMMON_GIT_DIR/../Scripts/run.local.config"
+fi
+if [[ -f "$LOCAL_CONFIG" ]]; then
+  set -a
+  source "$LOCAL_CONFIG"
+  set +a
+fi
 TOOLS="${BUILD_TOOLS:-$HOME/Developer/build-kit}"
 RUNNER="$TOOLS/macos/run.sh"
 

@@ -13,7 +13,9 @@ private repository is archived; there is no source-porting or mirror workflow.
 Use branches and T3 worktrees for unfinished work. Chrome SDK is independently
 maintained in public `ignaciojuarez/chrome-sdk`; pin an exact revision and use
 its matching runtime. Keep machine overrides in ignored `Scripts/run.local.config`,
-signing keys in Keychain, and browser data/build outputs outside Git.
+signing keys in Keychain, and browser data/build outputs outside Git. T3 worktrees
+inherit the main checkout’s ignored runner settings. Check this with
+`python3 Scripts/test_run_config.py`.
 
 ## Commands
 

@@ -18,7 +18,7 @@ concurrency:
 jobs:
   hosted-tests:
     runs-on: xcode-27
-    timeout-minutes: 20
+    timeout-minutes: 35
     defaults:
       run:
         shell: bash
@@ -26,6 +26,8 @@ jobs:
       - uses: actions/checkout@v5
         with:
           persist-credentials: false
+      - name: Check worktree runner settings
+        run: python3 Scripts/test_run_config.py
       - name: Select Xcode
         run: |
           xcodebuild -version
