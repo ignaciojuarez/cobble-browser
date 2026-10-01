@@ -79,6 +79,20 @@ before assembling a matching Full app. No runtime binary accompanies the initial
 source publication. Assembly emits `release_ready: false`; development signing
 is not Developer ID/notarized distribution.
 
+## Unification validation (2026-10-01)
+
+The public ABI 17 runtime was rebuilt incrementally, packaged with matching
+native-payload provenance, and checksum-verified. The isolated harness passed
+225 native checks, including modified-link popup disposition. Cobble passed
+581 hosted tests and 9 adapter tests; the SDK passed 66 Python and 20 Swift
+checks. Full assembly passed deep/strict signature verification.
+
+The broader smoke run timed out during interrupted GET download recovery on
+both the original private ABI 17 runtime and the rebuilt public runtime. This
+is an existing open qualification issue, not a passing download/release gate.
+The runtime remains a development artifact; no new signed app update is
+published by this source migration.
+
 ## Historical development evidence
 
 The checks below predate the public snapshot and must be repeated for a release.
