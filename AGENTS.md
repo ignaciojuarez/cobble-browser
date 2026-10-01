@@ -6,6 +6,31 @@ Native macOS 26+ browser in Swift 6, with favorites, pins, spaces, folders, and 
 - **SwiftUI** renders browser chrome, settings, and overlays.
 - **WebKit** is the default engine. A separate Chromium SDK enables Full builds; see `CHROMIUM.md`. Both builds use `com.ignacio.cobble` and the same workspace.
 
+## Source of truth
+
+Develop, review and push in public `ignaciojuarez/cobble-browser`. The former
+private repository is archived; there is no source-porting or mirror workflow.
+Use branches and T3 worktrees for unfinished work. Chrome SDK is independently
+maintained in public `ignaciojuarez/chrome-sdk`; pin an exact revision and use
+its matching runtime. Keep machine overrides in ignored `Scripts/run.local.config`,
+signing keys in Keychain, and browser data/build outputs outside Git. T3 worktrees
+inherit the main checkout’s ignored runner settings. Check this with
+`python3 Scripts/test_run_config.py`.
+
+## Before committing or publishing
+
+Review the complete intended changes, not only filenames or a summary. Read
+`git diff`, every new/untracked file you intend to include, and the final
+`git diff --cached` after staging explicit paths. Inspect images/screenshots
+visually and check generated files or archives before including them.
+
+Exclude credentials, tokens, private signing keys/certificates, cookies,
+browser profiles/history, personal or account data, private URLs, local machine
+identifiers and unredacted logs/evidence. Use synthetic fixtures, placeholders,
+ignored local configuration and Keychain instead. Preserve useful source/docs
+when porting work; check every changed and new file against the destination.
+`.gitignore` and automated scans do not replace this content review.
+
 ## Commands
 
 Open `Cobble.xcodeproj` in a compatible Xcode to build the WebKit app. The
@@ -16,7 +41,11 @@ xcodebuild -project Cobble.xcodeproj -scheme Cobble \
   -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
 ```
 
-`./Scripts/test.sh` runs the same hosted tests without `build-kit`. For launch
+`./Scripts/test.sh` runs the complete suite locally without `build-kit`.
+GitHub CI excludes three `WebKitAudioMuteTests` playback fixtures that hang
+with IOSurface failures on its runner; run them locally before changing media
+behavior. The capture-history safety test remains in CI. CI test timeouts turn
+other hangs into failures. For launch
 and Full packaging, `Scripts/run.sh` uses `build-kit` at
 `$HOME/Developer/build-kit` by default; `BUILD_TOOLS` selects another checkout.
 `./Scripts/run.sh local fast` launches WebKit. With the matching Chromium SDK
@@ -48,7 +77,7 @@ When the user says **release**, **upload the build**, or **publish an update**,
 complete the public Full release **and** signed in-app update feed. A source
 push or PR alone is not a release. The destination is
 [`ignaciojuarez/cobble-browser`](https://github.com/ignaciojuarez/cobble-browser/releases),
-never the private development repository.
+from this same source repository.
 
 Read `docs/features/updates.md` and use `Scripts/release.py` build/finish/publish.
 Use an increasing public build number, the pinned SDK and matched runtime,

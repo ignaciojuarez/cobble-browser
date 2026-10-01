@@ -1,0 +1,71 @@
+name: Cobble checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Isolate a macOS compatibility failure
+        type: choice
+        options: [all, extensions, sidebar]
+        default: all
+permissions:
+  contents: read
+concurrency:
+  group: cobble-checks-${{ github.ref }}-${{ inputs.suite || 'all' }}
+  cancel-in-progress: true
+jobs:
+  hosted-tests:
+    runs-on: xcode-27
+    timeout-minutes: 35
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Check worktree runner settings
+        run: python3 Scripts/test_run_config.py
+      - name: Select Xcode
+        run: |
+          xcodebuild -version
+      - name: Build and run isolated hosted tests
+        env:
+          TEST_SUITE: ${{ inputs.suite || 'all' }}
+        run: |
+          test_selection=()
+          case "$TEST_SUITE" in
+            all) ;;
+            extensions) test_selection=(-only-testing:CobbleTests/WebKitExtensionTests) ;;
+            sidebar) test_selection=(-only-testing:CobbleTests/UITests/testSelectedSidebarItemsReopenAfterUnloadAndDataClearing) ;;
+            *) exit 1 ;;
+          esac
+          # Hosted WebKit cannot complete these canvas/audio playback fixtures
+          # (IOSurface failures). Run them locally with ./Scripts/test.sh.
+          media_selection=(
+            -skip-testing:CobbleTests/WebKitAudioMuteTests/testAudioMuteDoesNotAffectAnotherTab
+            -skip-testing:CobbleTests/WebKitAudioMuteTests/testCrossOriginAudioKeepsRunningUnderNativeTabMute
+            -skip-testing:CobbleTests/WebKitAudioMuteTests/testNativeAudioMuteKeepsVideoAndWebAudioRunningWithoutChangingPageControls
+          )
+          xcodebuild -project Cobble.xcodeproj -scheme Cobble \
+            -configuration Debug -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath "$RUNNER_TEMP/CobbleTests.xcresult" \
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            "${test_selection[@]}" "${media_selection[@]}" test 2>&1 | tee "$RUNNER_TEMP/CobbleTests.log"
+      - name: Check the pinned public Chromium adapter
+        run: swift test
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobble-hosted-tests
+          path: |
+            ${{ runner.temp }}/CobbleTests.xcresult
+            ${{ runner.temp }}/CobbleTests.log
+          if-no-files-found: error
+          retention-days: 7

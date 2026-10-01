@@ -15,8 +15,6 @@
   <a href="https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.3">Download beta</a> · <a href="#build">Build</a> · <a href="ARCHITECTURE.md">Architecture</a> · <a href="FEATURES.md">Features</a> · <a href="ROADMAP.md">Roadmap</a>
 </p>
 
-![Cobble in dark mode, with spaces, pinned sites, folders, and the Pretzel Rated website open](docs/images/cobble-browser.png)
-
 ## A home for your browsing
 
 | 🪨 Make it yours | 🗂 Keep your place | ⌨ Stay in flow |

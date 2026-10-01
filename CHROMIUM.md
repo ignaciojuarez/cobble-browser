@@ -13,6 +13,22 @@ Chromium source tree or runtime binary. Build the [SDK](https://github.com/ignac
 runtime first, then assemble Full. Source checks and Swift package compilation
 do not compile the Chromium engine.
 
+## Working setup
+
+The public app and SDK repositories are the only development sources. Clone
+them once as `~/Developer/cobble` and `~/Developer/chrome-sdk`. Use temporary
+worktrees for branches; do not keep public/private source mirrors.
+
+Keep one incremental Chromium cache outside either repository. On the maintainer
+Mac this is `~/Developer/cobble-chromium-build/next-stable`; its existing path
+is preserved because compiled outputs reference it. The former Chromium 152
+checkout is obsolete. Keep immutable packaged current/rollback runtimes under
+`cobble-chromium-build/runtimes/`, not copies of full build trees.
+
+ABI 17 carries exact popup disposition so modified-link children can open in
+the background. The app’s shared page event carries the activation choice for
+both Chromium and WebKit.
+
 ## Current pins
 
 | Component | Version |
@@ -20,13 +36,13 @@ do not compile the Chromium engine.
 | Chromium | `153.0.8010.37` (`b75a5a95ea1a1b55bdbfd6d9f42d47be7507fb8b`) |
 | depot_tools | `81577f19a8497ba7e41afac322e8f03553a863ec` |
 | Cobble SDK | Exact public revision in `Package.swift` and `Package.resolved` |
-| Cobble ABI | 16 |
+| Cobble ABI | 17 |
 
 `Package.swift` is the build's authoritative SDK revision. Its explicit
 `COBBLE_CHROMIUM_SDK_PATH` override selects an absolute development checkout;
 the header ABI, SDK lock, archive and packaged runtime must still match. A Git
 revision alone cannot identify uncommitted native payloads. The client accepts
-ABI 3 and 10–16; unsupported ABI values fail before compilation. Do not mix a
+ABI 3 and 10–17; unsupported ABI values fail before compilation. Do not mix a
 client from one ABI with a runtime from another.
 
 ## Build and verification
@@ -62,6 +78,20 @@ runtime payload hashes do not match it. Rebuild and package from the public SDK
 before assembling a matching Full app. No runtime binary accompanies the initial
 source publication. Assembly emits `release_ready: false`; development signing
 is not Developer ID/notarized distribution.
+
+## Unification validation (2026-10-01)
+
+The public ABI 17 runtime was rebuilt incrementally, packaged with matching
+native-payload provenance, and checksum-verified. The isolated harness passed
+225 native checks, including modified-link popup disposition. Cobble passed
+581 hosted tests and 9 adapter tests; the SDK passed 66 Python and 20 Swift
+checks. Full assembly passed deep/strict signature verification.
+
+The broader smoke run timed out during interrupted GET download recovery on
+both the original private ABI 17 runtime and the rebuilt public runtime. This
+is an existing open qualification issue, not a passing download/release gate.
+The runtime remains a development artifact; no new signed app update is
+published by this source migration.
 
 ## Historical development evidence
 

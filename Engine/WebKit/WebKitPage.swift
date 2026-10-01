@@ -894,7 +894,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
            action.targetFrame != nil,
            action.modifierFlags.contains(.command) || action.buttonNumber == 2,
            events.onCreatePage != nil {
-            _ = createChild(configuration: webView.configuration, request: action.request)
+            _ = createChild(configuration: webView.configuration, request: action.request,
+                            activate: Self.activatesNewTab(modifiers: action.modifierFlags, buttonNumber: action.buttonNumber))
             decisionHandler(.cancel)
             return
         }
@@ -959,7 +960,9 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
             return nil
         }
         // WebKit loads popup requests itself; nil distinguishes this from Cmd-click.
-        return createChild(configuration: configuration, request: nil)
+        return createChild(configuration: configuration, request: nil,
+                           activate: Self.activatesNewTab(modifiers: navigationAction.modifierFlags,
+                                                         buttonNumber: navigationAction.buttonNumber))
     }
 
     func webViewDidClose(_ webView: WKWebView) { if !closed { events.onClose?() } }
@@ -1405,14 +1408,19 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     }
     func waitUntilClosed() async {}
 
-    private func createChild(configuration: WKWebViewConfiguration, request: URLRequest?) -> WKWebView? {
+    static func activatesNewTab(modifiers: NSEvent.ModifierFlags, buttonNumber: Int) -> Bool {
+        if modifiers.contains(.command) || buttonNumber == 2 { return modifiers.contains(.shift) }
+        return true
+    }
+
+    private func createChild(configuration: WKWebViewConfiguration, request: URLRequest?, activate: Bool) -> WKWebView? {
         guard !closed, let create = events.onCreatePage else { return nil }
         let child = WebKitPage(tabID: UUID(), dataStore: configuration.websiteDataStore,
             configuration: configuration, siteSettings: siteSettings, profileID: profileID,
             isPrivate: isPrivate, context: context, contextID: contextID,
             windowID: windowID, clientCertificateSearchList: clientCertificateSearchList) { _, _, _ in }
         child.applyContentRules()
-        guard create(child) else { child.close(); return nil }
+        guard create(child, activate) else { child.close(); return nil }
         if let request { child.trackNavigation(child.webView.load(request)) }
         return child.webView
     }
@@ -1426,7 +1434,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
             isPrivate: isPrivate, context: context, contextID: contextID,
             windowID: windowID, clientCertificateSearchList: clientCertificateSearchList) { _, _, _ in }
         child.applyContentRules()
-        guard create(child) else { child.close(); return nil }
+        guard create(child, true) else { child.close(); return nil }
         if let url { child.trackNavigation(child.webView.load(URLRequest(url: url))) }
         return child
     }

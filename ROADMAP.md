@@ -74,7 +74,7 @@ sidebar design. Deferred items are not public-v1 promises.
 
 ## Chromium integration — P9
 
-Current source targets ABI 16. Historical ABI 3–15 checks do not establish current
+Current source targets ABI 17. Historical ABI 3–15 checks do not establish current
 runtime qualification. The SDK owns native implementation; Cobble owns shared
 contracts and UI. Keep request handles and rendering types inside adapters.
 

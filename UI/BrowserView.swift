@@ -217,7 +217,7 @@ struct BrowserView: View {
                     .focused($addressFocused)
                     .onSubmit {
                         guard !hasMarkedText else { return }
-                        submitSelectedAddressSuggestion()
+                        submitSelectedAddressSuggestion(modifiers: NSApp.currentEvent?.modifierFlags ?? [])
                         addressFocused = window.isEditingAddress
                     }
                     .onKeyPress(.downArrow) { moveAddressSuggestion(1) }
@@ -321,14 +321,14 @@ struct BrowserView: View {
         .zIndex(1)
     }
 
-    private func submitSelectedAddressSuggestion() {
-        guard let id = selectedAddressSuggestion else { window.submitAddress(); return }
+    private func submitSelectedAddressSuggestion(modifiers: NSEvent.ModifierFlags = []) {
+        guard let id = selectedAddressSuggestion else { window.submitAddress(modifiers: modifiers); return }
         if id.hasPrefix("bang:") {
             window.submitBangSuggestion(String(id.dropFirst(5)))
         } else if id.hasPrefix("library:"), let entryID = Int64(id.dropFirst(8)) {
-            window.submitAddressSuggestion(entryID)
+            window.submitAddressSuggestion(entryID, modifiers: modifiers)
         } else {
-            window.submitAddress()
+            window.submitAddress(modifiers: modifiers)
         }
     }
 

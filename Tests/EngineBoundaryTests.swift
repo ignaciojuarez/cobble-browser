@@ -42,7 +42,7 @@ import SQLite3
         XCTAssertEqual(app.preferences.engineRules.first?.engineID, chromium)
         let parent = try XCTUnwrap(fast.selectedPage)
         let popup = TestPage(tabID: UUID(), contextID: parent.contextID)
-        XCTAssertTrue(parent.events.onCreatePage?(popup) == true)
+        XCTAssertTrue(parent.events.onCreatePage?(popup, true) == true)
         XCTAssertEqual(fast.selectedTab?.engineID, chromium)
         XCTAssertEqual(fast.selectedTab?.engineOverride, chromium)
         popup.navigate(to: url)
@@ -658,7 +658,7 @@ import SQLite3
             XCTAssertEqual(confirmations, 3)
             staleVisit(tab.id, "https://stale.example", "Stale")
             staleChange(tab.id, "https://stale.example", "Stale")
-            XCTAssertFalse(stalePopup(TestPage(tabID: UUID(), contextID: original.contextID)))
+            XCTAssertFalse(stalePopup(TestPage(tabID: UUID(), contextID: original.contextID), true))
             XCTAssertTrue(app.library.search("stale", profileID: Profile.defaultID).isEmpty)
             XCTAssertEqual(window.selectedTab?.urlString, self.destination.absoluteString)
         }
@@ -676,7 +676,7 @@ import SQLite3
             XCTAssertEqual(window.selectedTab?.engineID, self.secondID)
             XCTAssertEqual(page.loadedURLs.count, 1, "Metadata must not issue a load")
             let child = TestPage(tabID: UUID(), contextID: page.contextID)
-            XCTAssertTrue(page.events.onCreatePage?(child) == true)
+            XCTAssertTrue(page.events.onCreatePage?(child, true) == true)
             XCTAssertTrue(window.selectedPage === child)
             XCTAssertEqual(window.selectedTab?.engineOverride, self.secondID)
             XCTAssertTrue(child.loadedURLs.isEmpty, "Engine-owned popups must not be loaded twice")
@@ -684,7 +684,7 @@ import SQLite3
             XCTAssertEqual(window.selectedTab?.engineID, self.secondID)
             XCTAssertEqual(child.loadedURLs.last, URL(string: "https://other.example"))
             let foreign = TestPage(tabID: UUID(), contextID: BrowsingContextID(engineID: self.thirdID, profileID: Profile.defaultID, privateWindowID: nil))
-            XCTAssertFalse(child.events.onCreatePage?(foreign) == true)
+            XCTAssertFalse(child.events.onCreatePage?(foreign, true) == true)
         }
     }
 
@@ -700,12 +700,12 @@ import SQLite3
             window.addTab(url: URL(string: "https://other.example")!)
 
             let child = TestPage(tabID: UUID(), contextID: parent.contextID)
-            XCTAssertTrue(parent.events.onCreatePage?(child) == true)
+            XCTAssertTrue(parent.events.onCreatePage?(child, true) == true)
             XCTAssertEqual(window.selectedTab?.spaceID, parentTab.spaceID)
 
             parent.state.lifecycle = .closing
             let lateChild = TestPage(tabID: UUID(), contextID: parent.contextID)
-            XCTAssertFalse(parent.events.onCreatePage?(lateChild) == true)
+            XCTAssertFalse(parent.events.onCreatePage?(lateChild, true) == true)
             XCTAssertFalse(window.record.tabs.contains { $0.id == lateChild.tabID })
         }
     }

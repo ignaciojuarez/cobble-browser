@@ -101,8 +101,8 @@ past engine use was not recorded. A saved deletion marker fences the profile
 until every required cleanup finishes; native logical scheduling alone is not
 completed deletion. Private page URLs and session records remain excluded.
 
-Browser state is runtime data, not project source. It is intentionally excluded
-from the project-only new-Mac handoff in `AGENTS.md`.
+Browser state is runtime data, not project source. Never include it in Git or
+a project-only transfer; clone the public source and restore a matched runtime.
 
 ## Engines
 
