@@ -41,7 +41,11 @@ xcodebuild -project Cobble.xcodeproj -scheme Cobble \
   -configuration Debug -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO test
 ```
 
-`./Scripts/test.sh` runs the same hosted tests without `build-kit`. For launch
+`./Scripts/test.sh` runs the complete suite locally without `build-kit`.
+GitHub CI excludes three `WebKitAudioMuteTests` playback fixtures that hang
+with IOSurface failures on its runner; run them locally before changing media
+behavior. The capture-history safety test remains in CI. CI test timeouts turn
+other hangs into failures. For launch
 and Full packaging, `Scripts/run.sh` uses `build-kit` at
 `$HOME/Developer/build-kit` by default; `BUILD_TOOLS` selects another checkout.
 `./Scripts/run.sh local fast` launches WebKit. With the matching Chromium SDK

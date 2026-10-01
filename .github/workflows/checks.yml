@@ -42,11 +42,21 @@ jobs:
             sidebar) test_selection=(-only-testing:CobbleTests/UITests/testSelectedSidebarItemsReopenAfterUnloadAndDataClearing) ;;
             *) exit 1 ;;
           esac
+          # Hosted WebKit cannot complete these canvas/audio playback fixtures
+          # (IOSurface failures). Run them locally with ./Scripts/test.sh.
+          media_selection=(
+            -skip-testing:CobbleTests/WebKitAudioMuteTests/testAudioMuteDoesNotAffectAnotherTab
+            -skip-testing:CobbleTests/WebKitAudioMuteTests/testCrossOriginAudioKeepsRunningUnderNativeTabMute
+            -skip-testing:CobbleTests/WebKitAudioMuteTests/testNativeAudioMuteKeepsVideoAndWebAudioRunningWithoutChangingPageControls
+          )
           xcodebuild -project Cobble.xcodeproj -scheme Cobble \
             -configuration Debug -destination 'platform=macOS' \
             CODE_SIGNING_ALLOWED=NO \
             -resultBundlePath "$RUNNER_TEMP/CobbleTests.xcresult" \
-            "${test_selection[@]}" test 2>&1 | tee "$RUNNER_TEMP/CobbleTests.log"
+            -test-timeouts-enabled YES \
+            -default-test-execution-time-allowance 120 \
+            -maximum-test-execution-time-allowance 180 \
+            "${test_selection[@]}" "${media_selection[@]}" test 2>&1 | tee "$RUNNER_TEMP/CobbleTests.log"
       - name: Check the pinned public Chromium adapter
         run: swift test
       - name: Preserve test evidence
