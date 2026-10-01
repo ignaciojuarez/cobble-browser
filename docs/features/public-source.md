@@ -12,6 +12,14 @@ The app’s Xcode project builds WebKit independently. Full combines the app wit
 a matching SDK/runtime built from the pinned Chromium source. See
 [CHROMIUM.md](../../CHROMIUM.md) for that build boundary.
 
+## Development
+
+These public repositories are the sole source of truth. Feature work uses
+branches/PRs here; releases use the same source and pinned SDK. The former
+private repositories are archived. Machine configuration stays in ignored
+local files and signing keys stay in Keychain. SDK runtimes are immutable
+versioned Release assets with checksums, separate from the Git source.
+
 ## Binary release checklist
 
 Source publication does not imply a ready-to-install release. Before publishing

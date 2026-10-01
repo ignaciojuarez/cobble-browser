@@ -6,6 +6,15 @@ Native macOS 26+ browser in Swift 6, with favorites, pins, spaces, folders, and 
 - **SwiftUI** renders browser chrome, settings, and overlays.
 - **WebKit** is the default engine. A separate Chromium SDK enables Full builds; see `CHROMIUM.md`. Both builds use `com.ignacio.cobble` and the same workspace.
 
+## Source of truth
+
+Develop, review and push in public `ignaciojuarez/cobble-browser`. The former
+private repository is archived; there is no source-porting or mirror workflow.
+Use branches and T3 worktrees for unfinished work. Chrome SDK is independently
+maintained in public `ignaciojuarez/chrome-sdk`; pin an exact revision and use
+its matching runtime. Keep machine overrides in ignored `Scripts/run.local.config`,
+signing keys in Keychain, and browser data/build outputs outside Git.
+
 ## Commands
 
 Open `Cobble.xcodeproj` in a compatible Xcode to build the WebKit app. The
@@ -48,7 +57,7 @@ When the user says **release**, **upload the build**, or **publish an update**,
 complete the public Full release **and** signed in-app update feed. A source
 push or PR alone is not a release. The destination is
 [`ignaciojuarez/cobble-browser`](https://github.com/ignaciojuarez/cobble-browser/releases),
-never the private development repository.
+from this same source repository.
 
 Read `docs/features/updates.md` and use `Scripts/release.py` build/finish/publish.
 Use an increasing public build number, the pinned SDK and matched runtime,

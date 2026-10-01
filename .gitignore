@@ -15,3 +15,6 @@ __pycache__/
 *.key
 *.mobileprovision
 *.provisionprofile
+
+# Maintainer machine settings
+Scripts/run.local.config

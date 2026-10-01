@@ -2,7 +2,7 @@
 import PackageDescription
 import Foundation
 
-// Pin the SDK matched to the packaged ABI 16 runtime. An explicit local
+// Pin the SDK matched to the packaged ABI 17 runtime. An explicit local
 // checkout remains available for SDK development and legacy compatibility checks.
 let localSDKPath = ProcessInfo.processInfo.environment["COBBLE_CHROMIUM_SDK_PATH"]
     .flatMap { $0.isEmpty ? nil : $0 }
@@ -18,13 +18,13 @@ let localSDKABI: Int = localSDKPath.map { path in
         preconditionFailure("Development SDK has no valid CCS_ABI_VERSION header")
     }
     return value
-} ?? 16
-precondition([3, 10, 11, 12, 13, 14, 15, 16].contains(localSDKABI),
-             "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 3 and 10 through 16")
+} ?? 17
+precondition([3, 10, 11, 12, 13, 14, 15, 16, 17].contains(localSDKABI),
+             "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 3 and 10 through 17")
 let chromiumSDK: Package.Dependency = localSDKPath.map {
     .package(name: "chrome-sdk", path: $0)
 } ?? .package(url: "https://github.com/ignaciojuarez/chrome-sdk.git",
-              revision: "52647af3fac8d23cd0c44b2a5a8fd8e134052f76")
+              revision: "b4339eb04e85b19286c7103bb2dee54709dba9c3")
 let clientSettings: [SwiftSetting] = [.define("COBBLE_CHROMIUM_CLIENT")]
     + (ProcessInfo.processInfo.environment["COBBLE_AUTH_FIXTURE"] == "1" ? [.define("COBBLE_AUTH_FIXTURE", .when(configuration: .debug))] : [])
     + (localSDKABI >= 4 ? [.define("COBBLE_CHROMIUM_ABI4")] : [])
@@ -35,6 +35,7 @@ let clientSettings: [SwiftSetting] = [.define("COBBLE_CHROMIUM_CLIENT")]
     + (localSDKABI >= 14 ? [.define("COBBLE_CHROMIUM_ABI14")] : [])
     + (localSDKABI >= 15 ? [.define("COBBLE_CHROMIUM_ABI15")] : [])
     + (localSDKABI >= 16 ? [.define("COBBLE_CHROMIUM_ABI16")] : [])
+    + (localSDKABI >= 17 ? [.define("COBBLE_CHROMIUM_ABI17")] : [])
 
 // The regular Xcode app remains the system-WebKit executable. This product
 // builds Cobble's same native UI as the owned Chromium launcher's client.
@@ -51,7 +52,7 @@ let package = Package(
                 exclude: ["App/Info.plist", "App/Localizable.xcstrings", "App/Cobble.sdef", "App/es.lproj", "Tests", "Assets.xcassets", "Cobble.xcodeproj",
                           "AGENTS.md", "ARCHITECTURE.md", "DECISIONS.md", "FEATURES.md",
                           "ROADMAP.md", "CHANGELOG.md", "RESEARCH.md", "CHROMIUM.md", "Cobble.entitlements", "Scripts", "docs", "updates",
-                          "AppIcon.icon", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
+                          "AppIcon.icon", "t3.json", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],
                 sources: ["App", "Browser", "Domain", "Engine", "Persistence", "UI"],
                 resources: [.copy("Themes")],
                 swiftSettings: clientSettings),

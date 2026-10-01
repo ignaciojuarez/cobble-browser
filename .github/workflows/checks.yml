@@ -1,0 +1,61 @@
+name: Cobble checks
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: Isolate a macOS compatibility failure
+        type: choice
+        options: [all, extensions, sidebar]
+        default: all
+permissions:
+  contents: read
+concurrency:
+  group: cobble-checks-${{ github.ref }}-${{ inputs.suite || 'all' }}
+  cancel-in-progress: true
+jobs:
+  hosted-tests:
+    runs-on: macos-26
+    timeout-minutes: 20
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Select Xcode
+        run: |
+          test -d /Applications/Xcode_26.3.app
+          sudo xcode-select -s /Applications/Xcode_26.3.app/Contents/Developer
+          xcodebuild -version
+      - name: Build and run isolated hosted tests
+        env:
+          TEST_SUITE: ${{ inputs.suite || 'all' }}
+        run: |
+          test_selection=()
+          case "$TEST_SUITE" in
+            all) ;;
+            extensions) test_selection=(-only-testing:CobbleTests/WebKitExtensionTests) ;;
+            sidebar) test_selection=(-only-testing:CobbleTests/UITests/testSelectedSidebarItemsReopenAfterUnloadAndDataClearing) ;;
+            *) exit 1 ;;
+          esac
+          xcodebuild -project Cobble.xcodeproj -scheme Cobble \
+            -configuration Debug -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO \
+            -resultBundlePath "$RUNNER_TEMP/CobbleTests.xcresult" \
+            "${test_selection[@]}" test 2>&1 | tee "$RUNNER_TEMP/CobbleTests.log"
+      - name: Check the pinned public Chromium adapter
+        run: swift test
+      - name: Preserve test evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cobble-hosted-tests
+          path: |
+            ${{ runner.temp }}/CobbleTests.xcresult
+            ${{ runner.temp }}/CobbleTests.log
+          if-no-files-found: error
+          retention-days: 7

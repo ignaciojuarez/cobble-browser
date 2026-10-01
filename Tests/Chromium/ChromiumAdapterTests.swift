@@ -6,6 +6,15 @@ import CobbleChromium
 #endif
 
 @MainActor final class ChromiumAdapterTests: XCTestCase {
+    #if COBBLE_CHROMIUM_ABI17
+    func testPopupDispositionPreservesBackgroundOpening() {
+        XCTAssertFalse(ChromiumEngine.activatesPopup(.newBackgroundTab))
+        for disposition: ChromiumPopupRequest.Disposition in [.newForegroundTab, .newWindow, .newPopup, .unknown] {
+            XCTAssertTrue(ChromiumEngine.activatesPopup(disposition))
+        }
+    }
+    #endif
+
     func testExtensionSiteGrantsRejectInvalidPorts() throws {
         XCTAssertEqual(try ChromiumExtensionManager.concreteOrigin("HTTPS://Example.com:443/*"),
                        "https://example.com:443/")

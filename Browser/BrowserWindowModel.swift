@@ -85,11 +85,11 @@ final class BrowserWindowModel: Identifiable {
         return app.preferences.bangSuggestions(for: addressDraft)
     }
 
-    func submitAddressSuggestion(_ id: Int64) {
+    func submitAddressSuggestion(_ id: Int64, modifiers: NSEvent.ModifierFlags = []) {
         guard !isPrivate,
               let entry = app.library.search(addressDraft, profileID: record.profileID).prefix(6).first(where: { $0.id == id }) else { return }
         addressDraft = entry.urlString
-        submitAddress()
+        submitAddress(modifiers: modifiers)
     }
 
     func submitBangSuggestion(_ id: String) {
@@ -350,7 +350,7 @@ final class BrowserWindowModel: Identifiable {
                     profileID: self.record.profileID, engineID: contextID.engineID, visitedAt: visit.date)
             }
         }
-        host.events.onCreatePage = { [weak self] child in
+        host.events.onCreatePage = { [weak self] child, activate in
             guard let self, self.isCurrent(tabID, generation: generation), child.contextID == contextID,
                   host.state.lifecycle == .ready, self.closeRequests[tabID] == nil,
                   !self.preservingTabsForTermination,
@@ -361,7 +361,7 @@ final class BrowserWindowModel: Identifiable {
                           engineID: parent.engineID, engineOverride: parent.engineOverride)
             self.insertNewTemporaryTab(tab)
             self.adopt(child)
-            self.select(tab.id)
+            if activate { self.select(tab.id) }
             return true
         }
         host.events.onExternalURL = { [weak self] url in
@@ -391,7 +391,13 @@ final class BrowserWindowModel: Identifiable {
             self.completeCloseTab(tabID)
         }
         host.events.onActivate = { [weak self] in
-            guard let self, self.isCurrent(tabID, generation: generation), self.record.selectedTabID != tabID else { return }
+            guard let self, self.isCurrent(tabID, generation: generation),
+                  self.selectedTab != nil, self.record.selectedTabID != tabID,
+                  let tab = self.record.tabs.first(where: { $0.id == tabID }),
+                  tab.isUnloaded != true,
+                  tab.spaceID == self.record.selectedSpaceID
+                    || self.favorites.contains(where: { $0.id == tab.savedItemID }) else { return }
+            // Native close/focus callbacks cannot leave this space or refill an empty selection.
             self.select(tabID)
         }
         host.events.onKeyEvent = { [weak self] event in
@@ -906,7 +912,7 @@ final class BrowserWindowModel: Identifiable {
         app.persist()
     }
 
-    func addTab(url: URL? = nil) {
+    func addTab(url: URL? = nil, activate: Bool = true) {
         guard !app.isDeletingProfile(record.profileID) else { return }
         guard let url else {
             openCommandBar()
@@ -914,7 +920,14 @@ final class BrowserWindowModel: Identifiable {
         }
         let tab = Tab(spaceID: record.selectedSpaceID, urlString: url.absoluteString, title: url.host ?? "Loading…", engineID: app.preferences.engine(for: url))
         insertNewTemporaryTab(tab)
-        select(tab.id)
+        if activate { select(tab.id) }
+        else {
+            do {
+                let page = try createPage(for: tab)
+                adopt(page)
+                load(url, in: page)
+            } catch { addressError = error.localizedDescription }
+        }
     }
 
     @discardableResult
@@ -1177,11 +1190,16 @@ final class BrowserWindowModel: Identifiable {
         else { activateSelected() }
     }
 
-    func submitAddress() {
+    func submitAddress(modifiers: NSEvent.ModifierFlags = []) {
         guard !isClosed else { return }
         switch AddressResolver.resolve(addressDraft, engines: app.preferences.searchEngines,
                                        defaultEngine: app.preferences.defaultSearchEngine) {
         case .navigate(let url):
+            if modifiers.contains(.command) {
+                cancelAddressEditing()
+                addTab(url: url, activate: !modifiers.contains(.shift))
+                return
+            }
             if selectedTab == nil {
                 addTab(url: url)
                 addressDraft = url.absoluteString

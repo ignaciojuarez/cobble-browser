@@ -1,23 +1,23 @@
 {
-  "originHash" : "77498ad35918f9bd6b6d5f011cd6c9336b057904f6ff7799f0a5cedbc63985df",
-  "pins" : [
+  "originHash": "77498ad35918f9bd6b6d5f011cd6c9336b057904f6ff7799f0a5cedbc63985df",
+  "pins": [
     {
-      "identity" : "chrome-sdk",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/ignaciojuarez/chrome-sdk.git",
-      "state" : {
-        "revision" : "52647af3fac8d23cd0c44b2a5a8fd8e134052f76"
+      "identity": "chrome-sdk",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/ignaciojuarez/chrome-sdk.git",
+      "state": {
+        "revision": "b4339eb04e85b19286c7103bb2dee54709dba9c3"
       }
     },
     {
-      "identity" : "sparkle",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/sparkle-project/Sparkle.git",
-      "state" : {
-        "revision" : "eef1a539a373c1f1a320624b1130fc5de7b2e100",
-        "version" : "2.10.0"
+      "identity": "sparkle",
+      "kind": "remoteSourceControl",
+      "location": "https://github.com/sparkle-project/Sparkle.git",
+      "state": {
+        "revision": "eef1a539a373c1f1a320624b1130fc5de7b2e100",
+        "version": "2.10.0"
       }
     }
   ],
-  "version" : 3
+  "version": 3
 }

@@ -112,9 +112,15 @@ private let chromiumSupportsBrowserIdentity = false
     init(runtime: ChromiumRuntime, directory: URL) {
         self.runtime = runtime
         extensionDirectory = directory
-        runtime.onPopup = { [weak self] parent, child in
-            self?.receivePopup(parent: parent, child: child)
+        #if COBBLE_CHROMIUM_ABI17
+        runtime.onPopupWithDisposition = { [weak self] parent, child, disposition in
+            self?.receivePopup(parent: parent, child: child, activate: Self.activatesPopup(disposition))
         }
+        #else
+        runtime.onPopup = { [weak self] parent, child in
+            self?.receivePopup(parent: parent, child: child, activate: true)
+        }
+        #endif
         #if COBBLE_CHROMIUM_ABI15
         runtime.extensionInstallRequested = { [weak self] request in
             self?.receiveExtensionInstall(request)
@@ -307,7 +313,14 @@ private let chromiumSupportsBrowserIdentity = false
         profileID == Profile.defaultID ? "" : profileID.uuidString
     }
 
-    private func receivePopup(parent: CobbleChromium.ChromiumPage?, child: CobbleChromium.ChromiumPage) {
+    #if COBBLE_CHROMIUM_ABI17
+    static func activatesPopup(_ disposition: ChromiumPopupRequest.Disposition) -> Bool {
+        disposition != .newBackgroundTab
+    }
+    #endif
+
+    private func receivePopup(parent: CobbleChromium.ChromiumPage?, child: CobbleChromium.ChromiumPage,
+                              activate: Bool) {
         guard let parent, let parentHost = pages[ObjectIdentifier(parent)],
               parentHost.state.lifecycle == .ready, !parentHost.closing else {
             // There is no Cobble page host to restore if a before-unload
@@ -331,7 +344,7 @@ private let chromiumSupportsBrowserIdentity = false
         let host = ChromiumPage(tabID: UUID(), context: parentHost.context,
                                     windowID: parentHost.windowID, engine: self)
         guard parentHost.state.lifecycle == .ready, !parentHost.closing,
-              parentHost.events.onCreatePage?(host) == true else {
+              parentHost.events.onCreatePage?(host, activate) == true else {
             child.forceClose()
             return
         }

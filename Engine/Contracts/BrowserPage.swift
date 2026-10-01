@@ -96,7 +96,7 @@ enum PageArchiveFormat: Sendable {
     var onChange: ((UUID, String, String) -> Void)?
     var onVisit: ((UUID, String, String) -> Void)?
     var onFavicon: ((UUID, URL, Data) -> Void)?
-    var onCreatePage: ((any BrowserPage) -> Bool)?
+    var onCreatePage: ((any BrowserPage, _ activate: Bool) -> Bool)?
     var onDownload: ((any EngineDownload) -> Void)?
     var onClose: (() -> Void)?
     var onActivate: (() -> Void)?

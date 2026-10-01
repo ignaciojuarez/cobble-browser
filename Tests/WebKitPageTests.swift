@@ -325,7 +325,7 @@ final class WebKitPageTests: XCTestCase {
         let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(), siteSettings: settings) { _, _, _ in }
         var children: [WebKitPage] = []
         defer { page.close(); children.forEach { $0.close() } }
-        page.events.onCreatePage = { child in
+        page.events.onCreatePage = { child, _ in
             guard let child = child as? WebKitPage else { return false }
             children.append(child)
             return true
@@ -365,7 +365,7 @@ final class WebKitPageTests: XCTestCase {
         settings.update(allow)
         let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(), siteSettings: settings) { _, _, _ in }
         var children: [WebKitPage] = []
-        page.events.onCreatePage = { child in
+        page.events.onCreatePage = { child, _ in
             guard let child = child as? WebKitPage else { return false }
             children.append(child)
             return true
@@ -859,7 +859,7 @@ final class WebKitPageTests: XCTestCase {
         var children: [WebKitPage] = []
         var closeCount = 0
         defer { page.close(); children.forEach { $0.close() } }
-        page.events.onCreatePage = { child in
+        page.events.onCreatePage = { child, _ in
             guard let child = child as? WebKitPage else { return false }
             children.append(child)
             child.events.onClose = { closeCount += 1; child.close() }
@@ -880,6 +880,15 @@ final class WebKitPageTests: XCTestCase {
         XCTAssertEqual(page.webView.title, "/parent")
     }
 
+    func testNewTabActivationPreservesLinkModifiers() {
+        for modifiers: NSEvent.ModifierFlags in [[], .command, .shift, [.command, .shift]] {
+            XCTAssertEqual(WebKitPage.activatesNewTab(modifiers: modifiers, buttonNumber: 0),
+                           !modifiers.contains(.command) || modifiers.contains(.shift))
+            XCTAssertEqual(WebKitPage.activatesNewTab(modifiers: modifiers, buttonNumber: 2),
+                           modifiers.contains(.shift))
+        }
+    }
+
     func testDefaultPopupPolicyBlocksEarlyScriptAndAcceptsWebKitGesture() async throws {
         let server = try LocalHTTPFixture { _ in .init(body: "<title>Parent</title><script>window.popup = window.open('/child')</script>") }
         try await server.start()
@@ -887,7 +896,7 @@ final class WebKitPageTests: XCTestCase {
         let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
         var children: [any BrowserPage] = []
         defer { page.close(); children.forEach { $0.close() } }
-        page.events.onCreatePage = { child in children.append(child); return true }
+        page.events.onCreatePage = { child, _ in children.append(child); return true }
         page.navigate(to: server.url("/parent"))
         try await waitFor { page.webView.title == "Parent" && !page.webView.isLoading }
         let blocked = try await page.webView.evaluateJavaScript("window.popup === null") as? Bool

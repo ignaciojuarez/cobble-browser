@@ -131,7 +131,7 @@ final class TabCommandTests: XCTestCase {
             window.select(a.id)
             let opener = try XCTUnwrap(window.selectedPage)
             let child = TestPage(tabID: UUID(), contextID: opener.contextID)
-            XCTAssertTrue(opener.events.onCreatePage?(child) == true)
+            XCTAssertTrue(opener.events.onCreatePage?(child, true) == true)
             XCTAssertEqual(window.visibleTabs.map(\.id), [a.id, child.tabID, duplicate, b.id])
             XCTAssertTrue(window.selectedPage === child)
             window.openSavedItem(favorite.id)
@@ -141,6 +141,51 @@ final class TabCommandTests: XCTestCase {
             let reloaded = BrowserPreferences(directory: app.store.directory)
             XCTAssertTrue(reloaded.newTabsNextToActive)
             XCTAssertTrue(reloaded.cycleAllRecentTabs)
+        }
+    }
+
+    func testBackgroundChildKeepsSelectionDraftAndForegroundChildSelects() async throws {
+        let tab = Tab(urlString: "https://example.com/", title: "Parent")
+        try await withTestApp(SessionSnapshot(windows: [WindowRecord(selectedTabID: tab.id, tabs: [tab])])) { app, _ in
+            let window = try XCTUnwrap(app.windows.first)
+            window.select(tab.id)
+            let opener = try XCTUnwrap(window.selectedPage)
+            window.addressDraft = "unfinished query"
+            window.isEditingAddress = true
+            let child = TestPage(tabID: UUID(), contextID: opener.contextID)
+            XCTAssertTrue(opener.events.onCreatePage?(child, false) == true)
+            XCTAssertTrue(window.record.tabs.contains { $0.id == child.tabID })
+            child.events.onChange?(child.tabID, "https://example.com/child", "Child")
+            XCTAssertEqual(window.record.tabs.last?.urlString, "https://example.com/child")
+            XCTAssertTrue(window.selectedPage === opener)
+            XCTAssertEqual(window.addressDraft, "unfinished query")
+            XCTAssertTrue(window.isEditingAddress)
+            let foreground = TestPage(tabID: UUID(), contextID: opener.contextID)
+            XCTAssertTrue(opener.events.onCreatePage?(foreground, true) == true)
+            XCTAssertTrue(window.selectedPage === foreground)
+        }
+    }
+
+    func testAddressModifiersOpenForegroundAndLoadedBackgroundTabs() async throws {
+        let tab = Tab(urlString: "https://example.com/", title: "Parent")
+        try await withTestApp(SessionSnapshot(windows: [WindowRecord(selectedTabID: tab.id, tabs: [tab])])) { app, engine in
+            let window = try XCTUnwrap(app.windows.first)
+            window.addressDraft = "https://example.com/background"
+            window.isEditingAddress = true
+            window.submitAddress(modifiers: [.command, .shift])
+            XCTAssertEqual(window.selectedTab?.id, tab.id)
+            let background = try XCTUnwrap(window.record.tabs.last)
+            XCTAssertEqual(background.urlString, "https://example.com/background")
+            let context = try XCTUnwrap(engine.contexts.first)
+            let page = try XCTUnwrap(context.pages.first { $0.tabID == background.id })
+            await Task.yield()
+            XCTAssertEqual(page.state.urlString, background.urlString)
+            XCTAssertEqual(window.addressDraft, tab.urlString)
+            XCTAssertFalse(window.isEditingAddress)
+            window.addressDraft = "https://example.com/foreground"
+            window.submitAddress(modifiers: .command)
+            XCTAssertEqual(window.selectedTab?.urlString, "https://example.com/foreground")
+            XCTAssertEqual(window.record.tabs.count, 3)
         }
     }
 
@@ -211,6 +256,76 @@ final class TabCommandTests: XCTestCase {
             window.select(saved.id)
             XCTAssertTrue(window.directionalTemporaryTabIDs(above: true).isEmpty)
             XCTAssertEqual(window.directionalTemporaryTabIDs(above: false), [b.id, c.id])
+        }
+    }
+
+    func testClosingTabKeepsItsSpaceAcrossEveryClosePath() async throws {
+        for path in ["command", "sidebar", "scripting", "sync", "native", "confirmed", "batch"] {
+            let work = Space(name: "Work")
+            let home = Tab(title: "Home")
+            let closing = Tab(spaceID: work.id, title: "Closing")
+            let dormant = Tab(spaceID: work.id, title: "Dormant", isUnloaded: true)
+            let snapshot = SessionSnapshot(spaces: [Space(id: Space.defaultID), work],
+                windows: [WindowRecord(selectedSpaceID: work.id, selectedTabID: closing.id,
+                                       tabs: [home, closing, dormant])])
+            try await withTestApp(snapshot) { app, _ in
+                let window = try XCTUnwrap(app.windows.first)
+                window.select(home.id)
+                let homeActivation = try XCTUnwrap(window.selectedPage?.events.onActivate)
+                window.select(closing.id)
+                let page = try XCTUnwrap(window.selectedPage as? TestPage)
+                switch path {
+                case "command": XCTAssertTrue(window.perform(.closeTab))
+                case "sidebar": window.closeTab(closing.id)
+                case "scripting": XCTAssertTrue(window.closeTabForScripting(closing.id))
+                case "sync":
+                    let closed = await window.closeTabForSync(closing.id)
+                    XCTAssertTrue(closed)
+                case "native": page.events.onClose?()
+                case "confirmed":
+                    page.capabilities.requiresCloseConfirmation = true
+                    window.closeTab(closing.id)
+                default: window.closeSelectedTemporaryTabs()
+                }
+                for _ in 0..<200 where window.record.tabs.contains(where: { $0.id == closing.id }) {
+                    try await Task.sleep(for: .milliseconds(5))
+                }
+                XCTAssertEqual(window.record.tabs.map(\.id), [home.id, dormant.id], path)
+                XCTAssertEqual(window.record.selectedSpaceID, work.id, path)
+                XCTAssertNil(window.selectedTab, path)
+                XCTAssertNil(window.selectedPage, path)
+                // Engines can activate a retained sibling after their native tab closes.
+                homeActivation()
+                XCTAssertEqual(window.record.selectedSpaceID, work.id, path)
+                XCTAssertNil(window.selectedTab, path)
+                XCTAssertNil(window.selectedPage, path)
+                let restored = app.snapshot.validated().windows[0]
+                XCTAssertEqual(restored.selectedSpaceID, work.id, path)
+                XCTAssertNil(restored.selectedTabID, path)
+                window.addTab(url: URL(string: "https://example.com/new")!)
+                XCTAssertEqual(window.selectedTab?.spaceID, work.id, path)
+            }
+        }
+    }
+
+    func testCloseReplacementIgnoresActivationFromAnotherSpace() async throws {
+        let work = Space(name: "Work")
+        let home = Tab(title: "Home")
+        let remaining = Tab(spaceID: work.id, title: "Remaining")
+        let closing = Tab(spaceID: work.id, title: "Closing")
+        let snapshot = SessionSnapshot(spaces: [Space(id: Space.defaultID), work],
+            windows: [WindowRecord(selectedSpaceID: work.id, selectedTabID: closing.id,
+                                   tabs: [home, remaining, closing])])
+        try await withTestApp(snapshot) { app, _ in
+            let window = try XCTUnwrap(app.windows.first)
+            window.select(home.id)
+            let activateHome = try XCTUnwrap(window.selectedPage?.events.onActivate)
+            window.select(closing.id)
+            window.closeTab(closing.id)
+            XCTAssertEqual(window.selectedTab?.id, remaining.id)
+            activateHome()
+            XCTAssertEqual(window.record.selectedSpaceID, work.id)
+            XCTAssertEqual(window.selectedTab?.id, remaining.id)
         }
     }
 
@@ -374,10 +489,10 @@ final class TabCommandTests: XCTestCase {
             let accepted = await window.requestClosePages()
             XCTAssertTrue(accepted)
             let child = TestPage(tabID: UUID(), contextID: opener.contextID)
-            XCTAssertEqual(opener.events.onCreatePage?(child), false)
+            XCTAssertEqual(opener.events.onCreatePage?(child, true), false)
             XCTAssertFalse(window.record.tabs.contains { $0.id == child.tabID })
             window.cancelClosePages()
-            XCTAssertEqual(opener.events.onCreatePage?(child), true)
+            XCTAssertEqual(opener.events.onCreatePage?(child, true), true)
             XCTAssertTrue(window.record.tabs.contains { $0.id == child.tabID })
         }
     }
