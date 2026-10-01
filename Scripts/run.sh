@@ -8,6 +8,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+[[ ! -f "$ROOT/Scripts/run.local.config" ]] || source "$ROOT/Scripts/run.local.config"
 TOOLS="${BUILD_TOOLS:-$HOME/Developer/build-kit}"
 RUNNER="$TOOLS/macos/run.sh"
 
