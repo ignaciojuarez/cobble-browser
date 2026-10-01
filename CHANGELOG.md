@@ -2,6 +2,7 @@
 
 ## 2026-10-01
 
+- Require complete content review before commits/publishing, including new files and screenshots; keep personal browsing material outside public source.
 - Unified development in the public app and Chrome SDK repositories, retaining signed update/release tooling.
 - Adopted SDK ABI 17 for Chromium background-tab gestures; Command-click/middle-click stay in the background and address modifiers open new tabs.
 - Kept the selected space when closing its last tab and rejected stale native focus callbacks.

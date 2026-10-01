@@ -17,6 +17,20 @@ signing keys in Keychain, and browser data/build outputs outside Git. T3 worktre
 inherit the main checkout’s ignored runner settings. Check this with
 `python3 Scripts/test_run_config.py`.
 
+## Before committing or publishing
+
+Review the complete intended changes, not only filenames or a summary. Read
+`git diff`, every new/untracked file you intend to include, and the final
+`git diff --cached` after staging explicit paths. Inspect images/screenshots
+visually and check generated files or archives before including them.
+
+Exclude credentials, tokens, private signing keys/certificates, cookies,
+browser profiles/history, personal or account data, private URLs, local machine
+identifiers and unredacted logs/evidence. Use synthetic fixtures, placeholders,
+ignored local configuration and Keychain instead. Preserve useful source/docs
+when porting work; check every changed and new file against the destination.
+`.gitignore` and automated scans do not replace this content review.
+
 ## Commands
 
 Open `Cobble.xcodeproj` in a compatible Xcode to build the WebKit app. The

@@ -9,6 +9,6 @@ Cobble’s original source is licensed under GNU GPL version 3. Third-party mate
 | Sparkle 2.10.0 | [Sparkle](https://github.com/sparkle-project/Sparkle); [MIT and bundled component notices](docs/licenses/Sparkle.txt) |
 | Chromium integration | Separately versioned Cobble Chromium SDK; its notices cover upstream Chromium and other included material |
 
-Engine names and logos identify their respective products; no endorsement is implied. The Cobble otter icon is original project artwork. The README screenshot is supplied by the project author; third-party page content and marks retain their respective rights.
+Engine names and logos identify their respective products; no endorsement is implied. The Cobble otter icon is original project artwork.
 
 A Chromium binary distribution must include notices and satisfy the source/relinking obligations applicable to the exact components it ships. This source repository does not contain the Chromium runtime or substitute for its complete generated notices.
