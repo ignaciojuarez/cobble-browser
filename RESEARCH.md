@@ -3,6 +3,29 @@
 Current source findings and evidence limits. [`ROADMAP.md`](ROADMAP.md) owns
 commitments and gates; feature documents own current behavior.
 
+## October SDK audit
+
+The SDK inventory compares the native bridge with Chromium's WebContents and
+tab helpers, CEF handlers and WKWebView. The first implementation pass fixes
+private-context identity, repeated download interruption, callback lifetime,
+readiness cancellation and native build/provenance defects. ABI 18 adds navigation,
+loading, renderer and runtime diagnostics plus structured download metadata.
+The SDK audit retains explicit Missing/Qualify/Host/Excluded states.
+
+Validation: SDK 71 Python and 34 Swift tests; Cobble 9 adapter tests and 579 hosted
+tests with zero failures; audio tests ran. Three initially skipped foreground GUI
+tests all passed in a focused rerun after unlocking the desktop session.
+The optimized ABI 18 host client builds without Swift compiler warnings. An unused
+default-browser callback helper and its two tests were removed; settings already
+use the native async API.
+The full ABI 18 native build and matched package passed signature/checksum/ZIP
+checks. The full native smoke rerun passed 237 checks with no skips, including
+the five DevTools frontend checks previously blocked by foreground activation,
+plus rendering/download/shutdown checks. Manual qualification and release gates
+remain separate.
+macOS can reject an app's activation request; [Apple's activation contract](https://developer.apple.com/documentation/appkit/nsapplication/activate())
+explains why foreground UI checks need a usable interactive session.
+
 ## Public-use audit
 
 The September 25 source audit found ten data, permission, auth, sync, UI and

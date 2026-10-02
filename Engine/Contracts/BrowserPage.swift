@@ -64,6 +64,9 @@ enum PageArchiveFormat: Sendable {
     var urlString = ""
     var title = ""
     var isLoading = false
+    /// Nil means the engine has not reported a loading estimate.
+    var estimatedProgress: Double?
+    var isUnresponsive = false
     var canGoBack = false
     var canGoForward = false
     var errorMessage: String?

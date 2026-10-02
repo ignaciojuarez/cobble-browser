@@ -111,6 +111,9 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
             view.observe(\.isLoading, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor in self?.refreshState() }
             },
+            view.observe(\.estimatedProgress, options: [.new]) { [weak self] _, _ in
+                Task { @MainActor in self?.refreshState() }
+            },
             view.observe(\.canGoBack, options: [.new]) { [weak self] _, _ in
                 Task { @MainActor in self?.refreshState() }
             },
@@ -506,6 +509,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         guard !closed, let view = storedWebView else { return }
         let wasLoading = state.isLoading
         state.isLoading = view.isLoading
+        state.estimatedProgress = view.estimatedProgress
         state.canGoBack = view.canGoBack
         state.canGoForward = view.canGoForward
         state.connection = .classify(urlString: view.url?.absoluteString ?? "",

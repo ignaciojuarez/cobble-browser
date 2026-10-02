@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026-10-02
+
+- Support explicit development SDK ABI 18 for Chromium navigation failures,
+  loading progress and renderer responsiveness; retain the matched public ABI 17 pin.
+- Expose engine-neutral loading progress, including WebKit's native estimate.
+- Remove obsolete default-browser callback code and clear native-client Swift build warnings.
+
 ## 2026-10-01
 
 - Require complete content review before commits/publishing, including new files and screenshots; keep personal browsing material outside public source.

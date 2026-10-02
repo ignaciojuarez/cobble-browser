@@ -32,6 +32,9 @@ import CobbleChromium
     private var appleSignInURL: String?
     private var publishedURL = ""
     private var publishedTitle = ""
+    #if COBBLE_CHROMIUM_ABI18
+    private var publishedNavigationFailure: ChromiumNavigationFailure?
+    #endif
     private var publishedFaviconPNG: Data?
     private var publishedFaviconOrigin: String?
     private var securityErrorPage = false
@@ -598,6 +601,14 @@ import CobbleChromium
         state.urlString = source.urlString
         state.title = source.title
         state.isLoading = source.isLoading
+        #if COBBLE_CHROMIUM_ABI18
+        state.estimatedProgress = source.estimatedProgress
+        state.isUnresponsive = source.isUnresponsive
+        if publishedNavigationFailure != source.navigationFailure {
+            publishedNavigationFailure = source.navigationFailure
+            state.errorMessage = source.navigationFailure?.localizedDescription
+        }
+        #endif
         state.canGoBack = source.canGoBack
         state.canGoForward = source.canGoForward
         state.isCrashed = source.isCrashed

@@ -407,7 +407,7 @@ private let chromiumSupportsBrowserIdentity = false
                 } else { request.deny() }
             }
         request.onCancel = { [weak self, weak host, weak request] in
-            guard let self, let request,
+            guard let self, request != nil,
                   self.mediaRequestIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(.deny)
@@ -467,7 +467,7 @@ private let chromiumSupportsBrowserIdentity = false
                 }
             }
         request.onCancel = { [weak self, weak host, weak request] in
-            guard let self, let request,
+            guard let self, request != nil,
                   self.javaScriptDialogIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(.cancel)
@@ -519,7 +519,7 @@ private let chromiumSupportsBrowserIdentity = false
                 } else { request.cancel() }
             }
         request.onCancel = { [weak self, weak host, weak request] in
-            guard let self, let request,
+            guard let self, request != nil,
                   self.httpAuthRequestIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(nil)
@@ -559,7 +559,7 @@ private let chromiumSupportsBrowserIdentity = false
                 if let urls { request.select(urls) } else { request.cancel() }
             }
         request.onCancel = { [weak self, weak host, weak request] in
-            guard let self, let request,
+            guard let self, request != nil,
                   self.fileChooserIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(nil)
@@ -602,7 +602,7 @@ private let chromiumSupportsBrowserIdentity = false
                 } else { request.deny() }
             }
         request.onCancel = { [weak self, weak host, weak request] in
-            guard let self, let request,
+            guard let self, request != nil,
                   self.externalProtocolIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(false)
@@ -680,7 +680,7 @@ private let chromiumSupportsBrowserIdentity = false
                 if !request.select(choiceID: nativeChoiceID) { request.cancel() }
             }
         request.onCancel = { [weak self, weak host, weak request] in
-            guard let self, let request,
+            guard let self, request != nil,
                   self.clientCertificateIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(nil)

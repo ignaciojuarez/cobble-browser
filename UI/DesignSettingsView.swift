@@ -60,7 +60,7 @@ struct DesignSettingsView: View {
         let selected = preferences.themeTemplate == preset
         let style = BrowserThemeStyle(provider: preset, accent: Color(nsColor: BrowserPreferences.color(hex: preset.defaultAccentHex)))
         var controlSurface = style.configuration.controls.toolbar.surface
-        var selectedSurface = style.configuration.selectedTabSurface
+        let selectedSurface = style.configuration.selectedTabSurface
         controlSurface.interactive = false
         return Button {
             preferences.setTheme(preset)
