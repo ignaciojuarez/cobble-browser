@@ -42,8 +42,22 @@ both Chromium and WebKit.
 `COBBLE_CHROMIUM_SDK_PATH` override selects an absolute development checkout;
 the header ABI, SDK lock, archive and packaged runtime must still match. A Git
 revision alone cannot identify uncommitted native payloads. The client accepts
-ABI 3 and 10–17; unsupported ABI values fail before compilation. Do not mix a
+ABI 3 and 10–18; unsupported ABI values fail before compilation. Do not mix a
 client from one ABI with a runtime from another.
+
+## ABI 18 development audit
+
+An explicit local ABI 18 SDK checkout adds structured navigation failures,
+load progress and primary-renderer responsiveness to the adapter. Shared page
+state stays engine-neutral; WebKit supplies its native progress estimate too.
+The SDK also exposes runtime identity and download source/interruption metadata.
+The public source pin and ordinary packaged runtime remain ABI 17 until an
+immutable matching ABI 18 SDK revision/runtime is published and qualified.
+
+The SDK's `AUDIT.md` owns the 125-area gap inventory, research, bridge ownership,
+and implementation evidence. General permissions, owned fullscreen/lock UI,
+extension popup/side-panel surfaces, device choosers and the other open feature
+rows remain work; adding the diagnostics does not qualify those surfaces.
 
 ## Build and verification
 

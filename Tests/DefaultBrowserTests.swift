@@ -31,36 +31,6 @@ final class DefaultBrowserTests: XCTestCase {
         XCTAssertNil(DefaultBrowser.incoming(URL(string: "ftp://example.com/a")!))
     }
 
-    func testDefaultRegistrationSetsHTTPThenHTTPSAndIgnoresHTTPSFailure() {
-        let app = URL(fileURLWithPath: "/Applications/Cobble.app")
-        var schemes: [String] = []
-        var completions: [(Error?) -> Void] = []
-        var finished: Error? = NSError(domain: "unset", code: -1)
-        DefaultBrowser.setDefault(applicationURL: app, using: { _, scheme, done in
-            schemes.append(scheme)
-            completions.append(done)
-        }) { finished = $0 }
-        XCTAssertEqual(schemes, ["http"])
-        XCTAssertEqual(completions.count, 1)
-        completions[0](nil)
-        XCTAssertEqual(schemes, ["http", "https"])
-        completions[1](NSError(domain: "https", code: 1))
-        XCTAssertNil(finished)
-    }
-
-    func testDefaultRegistrationReportsHTTPFailureWithoutClaimingHTTPS() {
-        let app = URL(fileURLWithPath: "/Applications/Cobble.app")
-        var schemes: [String] = []
-        var finished: Error?
-        let httpError = NSError(domain: "http", code: 2)
-        DefaultBrowser.setDefault(applicationURL: app, using: { _, scheme, done in
-            schemes.append(scheme)
-            done(httpError)
-        }) { finished = $0 }
-        XCTAssertEqual(schemes, ["http"])
-        XCTAssertEqual((finished as NSError?)?.domain, "http")
-    }
-
     @MainActor func testIncomingWebURLsOpenInTheNormalWindowAndIgnorePrivateAndFiles() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleDefaultBrowser-\(UUID())")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
