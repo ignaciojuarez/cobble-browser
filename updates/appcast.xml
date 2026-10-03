@@ -10,6 +10,29 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Sat, 03 Oct 2026 13:25:59 -0700</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Updated Chromium to 153.0.8010.37 with the matching public ABI 17 SDK.
+- Command-click and middle-click open links in background tabs.
+- Closing the last tab keeps the selected space.
+- Added page loading progress, including WebKit’s native estimate.
+- Rejected stale native focus callbacks and removed obsolete default-browser callback code.
+
+Includes WebKit, Chromium and signed in-app updates.
+
+This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified. ABI 18 development features are not included.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version’s updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.4/Cobble-v0.1.0-beta.4.zip" length="163522212" type="application/octet-stream" sparkle:edSignature="xQDDAPeAgQHhE2kWNeBbNp2zgMmUeFQAVxXH9+3dlG/kD55TgAeQoF7lhnEzQc3QovvUmYOnbC5kl27zvbp3DQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Mon, 28 Sep 2026 16:40:48 -0700</pubDate>
             <sparkle:version>3</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -47,32 +70,9 @@ Includes WebKit and Chromium. Installed version-to-version updates and clean-Mac
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.2/Cobble-v0.1.0-beta.2.zip" length="163521222" type="application/octet-stream" sparkle:edSignature="d3id7lN2PjqiyMVyOpS4mBPl7zsu3fgJGPypFiq1lgA51YmfHSWuLXZx2rT++/SzdBD68YfeH9zoTrKzaFJZAQ=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Sat, 26 Sep 2026 23:57:45 -0700</pubDate>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[# Cobble 0.1.0 beta
-
-First Full build for **Apple silicon Macs running macOS 26 or later**.
-
-- Native macOS browser with WebKit and Chromium engines.
-- Spaces, favorites, pins, folders and independent window tabs.
-- Signed in-app update checks, with installation and restart under your control.
-
-Download the ZIP, extract Cobble, and drag it into Applications.
-
-This is an early beta. Apple Passwords/passkeys, experimental extensions, login
-sharing and sync have limitations documented in the repository. Keep backups of
-important data. Report reproducible issues without including cookies or passwords.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.1/Cobble-v0.1.0-beta.1.zip" length="163520602" type="application/octet-stream" sparkle:edSignature="bkPaT6puOSZBEnUjBkdAGiA0vWojoTr08/CHkz7OJZWAiiLWdPaJJ6ciZ8mgm+Zpko5YzuVs6zzEYbmmVC1VCQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: kCspxfwdt8Mv7usFxdFtV15dkCQQVFnmR05Yl/5/lWFVVczgKBTmIMpN/STj/Z2YfS5/HBQquZZmhfzdOySYAg==
-length: 4850
+edSignature: GMvGkD0eT0pOrReqFfck2WPGNy+MbJ1KDMLM+FGNQ1h/voh84BTsZgE7Z0F/2GkOiN8PO8QeUwP2GzpZmUp1Cw==
+length: 5082
 -->
