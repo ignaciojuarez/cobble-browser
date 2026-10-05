@@ -6,6 +6,22 @@ import CobbleChromium
 #endif
 
 @MainActor final class ChromiumAdapterTests: XCTestCase {
+    #if COBBLE_CHROMIUM_ABI4
+    func testExternalApplicationURLsPreserveMailParametersAndRejectBrowserSchemes() {
+        let mail = URL(string: "mailto:test@example.com?subject=Hello&body=Message")!
+        XCTAssertEqual(ChromiumEngine.externalApplicationURL(mail), mail)
+        XCTAssertNotNil(ChromiumEngine.externalApplicationURL(URL(string: "cobble-fixture://callback")))
+        for value in ["https://example.com", "http://example.com", "file:///tmp/mail.html",
+                      "about:blank", "data:text/html,mail", "javascript:alert(1)",
+                      "blob:https://example.com/id", "filesystem:https://example.com/mail",
+                      "chrome://settings", "chrome-extension://fixture/mail", "devtools://fixture",
+                      "mailto:" + String(repeating: "a", count: 8192)] {
+            XCTAssertNil(ChromiumEngine.externalApplicationURL(URL(string: value)), value)
+        }
+        XCTAssertNil(ChromiumEngine.externalApplicationURL(nil))
+    }
+    #endif
+
     #if COBBLE_CHROMIUM_ABI17
     func testPopupDispositionPreservesBackgroundOpening() {
         XCTAssertFalse(ChromiumEngine.activatesPopup(.newBackgroundTab))
