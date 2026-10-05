@@ -364,6 +364,10 @@ private let chromiumSupportsBrowserIdentity = false
               [.newForegroundTab, .newBackgroundTab, .newPopup, .newWindow].contains(request.disposition) else {
             return false
         }
+        if let url = Self.externalApplicationURL(request.targetURL) {
+            if request.userGesture { host.offerExternalApplication(url) }
+            return false
+        }
         let setting = host.context.siteSettings?.setting(origin: requestingOrigin,
                 profileID: host.contextID.profileID, engineID: id).popups ?? .ask
         let allowed = SiteSettingsStore.allowsPopup(setting: setting,
@@ -567,16 +571,20 @@ private let chromiumSupportsBrowserIdentity = false
         publish(shared)
     }
 
-    private func receiveExternalProtocol(_ request: ChromiumExternalProtocolRequest) {
+    static func externalApplicationURL(_ url: URL?) -> URL? {
         let forbiddenSchemes: Set<String> = [
             "http", "https", "file", "filesystem", "about", "data", "javascript", "blob",
             "chrome", "devtools"
         ]
+        guard let url, let scheme = url.scheme?.lowercased(), !scheme.isEmpty,
+              !forbiddenSchemes.contains(scheme), !scheme.hasPrefix("chrome-"),
+              url.absoluteString.utf8.count <= 8192 else { return nil }
+        return url
+    }
+
+    private func receiveExternalProtocol(_ request: ChromiumExternalProtocolRequest) {
         guard request.isPending, let host = promptHost(request.page),
-              let scheme = request.targetURL.scheme?.lowercased(), !scheme.isEmpty,
-              !forbiddenSchemes.contains(scheme),
-              !scheme.hasPrefix("chrome-"),
-              request.targetURL.absoluteString.utf8.count <= 8192,
+              Self.externalApplicationURL(request.targetURL) != nil,
               request.userGesture, request.isPrimaryMainFrame, !request.isFencedFrame,
               request.frameProcessID >= 0, request.frameRoutingID >= 0,
               let identity = promptIdentity(host: host,

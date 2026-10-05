@@ -28,6 +28,8 @@ import CobbleChromium
     private var isVisible = false
     private var inspectable = false
     private var appPromptPending = false
+    private lazy var externalApplications = PagePresenter(window: { [weak self] in self?.nativeView.window },
+        pendingChanged: { [weak self] in self?.setAppPromptPending($0) })
     private var appleSignIn: AppleSignInSession?
     private var appleSignInURL: String?
     private var publishedURL = ""
@@ -127,6 +129,7 @@ import CobbleChromium
     func stop() { guard !closing else { return }; source?.stop() }
     func focus() { guard !closing else { return }; source?.focus() }
     func setActive(_ active: Bool) {
+        if !active { externalApplications.cancelAll() }
         isActive = active
         if active { focus() }
     }
@@ -459,6 +462,7 @@ import CobbleChromium
     func applyContentRules() {}
 
     func requestClose() async -> Bool {
+        externalApplications.cancelAll()
         guard state.lifecycle != .closed else { return true }
         guard !closing else {
             if closeForced {
@@ -510,6 +514,7 @@ import CobbleChromium
     /// EngineRegistry uses this for discard, engine switching, and shutdown.
     /// It bypasses before-unload cancellation after Cobble has removed the tab.
     func close() {
+        externalApplications.cancelAll()
         guard state.lifecycle != .closed else { return }
         #if COBBLE_CHROMIUM_ABI4
         closeDevTools()
@@ -722,6 +727,7 @@ import CobbleChromium
     private func observePageDetails(_ source: CobbleChromium.ChromiumPage) {
         source.onPrimaryMainFrameCommitted = { [weak self, weak source] url in
             guard let self, let source, self.source === source, !self.closing else { return }
+            self.externalApplications.cancelAll()
             // ponytail: ABI lacks document identity; retaining same-origin grants can unload an idle
             // replacement on Deny. Clear on full commits once the SDK exposes same-document status.
             if self.committedURL.flatMap(AddressResolver.canonicalOrigin)
@@ -806,6 +812,19 @@ import CobbleChromium
     #if COBBLE_CHROMIUM_ABI4
     var committedOrigin: String? { committedURL.flatMap(AddressResolver.canonicalOrigin) }
     #endif
+
+    func offerExternalApplication(_ url: URL) {
+        guard !closing, isActive, state.lifecycle == .ready, !hasPendingPrompt,
+              nativeView.window?.attachedSheet == nil, events.onExternalURL != nil else { return }
+        let pageURL = state.urlString
+        let alert = PagePresenter.alert(title: String(localized: "Open another application?"),
+            message: url.absoluteString, buttons: [String(localized: "Open"), String(localized: "Cancel")])
+        externalApplications.present(alert) { [weak self] response in
+            guard let self, response == .alertFirstButtonReturn, !self.closing,
+                  self.isActive, self.state.lifecycle == .ready, self.state.urlString == pageURL else { return }
+            self.events.onExternalURL?(url)
+        }
+    }
 
     private func cancelAppleSignIn() {
         appleSignInURL = nil
