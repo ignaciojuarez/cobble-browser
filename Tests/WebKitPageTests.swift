@@ -14,6 +14,38 @@ private final class ClientCertificateChallengeSender: NSObject, URLAuthenticatio
 
 @MainActor
 final class WebKitPageTests: XCTestCase {
+    func testFullscreenAPIEnabledForDefaultAndProvidedConfigurations() async throws {
+        for configuration in [nil, WKWebViewConfiguration()] as [WKWebViewConfiguration?] {
+            configuration?.websiteDataStore = .nonPersistent()
+            let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(),
+                                  configuration: configuration) { _, _, _ in }
+            defer { page.close() }
+            page.webView.loadHTMLString("<title>Fullscreen fixture</title>", baseURL: nil)
+            try await waitFor { page.webView.title == "Fullscreen fixture" && !page.webView.isLoading }
+            let enabled = try await page.webView.evaluateJavaScript("document.fullscreenEnabled")
+            XCTAssertEqual(enabled as? Bool, true)
+        }
+    }
+
+    func testContainerUpdatePreservesEngineTemporaryReparenting() {
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        let container = BrowserPageContainer(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        let fullscreenContainer = NSView(frame: NSRect(x: 0, y: 0, width: 1920, height: 1080))
+        defer { container.unmount(); page.close() }
+        container.mount(page)
+        // WebKit temporarily reparents its view into a native fullscreen window.
+        page.webView.removeFromSuperview()
+        fullscreenContainer.addSubview(page.webView)
+        page.webView.frame = fullscreenContainer.bounds
+        container.mount(page)
+        XCTAssertTrue(page.webView.superview === fullscreenContainer)
+        XCTAssertEqual(page.webView.frame, fullscreenContainer.bounds)
+        page.webView.removeFromSuperview()
+        container.addSubview(page.webView)
+        container.mount(page)
+        XCTAssertTrue(page.webView.superview === container)
+    }
+
     #if DEBUG
     func testResourceDiscoveryUsesLiveProcessesAndStopsReferencingClosedPage() async throws {
         let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
