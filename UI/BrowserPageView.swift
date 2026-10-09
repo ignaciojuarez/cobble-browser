@@ -70,8 +70,9 @@ struct BrowserPageView: NSViewRepresentable {
     }
 
     func mount(_ host: any BrowserPage) {
+        // The engine can temporarily reparent its view for native fullscreen.
+        guard self.host !== host else { return }
         let page = host.nativeView
-        guard self.host !== host || page.superview !== self else { return }
         unmount()
         (page.superview as? BrowserPageContainer)?.unmount()
         page.removeFromSuperview()

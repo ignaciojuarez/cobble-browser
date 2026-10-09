@@ -78,6 +78,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
                 resolvedConfiguration.preferences.javaScriptCanOpenWindowsAutomatically = false
             }
         }
+        resolvedConfiguration.preferences.isElementFullscreenEnabled = true
         Self.applySafariCompatibleUserAgent(to: resolvedConfiguration)
         self.configuration = resolvedConfiguration
         self.context = context
