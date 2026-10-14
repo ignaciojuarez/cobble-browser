@@ -189,7 +189,7 @@ struct SidebarView: View {
                     .padding(.horizontal, ThemeMetrics.spacing)
                     .padding(.bottom, 8)
                 }
-                Divider()
+                ChromeDivider()
                     #if DEBUG
                     .overlay(alignment: .bottomLeading) {
                         ResourceMemoryBadge(model: window.app.resources, windowID: window.id)
@@ -392,7 +392,7 @@ struct SidebarView: View {
             ForEach(folderOutline(in: space.id)) { entry in
                 folderRow(entry.folder, depth: entry.depth, trackDrop: trackDrop)
             }
-            Divider().padding(.horizontal, -ThemeMetrics.spacing).padding(.vertical, 10)
+            ChromeDivider().padding(.horizontal, -ThemeMetrics.spacing).padding(.vertical, 10)
                 .frame(maxWidth: .infinity)
                 .contentShape(Rectangle())
                 .sidebarDropFrame(
@@ -671,6 +671,11 @@ struct SidebarView: View {
                 HStack(spacing: 9) {
                     FolderGlyph(color: folder.color).frame(width: 16, height: 16)
                     Text(folder.name).lineLimit(1)
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.secondary)
+                        .rotationEffect(.degrees(collapsed ? 0 : 90))
+                        .accessibilityHidden(true)
                     Spacer(minLength: 0)
                 }
                 .padding(9)

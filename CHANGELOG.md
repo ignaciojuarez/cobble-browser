@@ -20,6 +20,13 @@ Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 
 ## Unreleased
 
+- Park keyboard focus when switching to a space with no loaded tabs, preventing
+  automatic sidebar search focus after leaving a Chromium page.
+- Use Command-Shift-R for Force Reload, preserving cookies and website data.
+- Fill the site-controls action row and collapse certificate details behind one
+  counted button; match security and page-action control heights.
+- Show native download file icons, use translucent white browser separators,
+  and place disclosure chevrons immediately after folder titles.
 - Enable automatic daily update checks by default for new installs. Available
   updates appear in the sidebar; existing opt-out choices remain respected.
 

@@ -398,6 +398,8 @@ final class AppModelTests: XCTestCase {
     func testShortcutConflictsPersistenceAndCorruptionProtection() throws {
         try withApp { app in
             let prefs = app.preferences
+            XCTAssertEqual(prefs.shortcut(for: .reload), .init("r", .command))
+            XCTAssertEqual(prefs.shortcut(for: .reloadFromOrigin), .init("r", [.command, .shift]))
             for command in BrowserCommand.allCases {
                 XCTAssertTrue(command.defaultShortcut.isValid)
                 XCTAssertNil(prefs.conflict(for: command.defaultShortcut, excluding: command))

@@ -2,6 +2,17 @@ import SwiftUI
 
 enum ThemeMetrics { static let spacing: CGFloat = 8 }
 
+struct ChromeDivider: View {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    var body: some View {
+        Rectangle().fill(.white.opacity(contrast == .increased ? 0.5 : colorScheme == .light ? 0.35 : 0.14))
+            .frame(height: 1)
+            .accessibilityHidden(true)
+    }
+}
+
 enum ThemeIcon: String, Hashable {
     case sidebar, back, forward, reload, stop, add, downloads, folder
 }

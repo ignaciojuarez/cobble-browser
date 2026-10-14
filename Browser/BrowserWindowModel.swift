@@ -1264,6 +1264,10 @@ final class BrowserWindowModel: Identifiable {
     func clearSelection() {
         endRecentTabCycle()
         clearTemporaryTabSelection()
+        // Park focus before removing the page so AppKit cannot choose sidebar search.
+        if !commandBarPresented, let nativeWindow, nativeWindow.attachedSheet == nil {
+            nativeWindow.makeFirstResponder(nativeWindow.contentView)
+        }
         record.selectedTabID = nil
         addressDraft = ""
         addressError = nil

@@ -289,6 +289,31 @@ final class UITests: XCTestCase {
         }
     }
 
+    func testDownloadsPanelFileIconsFitLightAndDark() async throws {
+        try await withWindow { model, _, _ in
+            for name in ["Meeting recording 2026-10-14.mp4", "Browser installer.dmg"] {
+                model.app.downloads.accept(DownloadIconFixture(name: name), isPrivate: false)
+                let item = try XCTUnwrap(model.app.downloads.entries.first)
+                item.status = .finished
+            }
+            for scheme in [ColorScheme.light, .dark] {
+                let panel = NSHostingView(rootView: DownloadsPanel(store: model.app.downloads)
+                    .background(Color(nsColor: .windowBackgroundColor))
+                    .environment(\.colorScheme, scheme))
+                panel.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+                let panelWindow = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 380, height: 380),
+                    styleMask: [.titled, .closable], backing: .buffered, defer: false)
+                panelWindow.isReleasedWhenClosed = false
+                panelWindow.contentView = panel
+                panelWindow.orderFront(nil)
+                defer { panelWindow.contentView = nil; panelWindow.close() }
+                try await Task.sleep(for: .milliseconds(200))
+                panel.layoutSubtreeIfNeeded()
+                try capture(panel, name: "Downloads \(scheme == .dark ? "dark" : "light")")
+            }
+        }
+    }
+
     func testSiteControlPopoverFitsLightDarkAndPrivateCaptureStates() async throws {
         for isPrivate in [false, true] {
             let engine = TestEngine(EngineID(rawValue: "site-controls-fixture"))
@@ -334,11 +359,20 @@ final class UITests: XCTestCase {
                         panel.layoutSubtreeIfNeeded()
                         panel.displayIfNeeded()
                         connectionTree = accessibilityTree(in: panel).joined(separator: "\n")
-                        if connectionTree.contains("Certificate Chain")
-                            && connectionTree.contains("Some certificate details aren’t shown.") { break }
+                        if connectionTree.contains("Certificate 1") { break }
                         try await Task.sleep(for: .milliseconds(25))
                     }
-                    XCTAssertTrue(connectionTree.contains("Certificate Chain"))
+                    XCTAssertTrue(connectionTree.contains("Certificate 1"))
+                    XCTAssertFalse(connectionTree.contains("Issued to"))
+                    try capture(panel, name: "Site controls collapsed \(isPrivate ? "private" : "normal") \(scheme == .dark ? "dark" : "light")")
+                    let certificateCandidate = await accessibilityButton("Certificate 1", in: panelWindow, hosting: panel)
+                    let certificateButton = try XCTUnwrap(certificateCandidate)
+                    XCTAssertEqual(certificateButton.accessibilityPerformPress?(), true)
+                    try await Task.sleep(for: .milliseconds(200))
+                    panel.layoutSubtreeIfNeeded()
+                    connectionTree = accessibilityTree(in: panel).joined(separator: "\n")
+                    XCTAssertTrue(connectionTree.contains("Issued to"))
+                    XCTAssertFalse(connectionTree.contains("Certificate Chain"))
                     XCTAssertTrue(connectionTree.contains("Some certificate details aren’t shown."))
                     // The certificate task changes the intrinsic height after the window is first shown.
                     for _ in 0..<2 {
@@ -1358,6 +1392,32 @@ final class UITests: XCTestCase {
         }
     }
 
+    func testSpaceSwipeFromFocusedPageToEmptySpaceDoesNotFocusAddress() async throws {
+        try await withWindow { model, nativeWindow, hosting in
+            let work = try XCTUnwrap(model.spaces.last)
+            model.addTab(url: URL(string: "about:blank")!)
+            try await Task.sleep(for: .milliseconds(200))
+            hosting.layoutSubtreeIfNeeded()
+            let page = try XCTUnwrap(model.selectedPage)
+            page.focus()
+            XCTAssertTrue(nativeWindow.firstResponder === page.nativeView)
+            let swipe = try XCTUnwrap(swipeView(in: hosting))
+            swipe.progress(-75, -150)
+            await Task.yield()
+            swipe.finish(false)
+            try await Task.sleep(for: .milliseconds(500))
+            XCTAssertEqual(model.record.selectedSpaceID, work.id)
+            XCTAssertNil(model.selectedTab)
+            XCTAssertFalse(model.isEditingAddress)
+            XCTAssertNotEqual((nativeWindow.firstResponder as? NSTextView)?.isFieldEditor, true)
+            XCTAssertTrue(nativeWindow.firstResponder === hosting)
+            model.focusAddress()
+            try await Task.sleep(for: .milliseconds(150))
+            XCTAssertTrue(model.isEditingAddress)
+            XCTAssertEqual((nativeWindow.firstResponder as? NSTextView)?.isFieldEditor, true)
+        }
+    }
+
     func testSpaceSwipePreviewsThenSwitchesOnReleaseAndSettlesOrCancels() async throws {
         try await withWindow { model, _, hosting in
             await model.app.contentBlocker?.waitUntilReady()
@@ -1837,4 +1897,18 @@ final class UITests: XCTestCase {
             try png.write(to: outputDirectory.appendingPathComponent(filename), options: .atomic)
         }
     }
+}
+
+@MainActor private final class DownloadIconFixture: EngineDownload {
+    let id = UUID()
+    let suggestedFilename: String
+    var window: NSWindow? { nil }
+    var onProgress: ((Double?) -> Void)?
+    var onDestination: ((String, @escaping (URL?) -> Void) -> Void)?
+    var onFinish: (() -> Void)?
+    var onFailure: ((Error) -> Void)?
+    init(name: String) { suggestedFilename = name }
+    func start() {}
+    func cancel(completion: @escaping () -> Void) { completion() }
+    func detach() {}
 }

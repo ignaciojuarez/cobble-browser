@@ -15,7 +15,7 @@ enum BrowserCommand: Int, CaseIterable, Identifiable {
     var explanation: String? {
         switch self {
         case .unload: String(localized: "Unloading discards unsaved forms and this page’s back/forward history. The tab stays; reload to open it again.")
-        case .reloadFromOrigin: String(localized: "Revalidates this page with its origin. Valid cached resources may be reused; cookies and website data stay.")
+        case .reloadFromOrigin: String(localized: "Reloads from the website: Chromium bypasses its cache; WebKit revalidates cached resources. Cookies and website data stay.")
         default: nil
         }
     }
@@ -48,7 +48,7 @@ enum BrowserCommand: Int, CaseIterable, Identifiable {
         case .resetSavedURL: "Reset to Saved URL"
         case .saveCurrentURL: "Use Current URL as Saved Destination"
         case .sidebar: "Toggle Sidebar"
-        case .reloadFromOrigin: "Reload from Origin"
+        case .reloadFromOrigin: "Force Reload"
         case .reload: "Reload"
         case .stop: "Stop Loading"
         case .zoomIn: "Zoom In"
@@ -113,7 +113,7 @@ enum BrowserCommand: Int, CaseIterable, Identifiable {
         case .findPrevious: BrowserShortcut("g", [.command, .shift])
         case .resetSavedURL, .saveCurrentURL: BrowserShortcut("")
         case .sidebar: BrowserShortcut("s")
-        case .reloadFromOrigin: BrowserShortcut("r", [.command, .option])
+        case .reloadFromOrigin: BrowserShortcut("r", [.command, .shift])
         case .reload: BrowserShortcut("r")
         case .stop: BrowserShortcut(".")
         case .zoomIn: BrowserShortcut("+")

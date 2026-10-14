@@ -699,7 +699,9 @@ struct SiteControlPopover: View {
     @Bindable var window: BrowserWindowModel
     @State private var connectionDetails: PageConnectionDetails?
     @State private var connectionDetailsError: String?
-    @State private var connectionDetailsHeight: CGFloat = 180
+    @State private var connectionDetailsHeight: CGFloat = 140
+    @State private var certificateExpanded = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     var dismiss: () -> Void = {}
     private var origin: String? {
         window.selectedTab?.url.flatMap(AddressResolver.canonicalOrigin)
@@ -742,12 +744,11 @@ struct SiteControlPopover: View {
                         && button.bounds.contains(button.convert(event?.locationInWindow ?? .zero, from: nil))
                     window.sharePage(from: mouseDown ? button : nil)
                 }
-                .frame(width: 44, height: 32)
+                .frame(maxWidth: .infinity).frame(height: 32)
                 if capabilities.pageOperations.contains(.snapshot) {
                     action(.screenshot, symbol: "camera")
                 }
                 action(.copyURL, symbol: "link")
-                Spacer(minLength: 0)
             }
             if window.selectedPage?.state.blockedPopup == true {
                 Label("A popup was blocked.", systemImage: "macwindow.badge.plus")
@@ -798,30 +799,48 @@ struct SiteControlPopover: View {
             if let error = window.app.siteSettings.lastError {
                 Text(error).font(.caption).foregroundStyle(.red)
             }
-            Divider()
-            HStack {
+            ChromeDivider()
+            if let details = connectionDetails {
+                ForEach(connectionIssues(details), id: \.self) { issue in
+                    Label(issue, systemImage: "exclamationmark.triangle")
+                        .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                }
+            }
+            HStack(spacing: 6) {
                 Label(connectionTitle, systemImage: connectionSymbol)
                     .font(.callout.weight(.medium))
                     .foregroundStyle([.mixed, .insecure].contains(window.pageConnection) ? Color.orange : Color.secondary)
-                    .padding(.horizontal, 10)
-                    .frame(height: 32)
+                    .padding(.horizontal, 8)
+                    .frame(height: 28)
                     .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
                     .help(connectionText)
                     .accessibilityLabel(connectionText)
-                Spacer()
-                Menu {
-                    pageActions
-                } label: {
-                    Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium))
-                        .frame(width: 32, height: 32)
+                if let details = connectionDetails, details.certificate != nil || !details.certificateChain.isEmpty {
+                    Button {
+                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { certificateExpanded.toggle() }
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "checkmark.seal")
+                            Text(String(format: String(localized: "Certificate %@"),
+                                String(max(details.certificateChain.count, details.certificate == nil ? 0 : 1))))
+                            Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
+                                .rotationEffect(.degrees(certificateExpanded ? 180 : 0))
+                        }
+                        .font(.callout.weight(.medium)).padding(.horizontal, 8).frame(height: 28)
+                        .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                    }
+                    .accessibilityValue(certificateExpanded ? String(localized: "Expanded") : String(localized: "Collapsed"))
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                Spacer(minLength: 0)
+                Menu { pageActions } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium))
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                .frame(width: 28, height: 28)
                 .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .help(String(localized: "Page Actions")).accessibilityLabel(String(localized: "Page Actions"))
+                .help(String(localized: "Page Actions")).accessibilityLabel(String(localized: "Page Actions"))
             }
-            if let details = connectionDetails,
-               details.certificate != nil || !details.certificateChain.isEmpty
-                || details.certificateChainTruncated || !connectionIssues(details).isEmpty {
+            if certificateExpanded, let details = connectionDetails {
                 connectionDetailsView(details)
             }
             if let connectionDetailsError {
@@ -837,71 +856,45 @@ struct SiteControlPopover: View {
     }
 
     @ViewBuilder private func connectionDetailsView(_ details: PageConnectionDetails) -> some View {
-        let issues = connectionIssues(details)
         ScrollView {
-            connectionDetailsContent(details, issues: issues)
+            connectionDetailsContent(details)
                 .onGeometryChange(for: CGFloat.self) { proxy in
                     proxy.size.height
                 } action: { height in
                     connectionDetailsHeight = height
                 }
         }
-        .frame(height: min(connectionDetailsHeight, 180))
+        .frame(height: min(connectionDetailsHeight, 140))
     }
 
-    @ViewBuilder private func connectionDetailsContent(_ details: PageConnectionDetails,
-                                                        issues: [String]) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let certificate = details.certificate {
-                Text("Certificate").font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                Text(certificate.subject).font(.caption).lineLimit(2)
-                    .help(certificate.subject).textSelection(.enabled)
-                let issuer = String(format: String(localized: "Issued by %@"), certificate.issuer)
-                Text(issuer).font(.caption).lineLimit(2)
-                    .help(issuer).textSelection(.enabled)
-                if let from = certificate.validFrom, let until = certificate.validUntil {
-                    Text(String(format: String(localized: "Valid %@ – %@"),
-                        from.formatted(date: .abbreviated, time: .omitted),
-                        until.formatted(date: .abbreviated, time: .omitted))).font(.caption)
-                }
-            }
-            if !details.certificateChain.isEmpty || details.certificateChainTruncated {
-                DisclosureGroup {
-                    ForEach(Array(details.certificateChain.enumerated()), id: \.offset) { index, certificate in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(index == 0 ? String(localized: "Leaf certificate")
-                                : String(format: String(localized: "Certificate %@"), "\(index + 1)"))
-                                .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
-                            Text(certificate.subject).font(.caption).lineLimit(2)
-                                .help(certificate.subject).textSelection(.enabled)
-                            let issuer = String(format: String(localized: "Issued by %@"), certificate.issuer)
-                            Text(issuer).font(.caption).lineLimit(2)
-                                .help(issuer).textSelection(.enabled)
-                            if let from = certificate.validFrom, let until = certificate.validUntil {
-                                Text(String(format: String(localized: "Valid %@ – %@"),
-                                    from.formatted(date: .abbreviated, time: .omitted),
-                                    until.formatted(date: .abbreviated, time: .omitted))).font(.caption)
-                            }
-                        }
+    @ViewBuilder private func connectionDetailsContent(_ details: PageConnectionDetails) -> some View {
+        let certificates = details.certificateChain.isEmpty ? details.certificate.map { [$0] } ?? [] : details.certificateChain
+        VStack(alignment: .leading, spacing: 10) {
+            ForEach(Array(certificates.enumerated()), id: \.offset) { index, certificate in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(index == 0 ? String(localized: "Issued to")
+                        : String(format: String(localized: "Certificate %@"), String(index + 1)))
+                        .font(.caption.weight(.semibold)).foregroundStyle(.secondary)
+                    Text(certificate.subject).font(.caption).fixedSize(horizontal: false, vertical: true)
+                        .textSelection(.enabled)
+                    Text(String(format: String(localized: "Issued by %@"), certificate.issuer))
+                        .font(.caption).fixedSize(horizontal: false, vertical: true).textSelection(.enabled)
+                    if let from = certificate.validFrom, let until = certificate.validUntil {
+                        Text(String(format: String(localized: "Valid %@ – %@"),
+                            from.formatted(date: .abbreviated, time: .omitted),
+                            until.formatted(date: .abbreviated, time: .omitted))).font(.caption)
                     }
-                } label: {
-                    Text("Certificate Chain").font(.caption.weight(.semibold))
-                }
-                if details.certificateChainTruncated {
-                    Text("Some certificate details aren’t shown.")
-                        .font(.caption).foregroundStyle(.secondary)
-                        .accessibilityLabel("Some certificate details aren’t shown.")
                 }
             }
-            ForEach(issues, id: \.self) { issue in
-                Label(issue, systemImage: "exclamationmark.triangle")
-                    .font(.caption).foregroundStyle(.orange).lineLimit(2).help(issue)
+            if details.certificateChainTruncated {
+                Text("Some certificate details aren’t shown.").font(.caption).foregroundStyle(.secondary)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func loadConnectionDetails() async {
+        certificateExpanded = false
         connectionDetails = nil
         connectionDetailsError = nil
         guard let host = window.selectedPage,
@@ -940,7 +933,7 @@ struct SiteControlPopover: View {
     private func action(_ command: BrowserCommand, symbol: String) -> some View {
         Button { run(command) } label: {
             Image(systemName: symbol).font(.system(size: 15, weight: .medium))
-                .frame(width: 44, height: 32)
+                .frame(maxWidth: .infinity).frame(height: 32)
                 .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
         }
         .buttonStyle(.plain)
@@ -968,7 +961,7 @@ struct SiteControlPopover: View {
         Button("Zoom In") { window.perform(.zoomIn) }.disabled(!window.canPerform(.zoomIn))
         Button("Zoom Out") { window.perform(.zoomOut) }.disabled(!window.canPerform(.zoomOut))
         Button("Actual Size") { window.perform(.zoomReset) }.disabled(!window.canPerform(.zoomReset))
-        Button("Reload from Origin") { run(.reloadFromOrigin) }.disabled(!window.canPerform(.reloadFromOrigin))
+        Button(BrowserCommand.reloadFromOrigin.title) { run(.reloadFromOrigin) }.disabled(!window.canPerform(.reloadFromOrigin))
             .help(BrowserCommand.reloadFromOrigin.explanation!)
         Divider()
         Button(window.selectedPage?.state.isAudioMuted == true ? String(localized: "Unmute Tab") : String(localized: "Mute Tab")) {
@@ -1149,7 +1142,7 @@ private struct SiteShareButton: NSViewRepresentable {
         view.share = share
     }
     func sizeThatFits(_ proposal: ProposedViewSize, nsView: ShareButton, context: Context) -> CGSize? {
-        CGSize(width: 44, height: 32)
+        CGSize(width: proposal.width ?? 44, height: 32)
     }
     final class ShareButton: NSButton {
         var share: ((NSButton) -> Void)?

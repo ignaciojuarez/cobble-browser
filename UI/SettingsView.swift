@@ -801,9 +801,12 @@ struct DownloadsView: View {
             }
             VStack(alignment: .leading) {
                 List(store.entries) { item in
+                    HStack(alignment: .top, spacing: 10) {
+                        Image(nsImage: fileIcon(item)).resizable().scaledToFit()
+                            .frame(width: 32, height: 32).accessibilityHidden(true)
                         VStack(alignment: .leading, spacing: 5) {
                             HStack {
-                                Text(item.name).lineLimit(1)
+                                Text(item.name).lineLimit(1).truncationMode(.middle).help(item.name)
                                 if item.isPrivate { Image(systemName: "hand.raised").help("Private download") }
                                 Spacer()
                                 if item.status == .finished {
@@ -832,8 +835,11 @@ struct DownloadsView: View {
                                 else { ProgressView() }
                             }
                             Text(item.isRetrying ? String(localized: "Retrying…") : item.errorMessage ?? item.status.label).font(.caption).foregroundStyle(.secondary)
-                        }.padding(.vertical, 4)
+                        }
+                    }.padding(.vertical, 6)
                         .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                        .overlay(alignment: .bottom) { ChromeDivider().padding(.leading, 42) }
                 }
                 .listStyle(.plain)
                 .scrollContentBackground(.hidden)
@@ -846,6 +852,14 @@ struct DownloadsView: View {
             .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+    }
+
+    private func fileIcon(_ item: DownloadItem) -> NSImage {
+        if item.status == .finished, let url = item.destinationURL,
+           FileManager.default.fileExists(atPath: url.path) {
+            return NSWorkspace.shared.icon(forFile: url.path)
+        }
+        return NSWorkspace.shared.icon(for: UTType(filenameExtension: (item.name as NSString).pathExtension) ?? .data)
     }
 }
 
