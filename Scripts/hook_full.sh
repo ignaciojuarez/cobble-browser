@@ -5,7 +5,7 @@
 set -euo pipefail
 
 ROOT="${ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-BUILD_TOOLS_ROOT="${BUILD_TOOLS_ROOT:-${BUILD_TOOLS:-$HOME/Developer/build-kit}}"
+BUILD_TOOLS_ROOT="${BUILD_TOOLS_ROOT:-${BUILD_TOOLS:-$HOME/Developer/kiwios/tools/build-runners}}"
 FULL_APP="$ROOT/.context/Cobble.app"
 CHROMIUM_BUILD="${COBBLE_CHROMIUM_BUILD:-$HOME/Developer/cobble-chromium-build}"
 CHROMIUM_APP="${COBBLE_CHROMIUM_APP:-$CHROMIUM_BUILD/next-stable/src/out/Cobble/Chromium.app}"

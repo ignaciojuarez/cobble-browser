@@ -1,5 +1,5 @@
 #!/bin/bash
-# Thin wrapper around $HOME/Developer/build-kit/macos/run.sh
+# Thin wrapper around $HOME/Developer/kiwios/tools/build-runners/macos/run.sh
 #   ./Scripts/run.sh local              → terminal menu (Fast / Full)
 #   ./Scripts/run.sh local fast|full
 #   ./Scripts/run.sh remote fast|full   → mode required; no menu
@@ -18,11 +18,11 @@ if [[ -f "$LOCAL_CONFIG" ]]; then
   source "$LOCAL_CONFIG"
   set +a
 fi
-TOOLS="${BUILD_TOOLS:-$HOME/Developer/build-kit}"
+TOOLS="${BUILD_TOOLS:-$HOME/Developer/kiwios/tools/build-runners}"
 RUNNER="$TOOLS/macos/run.sh"
 
 [[ -x "$RUNNER" ]] || {
-  printf 'error: clone ignaciojuarez/build-kit to %s\n' "$TOOLS" >&2
+  printf 'error: KiwiOS build runners missing at %s\n' "$TOOLS" >&2
   exit 1
 }
 

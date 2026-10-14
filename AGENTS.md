@@ -46,8 +46,8 @@ GitHub CI excludes three `WebKitAudioMuteTests` playback fixtures that hang
 with IOSurface failures on its runner; run them locally before changing media
 behavior. The capture-history safety test remains in CI. CI test timeouts turn
 other hangs into failures. For launch
-and Full packaging, `Scripts/run.sh` uses `build-kit` at
-`$HOME/Developer/build-kit` by default; `BUILD_TOOLS` selects another checkout.
+and Full packaging, `Scripts/run.sh` uses the KiwiOS build runners at
+`$HOME/Developer/kiwios/tools/build-runners` by default; `BUILD_TOOLS` selects another checkout.
 `./Scripts/run.sh local fast` launches WebKit. With the matching Chromium SDK
 and prebuilt runtime, `./Scripts/run.sh local full` packages both engines; it
 does not compile Chromium. `swift test` runs Chromium adapter checks when the
