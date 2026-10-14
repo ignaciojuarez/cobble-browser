@@ -123,7 +123,7 @@ struct SidebarView: View {
     @State private var hoveredSpaceHeader = false
     @State private var hoveredNewTab = false
     @FocusState private var focusedRowAction: UUID?
-    @State private var swipeTranslation = 0.0
+    @State private var swipeMotion = SidebarSwipeMotion()
     @State private var settlingSwipe: UUID?
     @State private var swipe: SidebarSwipeSession?
     @State private var swipeDirection = 1
@@ -150,7 +150,7 @@ struct SidebarView: View {
                             Color.clear.frame(height: 0).id("sidebar.top")
                             pinGrid(favorites, width: contentWidth, kind: .favorite, group: .favorites, trackDrop: swipe == nil)
                                 .padding(.bottom, ThemeMetrics.spacing * 2)
-                            spacePages(width: contentWidth, translation: swipeTranslation)
+                            spacePages(width: contentWidth)
                         }
                         .frame(width: contentWidth, alignment: .leading)
                         .padding(.horizontal, ThemeMetrics.spacing)
@@ -258,45 +258,39 @@ struct SidebarView: View {
     }
 
     // Panel identities stay anchored to the gesture while the active page changes.
-    private func spacePages(width: Double, translation: Double) -> some View {
+    private func spacePages(width: Double) -> some View {
         let current = swipe.flatMap { gesture in window.spaces.first { $0.id == gesture.sourceSpaceID } } ?? window.selectedSpace
         let direction = swipeDirection
         let neighbor = swipe.flatMap { gesture in
             gesture.neighbor(offset: direction).flatMap { id in window.spaces.first { $0.id == id } }
         }
         let distance = Double(direction) * (swipe?.width ?? width)
-        let fraction = min(1, abs(translation) / max(1, swipe?.width ?? width))
-        return ZStack(alignment: .topLeading) {
-            if let current {
-                spaceContent(current, trackDrop: swipe == nil)
-                    .offset(x: reduceMotion ? 0 : translation)
-                    .opacity(reduceMotion ? 1 - fraction : 1)
-            }
+        return SidebarSwipePages(motion: swipeMotion, width: width, distance: distance, reduceMotion: reduceMotion) {
+            if let current { spaceContent(current, trackDrop: swipe == nil) }
+        } neighbor: {
             if let neighbor {
                 spaceContent(neighbor, trackDrop: false)
-                    .offset(x: reduceMotion ? 0 : translation + distance)
-                    .opacity(reduceMotion ? fraction : 1)
                     .allowsHitTesting(false)
                     .accessibilityHidden(true)
             }
         }
-        .frame(width: width, alignment: .topLeading)
         .allowsHitTesting(swipe == nil)
     }
 
     private func updateSwipe(translation: Double, intent: Double, width: Double) {
         guard settlingSwipe == nil else { return }
-        var gesture = swipe ?? SidebarSwipeSession(window: window, width: width)
+        let gesture = swipe ?? SidebarSwipeSession(window: window, width: width)
         guard gesture.matchesSelection(in: window) else { resetSwipe(); return }
         var transaction = Transaction(); transaction.disablesAnimations = true
         withTransaction(transaction) {
-            gesture.update(translation: intent)
-            swipe = gesture
-            if translation != 0 { swipeDirection = translation < 0 ? 1 : -1 }
+            swipeMotion.intent = intent
+            if swipe == nil { swipe = gesture }
+            let direction = translation < 0 ? 1 : -1
+            if translation != 0, swipeDirection != direction { swipeDirection = direction }
             if gesture.neighbor(offset: translation < 0 ? 1 : -1) == nil {
-                swipeTranslation = max(-24, min(24, translation * 0.15))
+                swipeMotion.translation = max(-24, min(24, translation * 0.15))
             } else {
-                swipeTranslation = max(-gesture.width, min(gesture.width, translation))
+                swipeMotion.translation = max(-gesture.width, min(gesture.width, translation))
             }
         }
     }
@@ -304,37 +298,30 @@ struct SidebarView: View {
     private func finishSwipe(cancelled: Bool) {
         guard var gesture = swipe, settlingSwipe == nil else { return }
         guard gesture.matchesSelection(in: window) else { resetSwipe(); return }
+        gesture.update(translation: swipeMotion.intent)
         let completes = !cancelled && gesture.activeOffset != nil
         if cancelled { gesture.cancel() }
         swipe = gesture
-        if completes { swipeTopRequest += 1 }
         if reduceMotion {
             if completes { gesture.commit(in: window) }
             resetSwipe()
             return
         }
-        let settledGesture = gesture
         let token = UUID()
         settlingSwipe = token
-        withAnimation(.spring(duration: 0.25, bounce: 0), completionCriteria: .removed) {
-            swipeTranslation = -Double(gesture.activeOffset ?? 0) * gesture.width
-        } completion: {
+        withAnimation(.easeOut(duration: 0.18)) {
+            swipeMotion.translation = -Double(gesture.activeOffset ?? 0) * gesture.width
+        }
+        if completes {
+            // Reveal the retained destination immediately; only sidebar cleanup waits.
+            gesture.commit(in: window, deferPageActivation: true)
+            swipe = gesture
+        }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(180))
             guard settlingSwipe == token else { return }
-            if completes && settledGesture.matchesSelection(in: window) {
-                var committed = settledGesture
-                committed.commit(in: window)
-            }
             resetSwipe()
             if completes { swipeTopRequest += 1 }
-        }
-        guard completes else { return }
-        Task { @MainActor in
-            // Give the swipe a frame's head start before page creation can block the main thread.
-            try? await Task.sleep(for: .milliseconds(16))
-            guard settlingSwipe == token, settledGesture.matchesSelection(in: window) else { return }
-            var committed = settledGesture
-            committed.commit(in: window)
-            swipe = committed
         }
     }
 
@@ -343,16 +330,17 @@ struct SidebarView: View {
     }
 
     private func resetSwipe() {
-        guard swipe != nil || settlingSwipe != nil || swipeTranslation != 0 else { return }
+        guard swipe != nil || settlingSwipe != nil || swipeMotion.translation != 0 else { return }
         var transaction = Transaction(); transaction.disablesAnimations = true
-        withTransaction(transaction) { swipeTranslation = 0; settlingSwipe = nil; swipe = nil }
+        withTransaction(transaction) { swipeMotion.translation = 0; settlingSwipe = nil; swipe = nil }
+        window.resumeDeferredPageActivation()
     }
 
     @ViewBuilder
     private func spaceContent(_ space: Space, trackDrop: Bool) -> some View {
         let pins = window.pins(in: space.id)
         let tabs = window.record.tabs.filter { $0.spaceID == space.id && $0.savedItemID == nil }
-        VStack(alignment: .leading, spacing: 5) {
+        LazyVStack(alignment: .leading, spacing: 5) {
             HStack {
                 if let icon = space.icon {
                     Text(icon).font(.headline)
@@ -384,7 +372,7 @@ struct SidebarView: View {
             .onHover { hoveredSpaceHeader = $0 }
             .contextMenu { spaceActions }
             .onGeometryChange(for: CGFloat.self) {
-                $0.frame(in: .named(SidebarDrop.spaceName)).midY
+                trackDrop ? $0.frame(in: .named(SidebarDrop.spaceName)).midY : 0
             } action: { midY in
                 if trackDrop { dropSession.favoritesActivationMaxY = midY }
             }
@@ -1445,8 +1433,42 @@ private struct SidebarOrganizationEditor: View {
     }
 }
 
-@MainActor
-struct SidebarSwipeSession {
+// Only this small view observes per-event movement; sidebar rows stay unchanged.
+@MainActor @Observable private final class SidebarSwipeMotion {
+    var translation = 0.0
+    @ObservationIgnored var intent = 0.0
+}
+
+private struct SidebarSwipePages<Current: View, Neighbor: View>: View {
+    let motion: SidebarSwipeMotion
+    let width: Double
+    let distance: Double
+    let reduceMotion: Bool
+    let current: Current
+    let neighbor: Neighbor
+
+    init(motion: SidebarSwipeMotion, width: Double, distance: Double, reduceMotion: Bool,
+         @ViewBuilder current: () -> Current, @ViewBuilder neighbor: () -> Neighbor) {
+        self.motion = motion; self.width = width; self.distance = distance; self.reduceMotion = reduceMotion
+        self.current = current(); self.neighbor = neighbor()
+    }
+
+    var body: some View {
+        let translation = motion.translation
+        let fraction = min(1, abs(translation) / max(1, abs(distance)))
+        ZStack(alignment: .topLeading) {
+            current
+                .offset(x: reduceMotion ? 0 : translation)
+                .opacity(reduceMotion ? 1 - fraction : 1)
+            neighbor
+                .offset(x: reduceMotion ? 0 : translation + distance)
+                .opacity(reduceMotion ? fraction : 1)
+        }
+        .frame(width: width, alignment: .topLeading)
+    }
+}
+
+@MainActor struct SidebarSwipeSession {
     let sourceSpaceID: UUID
     let sourceTabID: UUID?
     let width: Double
@@ -1480,9 +1502,9 @@ struct SidebarSwipeSession {
         activeOffset = proposed.flatMap { neighbor(offset: $0) == nil ? nil : $0 }
     }
 
-    mutating func commit(in window: BrowserWindowModel) {
+    mutating func commit(in window: BrowserWindowModel, deferPageActivation: Bool = false) {
         guard let activeOffset, let id = neighbor(offset: activeOffset) else { return }
-        window.selectSpace(id)
+        window.selectSpace(id, deferPageActivation: deferPageActivation)
         expectedSpaceID = window.record.selectedSpaceID
         expectedTabID = window.record.selectedTabID
     }
@@ -1520,7 +1542,7 @@ struct SidebarSwipeTracker {
             axis = false
         }
         guard axis == true else { return (false, 0, horizontal) }
-        let target = horizontal / 2
+        let target = horizontal
         if let timestamp {
             let elapsed = lastTimestamp.map { min(1.0 / 30, max(0, timestamp - $0)) } ?? 1.0 / 120
             let limit = Self.maximumSpeed * elapsed

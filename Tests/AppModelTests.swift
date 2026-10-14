@@ -544,9 +544,9 @@ final class AppModelTests: XCTestCase {
         var tracker = SidebarSwipeTracker()
         XCTAssertFalse(tracker.update(x: -4, y: 1).consume)
         XCTAssertEqual(tracker.update(x: -75, y: 2).translation,
-                       (-4 + SidebarSwipeTracker.distanceDelta(-75)) / 2, accuracy: 0.000_001)
+                       -4 + SidebarSwipeTracker.distanceDelta(-75), accuracy: 0.000_001)
         XCTAssertEqual(tracker.update(x: 100, y: 0).translation,
-                       (-4 + SidebarSwipeTracker.distanceDelta(-75) + SidebarSwipeTracker.distanceDelta(100)) / 2,
+                       -4 + SidebarSwipeTracker.distanceDelta(-75) + SidebarSwipeTracker.distanceDelta(100),
                        accuracy: 0.000_001)
         tracker.reset()
         XCTAssertFalse(tracker.update(x: 2, y: 20).consume)
@@ -581,7 +581,7 @@ final class AppModelTests: XCTestCase {
                 XCTAssertTrue(before.consume)
                 XCTAssertNil(SidebarSwipeTracker.destination(translation: before.intent, width: width))
                 let crossing = tracker.update(x: sign * 0.25, y: 0)
-                XCTAssertEqual(crossing.translation, sign * threshold / 2, accuracy: 0.000_001)
+                XCTAssertEqual(crossing.translation, sign * threshold, accuracy: 0.000_001)
                 XCTAssertEqual(SidebarSwipeTracker.destination(translation: crossing.intent, width: width), sign < 0 ? 1 : -1)
                 let reverse = tracker.update(x: -sign * 0.25, y: 0)
                 XCTAssertNil(SidebarSwipeTracker.destination(translation: reverse.intent, width: width))
@@ -592,7 +592,7 @@ final class AppModelTests: XCTestCase {
     func testSpaceSwipeCapsVisualSpeedWithoutChangingCommitIntent() {
         var tracker = SidebarSwipeTracker()
         let first = tracker.update(x: 10, y: 0, timestamp: 0)
-        XCTAssertEqual(first.translation, SidebarSwipeTracker.distanceDelta(10) / 2)
+        XCTAssertEqual(first.translation, SidebarSwipeTracker.distanceDelta(10))
         let burst = tracker.update(x: 100, y: 0, timestamp: 1.0 / 120)
         XCTAssertEqual(burst.translation, first.translation + SidebarSwipeTracker.maximumSpeed / 120)
         XCTAssertEqual(burst.intent, SidebarSwipeTracker.distanceDelta(10) + SidebarSwipeTracker.distanceDelta(100), accuracy: 0.000_001)

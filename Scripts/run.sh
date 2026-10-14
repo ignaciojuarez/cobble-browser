@@ -64,4 +64,10 @@ if [[ "$MODE" == full ]]; then
   ROOT="$ROOT" bash "$ROOT/Scripts/hook_full.sh"
 fi
 
-exec "$RUNNER" --root="$ROOT" ${PASSTHRU[@]+"${PASSTHRU[@]}"}
+# The shared runner initializes these variables again; pass inherited settings
+# as defaults before user arguments so explicit command-line choices still win.
+RUNNER_ARGS=(--root="$ROOT")
+[[ -z "${XCODE_APP:-}" ]] || RUNNER_ARGS+=(--xcode="$XCODE_APP")
+[[ -z "${TEAM_ID:-}" ]] || RUNNER_ARGS+=(--team="$TEAM_ID")
+[[ -z "${SEND_TARGET:-}" ]] || RUNNER_ARGS+=(--send-target="$SEND_TARGET")
+exec "$RUNNER" "${RUNNER_ARGS[@]}" ${PASSTHRU[@]+"${PASSTHRU[@]}"}

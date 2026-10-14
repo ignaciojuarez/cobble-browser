@@ -862,7 +862,9 @@ private struct SidebarDropFrameModifier: ViewModifier {
     @State private var registration = UUID()
 
     func body(content: Content) -> some View {
-        content.onGeometryChange(for: CGRect.self) { $0.frame(in: .named(SidebarDrop.spaceName)) } action: { frame in
+        content.onGeometryChange(for: CGRect.self) {
+            row == nil ? .zero : $0.frame(in: .named(SidebarDrop.spaceName))
+        } action: { frame in
             guard var row else { return }
             row.frame = frame
             session.upsert(row, registration: registration)
