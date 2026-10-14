@@ -107,6 +107,8 @@ import XCTest
                          selectCertificate: Bool) async throws -> (data: Data, authorities: [Data]) {
         let portFile = directory.appendingPathComponent("port-\(UUID())")
         let server = Process()
+        let errors = Pipe()
+        server.standardError = errors
         server.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
         server.arguments = ["-c", Self.serverScript, directory.path, portFile.path]
         try server.run()
@@ -114,8 +116,17 @@ import XCTest
             if server.isRunning { server.terminate() }
             server.waitUntilExit()
         }
-        for _ in 0..<200 where !FileManager.default.fileExists(atPath: portFile.path) {
-            try await Task.sleep(for: .milliseconds(10))
+        let deadline = ContinuousClock.now + .seconds(10)
+        while !FileManager.default.fileExists(atPath: portFile.path), server.isRunning,
+              ContinuousClock.now < deadline {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        guard FileManager.default.fileExists(atPath: portFile.path) else {
+            if !server.isRunning {
+                let reason = String(decoding: errors.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+                throw EngineError.notReady("The mutual TLS test server exited: \(reason)")
+            }
+            throw EngineError.notReady("The mutual TLS test server did not start before the deadline")
         }
         let port = try Int(String(contentsOf: portFile, encoding: .utf8))
             .flatMap { $0 } ?? { throw CocoaError(.fileReadCorruptFile) }()

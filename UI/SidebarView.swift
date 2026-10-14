@@ -303,8 +303,12 @@ struct SidebarView: View {
         if cancelled { gesture.cancel() }
         swipe = gesture
         if reduceMotion {
-            if completes { gesture.commit(in: window) }
             resetSwipe()
+            if completes {
+                gesture.commit(in: window, deferPageActivation: true)
+                swipeTopRequest += 1
+                window.resumeDeferredPageActivation()
+            }
             return
         }
         let token = UUID()
