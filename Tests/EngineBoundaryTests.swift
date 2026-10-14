@@ -1935,6 +1935,7 @@ import SQLite3
     var delayPreparation = false
     var delayClosure = false
     var contextCreationFailure = false
+    var onMakePage: (() -> Void)?
     var websiteDataFailure = false
     init(_ id: EngineID) { self.id = id }
     func makeContext(profile: Profile, id: BrowsingContextID, siteSettings: SiteSettingsStore) throws -> any EngineContext {
@@ -1977,6 +1978,7 @@ import SQLite3
     let data = WebsiteDataRecord(id: UUID(), displayName: "figma.com")
     init(id: BrowsingContextID, engine: TestEngine) { self.id = id; self.engine = engine }
     func makePage(tabID: UUID, windowID: UUID) throws -> any BrowserPage {
+        engine.onMakePage?()
         pageWindowIDs.append(windowID)
         let page = TestPage(tabID: tabID, contextID: id)
         page.prepareFailure = engine.prepareFailure; page.delayPreparation = engine.delayPreparation

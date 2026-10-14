@@ -1418,6 +1418,154 @@ final class UITests: XCTestCase {
         }
     }
 
+    func testSpaceSwipeRevealsRetainedPageImmediatelyOnRelease() async throws {
+        let engine = TestEngine(.webKit)
+        try await withWindow(engine: engine) { model, _, hosting in
+            let original = model.record.selectedSpaceID
+            let work = try XCTUnwrap(model.spaces.last)
+            let tab = Tab(spaceID: work.id, title: "Retained destination")
+            model.record.tabs.append(tab)
+            model.select(tab.id)
+            let page = try XCTUnwrap(model.selectedPage)
+            model.selectSpace(original)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            let swipe = try XCTUnwrap(swipeView(in: hosting))
+            engine.onMakePage = { XCTFail("Returning to a retained page must not recreate it") }
+            defer { engine.onMakePage = nil }
+            swipe.progress(-75, -150)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            swipe.finish(false)
+            XCTAssertEqual(model.record.selectedSpaceID, work.id)
+            XCTAssertTrue(model.selectedPage === page, "The tab must not wait for the 180 ms sidebar animation")
+            try await Task.sleep(for: .milliseconds(40))
+            hosting.layoutSubtreeIfNeeded()
+            XCTAssertNotNil(page.nativeView.superview)
+            try capture(hosting, name: "Retained tab visible while sidebar settles")
+            try await Task.sleep(for: .milliseconds(200))
+            XCTAssertTrue(model.selectedPage === page)
+        }
+    }
+
+    func testSpaceSwipeReusesRenderedWebKitPageWithoutReloading() async throws {
+        try await withWindow { model, _, hosting in
+            await model.app.contentBlocker?.waitUntilReady()
+            let original = model.record.selectedSpaceID
+            let work = try XCTUnwrap(model.spaces.last)
+            let tab = Tab(spaceID: work.id, title: "Retained page")
+            model.record.tabs.append(tab)
+            model.select(tab.id)
+            let page = try XCTUnwrap(model.selectedPage as? WebKitPage)
+            page.webView.loadHTMLString("""
+                <html style="background:#174e60;color:white;font:24px system-ui;padding:40px">
+                <title>Retained page fixture</title><h1>Already-open tab</h1>
+                <p>This page stays alive while switching spaces.</p>
+                <input id="draft" value="Original draft">
+                <script>window.retainedToken = 'initial-document';</script></html>
+                """, baseURL: nil)
+            for _ in 0..<100 {
+                if page.webView.title == "Retained page fixture", !page.webView.isLoading { break }
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertEqual(page.webView.title, "Retained page fixture")
+            _ = try await page.webView.evaluateJavaScript("window.retainedToken = 'same-document'; document.getElementById('draft').value = 'Unsaved text stays here';")
+            hosting.layoutSubtreeIfNeeded()
+            try await Task.sleep(for: .milliseconds(100))
+            model.selectSpace(original)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            let swipe = try XCTUnwrap(swipeView(in: hosting))
+            swipe.progress(-75, -150)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            swipe.finish(false)
+            XCTAssertTrue(model.selectedPage === page)
+            try await Task.sleep(for: .milliseconds(40))
+            hosting.layoutSubtreeIfNeeded()
+            try capture(hosting, name: "Live retained WebKit tab at 40 ms after release")
+            let memory = try await page.webView.evaluateJavaScript("[window.retainedToken, document.getElementById('draft').value]") as? [String]
+            XCTAssertEqual(memory, ["same-document", "Unsaved text stays here"])
+            XCTAssertFalse(page.webView.isLoading)
+            try await Task.sleep(for: .milliseconds(200))
+        }
+    }
+
+    func testSpaceSwipeDrawsDestinationBeforeSlowPageCreation() async throws {
+        let enhanced = NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface")
+        let previous = NSApp.accessibilityAttributeValue(enhanced)
+        NSApp.accessibilitySetValue(true, forAttribute: enhanced)
+        defer { NSApp.accessibilitySetValue(previous, forAttribute: enhanced) }
+        let engine = TestEngine(.webKit)
+        try await withWindow(engine: engine) { model, nativeWindow, hosting in
+            let work = try XCTUnwrap(model.spaces.last)
+            let tab = Tab(spaceID: work.id, title: "Slow destination")
+            model.record.tabs.append(tab)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            let swipe = try XCTUnwrap(swipeView(in: hosting))
+            var created = false
+            engine.onMakePage = {
+                created = true
+                XCTAssertEqual(model.record.selectedSpaceID, work.id)
+                // The destination must be accessible and aligned before a blocking engine call.
+                let button = self.accessibilityButton(tab.title, in: nativeWindow)
+                XCTAssertNotNil(button, "The swipe preview must be removed before creating the page")
+                if let frame = button?.accessibilityFrame?() {
+                    let left = nativeWindow.convertToScreen(hosting.convert(hosting.bounds, to: nil)).minX
+                    XCTAssertGreaterThanOrEqual(frame.minX, left)
+                    XCTAssertLessThan(frame.minX, left + 50)
+                }
+                try? self.capture(hosting, name: "Settled sidebar before blocking page creation")
+                Thread.sleep(forTimeInterval: 0.25)
+            }
+            defer { engine.onMakePage = nil }
+            swipe.progress(-75, -150)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            swipe.finish(false)
+            XCTAssertFalse(created)
+            try await Task.sleep(for: .milliseconds(700))
+            XCTAssertTrue(created)
+            XCTAssertEqual(model.selectedPage?.tabID, tab.id)
+        }
+    }
+
+    func testSpaceSwipeDenseSidebarFrameWork() async throws {
+        try await withWindow { model, _, hosting in
+            let work = try XCTUnwrap(model.spaces.last)
+            for space in model.spaces {
+                model.app.savedItems.append(contentsOf: (0..<80).map {
+                    SavedItem(spaceID: space.id, title: "Swipe fixture pin \($0)")
+                })
+            }
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            let swipe = try XCTUnwrap(swipeView(in: hosting))
+            let original = model.record.selectedSpaceID
+            swipe.progress(-1, -2)
+            await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
+            var milliseconds: [Double] = []
+            for frame in 0..<120 {
+                let translation = -Double(1 + frame % 60) * 2
+                let start = ContinuousClock.now
+                swipe.progress(translation, translation * 2)
+                await Task.yield()
+                hosting.layoutSubtreeIfNeeded()
+                let duration = start.duration(to: .now).components
+                milliseconds.append(Double(duration.seconds) * 1_000 + Double(duration.attoseconds) / 1e15)
+            }
+            milliseconds.sort()
+            print("SWIPE_FRAME_WORK median=\(milliseconds[60])ms p95=\(milliseconds[114])ms max=\(milliseconds.last!)ms")
+            XCTAssertEqual(model.record.selectedSpaceID, original)
+            try capture(hosting, name: "Dense sidebar swipe preview")
+            swipe.finish(false)
+            try await Task.sleep(for: .milliseconds(500))
+            XCTAssertEqual(model.record.selectedSpaceID, work.id)
+        }
+    }
+
     func testSpaceSwipePreviewsThenSwitchesOnReleaseAndSettlesOrCancels() async throws {
         try await withWindow { model, _, hosting in
             await model.app.contentBlocker?.waitUntilReady()
@@ -1455,8 +1603,13 @@ final class UITests: XCTestCase {
             XCTAssertEqual(model.record.selectedSpaceID, original)
             swipe.progress(-75, -150)
             await Task.yield()
+            hosting.layoutSubtreeIfNeeded()
             swipe.finish(false)
             try await Task.sleep(for: .milliseconds(40))
+            XCTAssertEqual(model.record.selectedSpaceID, work.id)
+            XCTAssertNil(model.selectedPage, "Page creation must not interrupt the settling animation")
+            try capture(hosting, name: "Space swipe settling before page creation")
+            try await Task.sleep(for: .milliseconds(300))
             XCTAssertEqual(model.record.selectedSpaceID, work.id)
             XCTAssertEqual(model.record.selectedTabID, tab.id)
             let destinationHost = try XCTUnwrap(model.selectedPage)

@@ -1,5 +1,6 @@
 import AppKit
 import Observation
+import QuartzCore
 
 @MainActor @Observable
 final class BrowserWindowModel: Identifiable {
@@ -39,6 +40,7 @@ final class BrowserWindowModel: Identifiable {
     @ObservationIgnored private var generations: [UUID: UUID] = [:]
     @ObservationIgnored private(set) var closedTabs: [Tab] = []
     @ObservationIgnored private var loads: [UUID: UUID] = [:]
+    @ObservationIgnored private var deferredPageActivation: UUID?
     @ObservationIgnored private var switches: [UUID: UUID] = [:]
     @ObservationIgnored private var closeRequests: [UUID: UUID] = [:]
     @ObservationIgnored private var promptPresenters: [UUID: (tabID: UUID, presenter: PagePresenter)] = [:]
@@ -275,7 +277,7 @@ final class BrowserWindowModel: Identifiable {
     }
 
     func activateSelected() {
-        guard !isClosed, let tab = selectedTab, tab.isUnloaded != true, pages[tab.id] == nil,
+        guard deferredPageActivation == nil, !isClosed, let tab = selectedTab, tab.isUnloaded != true, pages[tab.id] == nil,
               !app.suspendedContexts.contains(contextID(for: tab.engineID)), !app.isDeletingProfile(record.profileID) else { return }
         let blocker = app.engines.engine(app.engines.effectiveID(tab.engineID))?.contentBlocker
         if let blocker, !blocker.isReady {
@@ -1275,8 +1277,10 @@ final class BrowserWindowModel: Identifiable {
         findPresented = false
     }
 
-    func selectSpace(_ id: UUID) {
+    func selectSpace(_ id: UUID, deferPageActivation: Bool = false) {
         guard spaces.contains(where: { $0.id == id }) else { return }
+        let activation = deferPageActivation ? UUID() : nil
+        deferredPageActivation = activation
         clearTemporaryTabSelection()
         record.selectedSpaceID = id
         let recent = recentTabIDs.compactMap { recentID in record.tabs.first { $0.id == recentID } }
@@ -1284,6 +1288,20 @@ final class BrowserWindowModel: Identifiable {
         let fallback = record.tabs.last { $0.spaceID == id && $0.savedItemID == nil && $0.isUnloaded != true }
             ?? record.tabs.last { $0.spaceID == id && $0.isUnloaded != true && pages[$0.id] != nil }
         if let tab = recent ?? fallback { select(tab.id) } else { clearSelection() }
+    }
+
+    func resumeDeferredPageActivation() {
+        guard let activation = deferredPageActivation else { return }
+        Task { @MainActor [weak self] in
+            await Task.yield()
+            guard let self, !self.isClosed, self.deferredPageActivation == activation else { return }
+            // BrowserView's activation task respects the gate while settled chrome draws.
+            self.nativeWindow?.contentView?.layoutSubtreeIfNeeded()
+            self.nativeWindow?.displayIfNeeded()
+            CATransaction.flush()
+            self.deferredPageActivation = nil
+            self.activateSelected()
+        }
     }
 
     func openSavedItem(_ id: UUID) {

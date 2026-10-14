@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-beta.6 — 2026-10-14
+
+- Preserve inherited local runner settings so worktrees show the configured
+  remote Mac and retain signing and Xcode choices.
+- Smooth space swiping with lazy rows, isolated sidebar movement, and no
+  inactive drop geometry. Follow gesture distance directly and draw the settled
+  sidebar before starting destination pages, keeping cold page creation out of
+  the visible slide. Reveal already-open tabs immediately on release while the
+  sidebar finishes settling, preserving their live page and unsaved state.
+
 ## 2026-10-02
 
 - Support explicit development SDK ABI 18 for Chromium navigation failures,
