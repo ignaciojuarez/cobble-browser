@@ -10,6 +10,28 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Wed, 14 Oct 2026 16:38:08 -0700</pubDate>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Space swipes follow gesture distance directly and avoid rebuilding the entire sidebar during movement.
+- Already-open tabs appear as soon as you release a space swipe, preserving their live document and unsaved form state.
+- Cold page creation waits until the sidebar has settled and drawn, keeping engine startup out of the visible slide.
+- The development Run menu preserves the configured remote Mac, signing team and Xcode settings across worktrees.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 17 SDK and its matching Chromium runtime.
+
+This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.6/Cobble-v0.1.0-beta.6.zip" length="163548161" type="application/octet-stream" sparkle:edSignature="ERyH1VNCMqLnrfEcJmXoK6SrayiEwfY/MR9gh5WJJuHlCIHyG2eAM/xZsu1PZxTEvw94r7f4tPIfqfHkG7xTAw=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Wed, 14 Oct 2026 10:53:16 -0700</pubDate>
             <sparkle:version>5</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -55,27 +77,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.4/Cobble-v0.1.0-beta.4.zip" length="163522212" type="application/octet-stream" sparkle:edSignature="xQDDAPeAgQHhE2kWNeBbNp2zgMmUeFQAVxXH9+3dlG/kD55TgAeQoF7lhnEzQc3QovvUmYOnbC5kl27zvbp3DQ=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Mon, 28 Sep 2026 16:40:48 -0700</pubDate>
-            <sparkle:version>3</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Apple sign-in POST and popup-message flows now stay in Chromium, avoiding the unsupported native handoff that could leave a white window. These flows use Apple's web login instead of the separate native Touch ID sheet.
-- Background update checks are enabled by default; existing preferences are preserved. Updates still require your approval to install.
-
-Includes WebKit, Chromium and signed in-app updates. Real Apple account sign-in and a full installed-update cycle remain unverified.
-
-Beta 1 users: manually download this ZIP and replace Cobble once; beta 1's updater cannot start. Beta 2 users can use Check for Updates after the signed feed is published.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.3/Cobble-v0.1.0-beta.3.zip" length="163521256" type="application/octet-stream" sparkle:edSignature="HU92Mm95YlHKZ2gj55qCfR8bt2EjE8zKv6cDpe13JBfnbclO1aiE3CNsgVaGy83X3f1agFL5ePjigFucQ1vsDQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: yuYraP03Eeyvp9xE74chIjFXRE5EuxV7PyitA4nkfH3mS1mB+6IfRuBOKGodGk2qFcRLfIOL7ALkdazDenfcBA==
-length: 5790
+edSignature: SKaH9EV0pAHt3QgkYrizPT3pUOTVQohk/IfX9XHGqrEXEBfwwi6ixUVQ6PKANmvf0y8nU8/RB69kcMgAWdaLBA==
+length: 6040
 -->
