@@ -1299,6 +1299,11 @@ final class BrowserWindowModel: Identifiable {
             self.nativeWindow?.contentView?.layoutSubtreeIfNeeded()
             self.nativeWindow?.displayIfNeeded()
             CATransaction.flush()
+            // Removing the former page can change AppKit's key view during layout.
+            if self.selectedTab == nil, !self.isEditingAddress, !self.commandBarPresented,
+               let window = self.nativeWindow, window.attachedSheet == nil {
+                window.makeFirstResponder(window.contentView)
+            }
             self.deferredPageActivation = nil
             self.activateSelected()
         }
