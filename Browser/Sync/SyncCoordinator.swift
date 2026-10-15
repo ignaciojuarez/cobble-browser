@@ -249,6 +249,7 @@ final class SyncCoordinator {
                     try saveState()
                     let pending = state.pending.compactMap { state.records[$0] }.filter { $0.module == module }
                     if !pending.isEmpty {
+                        for record in pending { try record.validateOrganizationURL() }
                         guard try await provider.accountID() == account else {
                             throw SyncFailure.unavailable(String(localized: "The iCloud account changed during sync. Try again."))
                         }

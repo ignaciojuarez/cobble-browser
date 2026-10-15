@@ -154,6 +154,7 @@ struct CloudKitSyncProvider: SyncProvider {
         for record in records {
             guard record.module == module else { throw ProviderError.corruptRecord }
             _ = try record.validated()
+            try record.validateOrganizationURL()
         }
         try await requireAccount(expectedAccountID)
         let database = try database()
@@ -178,6 +179,7 @@ struct CloudKitSyncProvider: SyncProvider {
                     case .failure(let error): throw error
                     }
                     let candidate = try cloud.map { try original.merged(with: decode($0, module: module)) } ?? original
+                    try candidate.validateOrganizationURL()
                     let upload = cloud ?? CKRecord(recordType: recordType, recordID: id)
                     upload.encryptedValues[payloadKey] = try JSONEncoder().encode(candidate) as NSData
                     uploads.append(upload)

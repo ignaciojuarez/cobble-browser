@@ -28,6 +28,11 @@ jobs:
           persist-credentials: false
       - name: Check worktree runner settings
         run: python3 Scripts/test_run_config.py
+      - name: Check packaging and update safeguards
+        run: |
+          python3 Scripts/assemble_chromium.py --self-check
+          python3 Scripts/prepare_update.py --self-check
+          python3 Scripts/release.py --self-check
       - name: Select Xcode
         run: |
           xcodebuild -version

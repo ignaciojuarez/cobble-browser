@@ -826,13 +826,24 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
                     request.httpShouldHandleCookies = false
                     request.timeoutInterval = 4
                     request.setValue("bytes=0-65535", forHTTPHeaderField: "Range")
-                    guard let (data, response) = try? await URLSession.shared.data(for: request),
-                          let response = response as? HTTPURLResponse,
-                          (200...206).contains(response.statusCode), data.count <= 65_536 else { continue }
+                    guard let data = try? await Self.faviconData(for: request) else { continue }
                     if self.acceptFavicon(data, for: url, generation: generation) { return }
                 }
             }
         }
+    }
+
+    static func faviconData(for request: URLRequest, session: URLSession = .shared) async throws -> Data? {
+        let (bytes, response) = try await session.bytes(for: request)
+        defer { bytes.task.cancel() }
+        guard let response = response as? HTTPURLResponse,
+              (200...206).contains(response.statusCode), response.expectedContentLength <= 65_536 else { return nil }
+        var data = Data()
+        for try await byte in bytes {
+            guard data.count < 65_536 else { return nil }
+            data.append(byte)
+        }
+        return data
     }
 
     @discardableResult private func acceptFavicon(_ data: Data, for url: URL, generation: UUID) -> Bool {

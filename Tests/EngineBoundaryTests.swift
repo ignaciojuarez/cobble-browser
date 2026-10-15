@@ -352,6 +352,85 @@ import SQLite3
         }
     }
 
+    func testProfileDeletionFencesEngineUseDuringEnginePreflight() async throws {
+        try await withApp { app, engines in
+            let profile = try XCTUnwrap(app.createProfile(name: "Work"))
+            _ = try app.engines.context(engineID: self.secondID, profile: profile, siteSettings: app.siteSettings)
+            var resume: CheckedContinuation<Void, Never>?
+            engines[1].onProfileDeletionPreflight = {
+                await withCheckedContinuation { resume = $0 }
+            }
+            defer { resume?.resume() }
+            let deletion = Task { await app.deleteProfile(profile.id) }
+            try await self.eventually { resume != nil }
+            XCTAssertTrue(app.isDeletingProfile(profile.id))
+            XCTAssertNil(app.newWindow(profileID: profile.id))
+            XCTAssertThrowsError(try app.engines.context(engineID: self.thirdID, profile: profile,
+                                                        siteSettings: app.siteSettings))
+            XCTAssertTrue(engines[2].contexts.isEmpty)
+            resume?.resume()
+            resume = nil
+            let result = await deletion.value
+            XCTAssertNil(result)
+            XCTAssertEqual(engines[1].removedProfiles, [profile.id])
+        }
+    }
+
+    func testRestoreKeepsAndPersistsEngineOwnershipForRetainedStores() async throws {
+        try await withApp { app, engines in
+            let profile = try XCTUnwrap(app.createProfile(name: "Work"))
+            _ = try app.engines.context(engineID: self.secondID, profile: profile, siteSettings: app.siteSettings)
+            let exported = try app.workspaceExportSnapshot()
+            _ = try app.engines.context(engineID: self.thirdID, profile: profile, siteSettings: app.siteSettings)
+            try app.replaceWorkspace(with: exported)
+            let persisted = try SessionSnapshot.decode(Data(contentsOf: app.store.url))
+            for snapshot in [app.snapshot, persisted] {
+                XCTAssertEqual(Set(snapshot.profileEngineUsage?.first { $0.profileID == profile.id }?.engineIDs ?? []),
+                               [self.secondID, self.thirdID])
+            }
+            let result = await app.deleteProfile(profile.id)
+            XCTAssertNil(result)
+            XCTAssertEqual(engines[1].removedProfiles, [profile.id])
+            XCTAssertEqual(engines[2].removedProfiles, [profile.id])
+        }
+    }
+
+    func testRestoreKeepsOwnershipWhenWebKitStoreBindingChanges() async throws {
+        try await withApp { app, engines in
+            let profile = try XCTUnwrap(app.createProfile(name: "Work"))
+            _ = try app.engines.context(engineID: self.secondID, profile: profile, siteSettings: app.siteSettings)
+            var exported = try app.workspaceExportSnapshot()
+            _ = try app.engines.context(engineID: self.thirdID, profile: profile, siteSettings: app.siteSettings)
+            let index = try XCTUnwrap(exported.profiles.firstIndex { $0.id == profile.id })
+            exported.profiles[index].storeBinding = .named(UUID())
+            try app.replaceWorkspace(with: exported)
+            XCTAssertEqual(Set(app.snapshot.profileEngineUsage?.first { $0.profileID == profile.id }?.engineIDs ?? []),
+                           [self.secondID, self.thirdID])
+            let result = await app.deleteProfile(profile.id)
+            XCTAssertNil(result)
+            XCTAssertEqual(engines[2].removedProfiles, [profile.id])
+        }
+    }
+
+    func testRestoreRetainsChromiumOwnershipAcrossWebKitStoreBindingChanges() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleEngineTests-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let chromium = TestEngine(EngineID(rawValue: "chromium"))
+        let app = AppModel(store: SessionStore(directory: directory), engines: EngineRegistry([chromium]))
+        let profile = try XCTUnwrap(app.createProfile(name: "Work"))
+        var exported = try app.workspaceExportSnapshot()
+        _ = try app.engines.context(engineID: chromium.id, profile: profile, siteSettings: app.siteSettings)
+        let index = try XCTUnwrap(exported.profiles.firstIndex { $0.id == profile.id })
+        exported.profiles[index].storeBinding = .named(UUID())
+        try app.replaceWorkspace(with: exported)
+        let result = await app.deleteProfile(profile.id)
+        XCTAssertNil(result)
+        XCTAssertEqual(chromium.removedProfiles, [profile.id])
+        app.windows.forEach { $0.closePages() }
+        await app.engines.shutdown()
+        app.library.close()
+    }
+
     func testProfileDeletionBlocksMutationsUntilClosePreflightCompletes() async throws {
         try await withApp { app, _ in
             let profile = try XCTUnwrap(app.createProfile(name: "Work"))
@@ -414,6 +493,8 @@ import SQLite3
             XCTAssertTrue(app.profiles.contains { $0.id == profile.id })
             XCTAssertTrue(app.windows.contains { $0 === window })
             XCTAssertTrue(engines.allSatisfy { $0.removedProfiles.isEmpty })
+            XCTAssertFalse(app.isDeletingProfile(profile.id))
+            XCTAssertNotNil(app.newWindow(profileID: profile.id))
         }
     }
 
@@ -1929,6 +2010,7 @@ import SQLite3
     var contexts: [TestContext] = []
     var prepareFailure = false
     var profileDeletionPreflightFailure = false
+    var onProfileDeletionPreflight: (() async -> Void)?
     var profileDeletionFailure = false
     var localFileFailure = false
     var delayLocalFile = false
@@ -1944,6 +2026,7 @@ import SQLite3
     }
     var removedProfiles: [UUID] = []
     func preflightProfileDeletion(_: Profile) async throws {
+        await onProfileDeletionPreflight?()
         if profileDeletionPreflightFailure {
             throw EngineError.notReady("Injected profile-deletion preflight failure")
         }
