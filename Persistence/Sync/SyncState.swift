@@ -1,5 +1,13 @@
 import Foundation
 
+extension SyncRecord {
+    /// Deleted records retain fields; conflict merges can also restore an older unsafe URL.
+    @MainActor func validateOrganizationURL() throws {
+        guard module == .organization, kind == "saved", let url = fields["url"]?.value else { return }
+        guard LibraryStore.syncSafeURL(url) != nil else { throw SyncFailure.invalidRecord }
+    }
+}
+
 /// The journal is committed before uploading and before advancing a provider cursor.
 /// ponytail: retain tombstones until a device-expiry protocol can compact them safely.
 struct SyncState: Codable {

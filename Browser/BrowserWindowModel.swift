@@ -1432,7 +1432,7 @@ final class BrowserWindowModel: Identifiable {
     }
 
     func unpinSavedItem(_ id: UUID, before: UUID? = nil) {
-        guard !isPrivate, let item = app.savedItems.first(where: { $0.id == id }) else { return }
+        guard !isPrivate, let item = app.savedItems.first(where: { $0.id == id && $0.profileID == record.profileID }) else { return }
         let tabID: UUID
         if let existing = record.tabs.first(where: { $0.savedItemID == id }) {
             tabID = existing.id

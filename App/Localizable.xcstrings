@@ -1,6 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Chromium block/allow JSON · Normal windows" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "JSON de bloqueo/permisos de Chromium · Ventanas normales"}}}
+    },
+    "Chromium content rules could not be read. The original is untouched and changes are disabled: %@" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No se pudieron leer las reglas de contenido de Chromium. El original no se ha modificado y los cambios están desactivados: %@"}}}
+    },
+    "Chromium content rules could not load." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No se pudieron cargar las reglas de contenido de Chromium."}}}
+    },
+    "Install or import content rules first." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Instala o importa primero las reglas de contenido."}}}
+    },
+    "Content rules require a valid HTTP or HTTPS origin." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las reglas de contenido requieren un origen HTTP o HTTPS válido."}}}
+    },
+    "The update source changed. Run Update Now again." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "La fuente de actualización cambió. Vuelve a seleccionar Actualizar ahora."}}}
+    },
+    "Content-rule changes are disabled." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Los cambios en las reglas de contenido están desactivados."}}}
+    },
+    "Close the Chromium profile before removing its content rules." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cierra el perfil de Chromium antes de eliminar sus reglas de contenido."}}}
+    },
+    "Content-rule changes are unavailable while this profile is being deleted." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Los cambios en las reglas de contenido no están disponibles mientras se elimina este perfil."}}}
+    },
+    "Chromium did not apply the content rules." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Chromium no aplicó las reglas de contenido."}}}
+    },
+    "Chromium did not restore the previous content rules." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Chromium no restauró las reglas de contenido anteriores."}}}
+    },
+    "Content rules failed and the previous state could not be restored: %@. Original error: %@" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las reglas de contenido fallaron y no se pudo restaurar el estado anterior: %@. Error original: %@"}}}
+    },
     "The updater could not start." : {
       "localizations" : { "es" : { "stringUnit" : { "state" : "translated", "value" : "No se pudo iniciar el actualizador." } } }
     },

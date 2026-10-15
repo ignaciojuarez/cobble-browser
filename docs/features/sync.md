@@ -21,6 +21,7 @@ Private tabs, cookies, passwords, website stores, file bookmarks, downloads, liv
 - Modules use private CloudKit zones and encrypted Bytes payloads. No public/shared database is used, and Cobble makes no end-to-end encryption claim for these records. Fields merge by logical counter plus device ID, not wall clock. Unknown fields survive; unsupported versions refuse writes. Deletion tombstones have no compaction or device expiry.
 - Account changes pause sync until the current local data is explicitly connected again. Parent deletion and concurrent moves repair organization deterministically; a remote profile removal with open windows pauses that category. Native website stores are never erased by sync.
 - Only validated HTTP(S) destinations transfer. Local files, URL userinfo, and known secret query/fragment keys are filtered, but site-specific secret formats may escape the filter. Imported blocker files stay local. Missing engines retain cloud records; unsupported local blocker configurations pause that category. Live remote rule removal is not supported.
+- Older organization records or pending tombstones containing filtered URLs pause organization sync and dependent categories rather than resend those URLs. Local pins stay intact. These older records need a separate cleanup migration; deleting the local pin alone does not clear the retained sync fields.
 
 ## Release qualification
 

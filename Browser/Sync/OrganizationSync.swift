@@ -47,7 +47,7 @@ extension AppModel {
                                             "profileID": spaces.first { $0.id == folder.spaceID }?.profileID.uuidString ?? "",
                                             "color": folder.color.rawValue, "rank": String(rank)]))
         }
-        for (rank, item) in savedItems.enumerated() where item.url.map({ $0.user == nil && $0.password == nil }) == true {
+        for (rank, item) in savedItems.enumerated() where item.url != nil && LibraryStore.syncSafeURL(item.urlString) != nil {
             result.append(SyncItem(id: "saved.\(item.id)", module: .organization, kind: "saved",
                                    fields: ["uuid": item.id.uuidString, "profileID": item.profileID.uuidString,
                                             "spaceID": item.spaceID?.uuidString ?? "", "folderID": item.folderID?.uuidString ?? "",
@@ -98,7 +98,7 @@ extension AppModel {
                 let saved = SavedItem(id: id, profileID: try uuid(item, "profileID"), spaceID: try optionalID(item, "spaceID"),
                                       folderID: try optionalID(item, "folderID"), urlString: try name(item, "url"),
                                       title: try name(item, "title"), favicon: oldIcon)
-                guard let url = saved.url, url.user == nil, url.password == nil else { throw SyncFailure.invalidRecord }
+                guard saved.url != nil, LibraryStore.syncSafeURL(saved.urlString) != nil else { throw SyncFailure.invalidRecord }
                 nextSaved.append(saved)
             default: throw SyncFailure.invalidRecord
             }
@@ -146,7 +146,7 @@ extension AppModel {
         }
         // A local pin may have become ineligible for sync after it was previously shared.
         // Its old cloud record still has the same ID; never replace its local destination.
-        let localOnly = savedItems.filter { $0.url == nil || $0.url?.user != nil || $0.url?.password != nil }
+        let localOnly = savedItems.filter { $0.url == nil || LibraryStore.syncSafeURL($0.urlString) == nil }
         guard localOnly.allSatisfy({ profileIDs.contains($0.profileID) }) else {
             throw SyncFailure.unavailable(String(localized: "A profile removed on another device still has local saved items. Move or delete them before syncing."))
         }

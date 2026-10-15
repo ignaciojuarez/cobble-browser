@@ -6,7 +6,7 @@ import CobbleChromium
 /// Chromium owns matching through a script-free native rules extension.
 /// User extensions and their site grants remain separately managed.
 @MainActor @Observable final class ChromiumContentBlocker: EngineContentBlocker {
-    let formatName = "Chromium block/allow JSON · Normal windows"
+    let formatName = String(localized: "Chromium block/allow JSON · Normal windows")
     var lastError: String?
     var onChange: (() -> Void)?
     var profileMutationAllowed: ((UUID) -> Bool)?
@@ -51,7 +51,7 @@ import CobbleChromium
         } catch {
             writable = false
             configurations = [:]
-            lastError = "Chromium content rules could not be read. The original is untouched and changes are disabled: \(error.localizedDescription)"
+            lastError = String(format: String(localized: "Chromium content rules could not be read. The original is untouched and changes are disabled: %@"), error.localizedDescription)
         }
     }
 
@@ -73,7 +73,7 @@ import CobbleChromium
     func prepare(profileID: UUID) async throws {
         if let operation = operations[profileID] { try await operation.1.value }
         guard canLoad(profileID: profileID) else {
-            throw EngineError.notReady(lastError ?? "Chromium content rules could not load.")
+            throw EngineError.notReady(lastError ?? String(localized: "Chromium content rules could not load."))
         }
         guard installed[profileID] == nil else { return }
         try await enqueue(profileID) { $0 ?? Configuration(profileID: profileID, json: ChromiumBlockingRules.bundledJSON) }
@@ -91,7 +91,7 @@ import CobbleChromium
     }
     func installBundledRules(profileID: UUID) async {
         await change(profileID) { previous in
-            guard previous == nil else { throw EngineError.notReady("This profile already has rules. Import a replacement to change them.") }
+            guard previous == nil else { throw EngineError.notReady(String(localized: "This profile already has rules. Import a replacement to change them.")) }
             return Configuration(profileID: profileID, json: ChromiumBlockingRules.bundledJSON)
         }
     }
@@ -102,7 +102,7 @@ import CobbleChromium
     }
     func setEnabled(_ enabled: Bool, profileID: UUID) async {
         await change(profileID) { previous in
-            guard var next = previous else { throw EngineError.notReady("Install or import content rules first.") }
+            guard var next = previous else { throw EngineError.notReady(String(localized: "Install or import content rules first.")) }
             next.enabled = enabled
             return next
         }
@@ -110,7 +110,7 @@ import CobbleChromium
     func setException(origin: URL, enabled: Bool, profileID: UUID) async {
         await change(profileID) { previous in
             guard var next = previous, let origin = AddressResolver.canonicalOrigin(origin) else {
-                throw EngineError.notReady("Content rules require a valid HTTP or HTTPS origin.")
+                throw EngineError.notReady(String(localized: "Content rules require a valid HTTP or HTTPS origin."))
             }
             next.exceptions.removeAll { $0 == origin }
             if enabled { next.exceptions.append(origin) }
@@ -121,21 +121,21 @@ import CobbleChromium
     func replaceExceptions(_ origins: [String], profileID: UUID) async throws {
         guard origins.count <= 1000, Set(origins).count == origins.count,
               origins.allSatisfy({ URL(string: $0).flatMap(AddressResolver.canonicalOrigin) == $0 }) else {
-            throw EngineError.notReady("Invalid content blocker exception.")
+            throw EngineError.notReady(String(localized: "Invalid content blocker exception."))
         }
         let desired = origins.sorted()
         guard configurations[profileID]?.exceptions != desired else { return }
         try await enqueue(profileID) { previous in
-            guard var next = previous else { throw EngineError.notReady("Install or import content rules first.") }
+            guard var next = previous else { throw EngineError.notReady(String(localized: "Install or import content rules first.")) }
             next.exceptions = desired
             return next
         }
     }
     func setUpdateSource(_ source: URL?, profileID: UUID) async {
         await change(profileID) { previous in
-            guard var next = previous else { throw EngineError.notReady("Install or import content rules first.") }
+            guard var next = previous else { throw EngineError.notReady(String(localized: "Install or import content rules first.")) }
             guard source.map(Self.validSource) ?? true else {
-                throw EngineError.notReady("Update sources must be HTTPS addresses without credentials or fragments.")
+                throw EngineError.notReady(String(localized: "Update sources must be HTTPS addresses without credentials or fragments."))
             }
             next.source = source
             return next
@@ -143,7 +143,7 @@ import CobbleChromium
     }
     func updateRules(profileID: UUID) async {
         guard let source = updateSource(profileID: profileID) else {
-            lastError = "Choose an HTTPS update source first."
+            lastError = String(localized: "Choose an HTTPS update source first.")
             return
         }
         do {
@@ -151,12 +151,12 @@ import CobbleChromium
             guard !Task.isCancelled else { return }
             await change(profileID) { previous in
                 guard var next = previous, next.source == source else {
-                    throw EngineError.notReady("The update source changed. Run Update Now again.")
+                    throw EngineError.notReady(String(localized: "The update source changed. Run Update Now again."))
                 }
                 next.json = json
                 return next
             }
-        } catch { lastError = "Could not update rules. Existing rules are unchanged: \(error.localizedDescription)"; onChange?() }
+        } catch { lastError = String(format: String(localized: "Could not update rules. Existing rules are unchanged: %@"), error.localizedDescription); onChange?() }
     }
 
     func installRules(from source: URL, profileID: UUID) async throws {
@@ -177,10 +177,10 @@ import CobbleChromium
 
     func removeProfile(_ profileID: UUID) async throws {
         if let operation = operations[profileID] { try await operation.1.value }
-        guard writable else { throw EngineError.notReady(lastError ?? "Content-rule changes are disabled.") }
+        guard writable else { throw EngineError.notReady(lastError ?? String(localized: "Content-rule changes are disabled.")) }
         if let context = engine.normalContext(profileID), !context.isClosed {
             // Profile deletion closes native contexts first; do not reopen one for cleanup.
-            throw EngineError.notReady("Close the Chromium profile before removing its content rules.")
+            throw EngineError.notReady(String(localized: "Close the Chromium profile before removing its content rules."))
         }
         var next = configurations
         next.removeValue(forKey: profileID)
@@ -205,7 +205,7 @@ import CobbleChromium
             if let previous { _ = try? await previous.value }
             try Task.checkCancellation()
             guard self.writable, self.profileMutationAllowed?(profileID) != false else {
-                throw EngineError.notReady(self.lastError ?? "Content-rule changes are unavailable while this profile is being deleted.")
+                throw EngineError.notReady(self.lastError ?? String(localized: "Content-rule changes are unavailable while this profile is being deleted."))
             }
             try await self.replace(try transform(self.configurations[profileID]))
         }
@@ -233,7 +233,7 @@ import CobbleChromium
             try Task.checkCancellation()
             guard try await runtime.installedExtensions(in: context).contains(where: {
                 $0.id == id && URL(fileURLWithPath: $0.path).standardizedFileURL == directory.standardizedFileURL && $0.enabled == next.enabled
-            }) else { throw EngineError.notReady("Chromium did not apply the content rules.") }
+            }) else { throw EngineError.notReady(String(localized: "Chromium did not apply the content rules.")) }
             try Task.checkCancellation()
             guard profileMutationAllowed?(next.profileID) != false else { throw EngineError.closed }
             var records = configurations
@@ -254,7 +254,7 @@ import CobbleChromium
                     guard try await runtime.installedExtensions(in: context).contains(where: {
                         $0.id == id && URL(fileURLWithPath: $0.path).standardizedFileURL == directory.standardizedFileURL
                             && $0.enabled == previous.enabled
-                    }) else { throw EngineError.notReady("Chromium did not restore the previous content rules.") }
+                    }) else { throw EngineError.notReady(String(localized: "Chromium did not restore the previous content rules.")) }
                     installed[next.profileID] = id
                 } else {
                     for entry in try await runtime.installedExtensions(in: context)
@@ -265,7 +265,7 @@ import CobbleChromium
                 }
             } catch {
                 failed.insert(next.profileID)
-                throw EngineError.notReady("Content rules failed and the previous state could not be restored: \(error.localizedDescription). Original error: \(original.localizedDescription)")
+                throw EngineError.notReady(String(format: String(localized: "Content rules failed and the previous state could not be restored: %@. Original error: %@"), error.localizedDescription, original.localizedDescription))
             }
             throw original
         }

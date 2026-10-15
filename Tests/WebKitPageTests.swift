@@ -1298,6 +1298,17 @@ final class WebKitPageTests: XCTestCase {
         XCTAssertEqual(requested, ["https://gstatic.com/missing.png", "https://cobble.test/favicon.ico"])
     }
 
+    func testFaviconFallbackRejectsOversizedBodyBeforeTheResponseFinishes() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [OversizedFaviconProtocol.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel() }
+        var request = URLRequest(url: URL(string: "https://example.test/favicon.ico")!)
+        request.timeoutInterval = 1
+        let data = try await WebKitPage.faviconData(for: request, session: session)
+        XCTAssertNil(data)
+    }
+
     func testFaviconFollowsCrossOriginRedirectWithoutCORS() async throws {
         let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==")!
         let icons = try LocalHTTPFixture { _ in .init(headers: ["Content-Type": "image/png"], data: png) }
@@ -1681,6 +1692,18 @@ final class WebKitPageTests: XCTestCase {
         while !condition(), ContinuousClock.now < deadline { try await Task.sleep(for: .milliseconds(20)) }
         XCTAssertTrue(condition(), "Timed out waiting for local WebKit navigation", file: file, line: line)
     }
+}
+
+private final class OversizedFaviconProtocol: URLProtocol, @unchecked Sendable {
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        let response = HTTPURLResponse(url: request.url!, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data(repeating: 0, count: 65_537))
+        // No EOF or Content-Length: the byte limit must stop this response.
+    }
+    override func stopLoading() {}
 }
 
 @MainActor

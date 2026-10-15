@@ -202,6 +202,27 @@ final class SyncTests: XCTestCase {
         XCTAssertEqual(app.folders.count, 2)
     }
 
+    @MainActor func testLegacySecretTombstoneIsNotReuploadedFromTheJournal() async throws {
+        let app = makeApp()
+        defer { cleanup(app) }
+        var state = SyncState()
+        state.enabled = true
+        state.modules = [.organization]
+        let id = "saved.\(UUID())"
+        let stamp = SyncStamp(counter: 1, deviceID: "old-client")
+        state.counter = 1
+        state.records[id] = SyncRecord(id: id, module: .organization, kind: "saved", fields: [
+            "url": SyncField(value: "https://example.com/?access_token=fixture", stamp: stamp)], tombstone: stamp)
+        state.pending = [id]
+        try JSONEncoder().encode(state).write(to: app.store.directory.appendingPathComponent("sync-state.json"))
+        let server = MemorySyncServer()
+        let sync = SyncCoordinator(app: app, provider: MemorySyncProvider(server: server))
+        await sync.syncNow()
+        XCTAssertNotNil(sync.errorMessage)
+        XCTAssertEqual(server.writes, 0)
+        XCTAssertNil(server.records[id])
+    }
+
     @MainActor func testOfflineOutboxSurvivesRestartAndRetries() async throws {
         let server = MemorySyncServer(), app = makeApp()
         defer { cleanup(app) }

@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 import xml.etree.ElementTree as ET
 
@@ -34,6 +35,21 @@ def clean_revision():
 def validate_version(version, build):
     if not re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) or build < 1:
         raise ValueError("Use a numeric version such as 0.1.0 and a positive integer build")
+
+
+def verify_public_feed(url, expected):
+    # The staged bytes already passed signature and build/asset validation.
+    for attempt in range(5):
+        try:
+            request = urllib.request.Request(url, headers={"Cache-Control": "no-cache"})
+            with urllib.request.urlopen(request, timeout=15) as response:
+                if response.read(len(expected) + 1) == expected:
+                    return
+        except OSError:
+            pass
+        if attempt < 4:
+            time.sleep(2)
+    raise ValueError("Release uploaded, but the public update feed could not be verified; check its published build and asset")
 
 
 def build_release(args):
@@ -147,10 +163,13 @@ def publish(args):
     run("git", "add", "updates/appcast.xml")
     run("git", "commit", "-m", f"Publish signed update feed for {tag}")
     run("git", "push", "origin", "HEAD:main")
+    info = plistlib.loads((ROOT / "App/Info.plist").read_bytes())
+    verify_public_feed(info["SUFeedURL"], feed.read_bytes())
     print(f"Published https://github.com/{REPO}/releases/tag/{tag}")
 
 
 def self_check():
+    from io import BytesIO
     from types import SimpleNamespace
     from unittest.mock import patch
     validate_version("0.1.0", 1)
@@ -176,6 +195,20 @@ def self_check():
             else:
                 raise AssertionError("Changed archive accepted")
             assert all(str(call.args[0]).endswith("sign_update") for call in command.call_args_list)
+    with patch(__name__ + ".urllib.request.urlopen", side_effect=[BytesIO(b"old"), BytesIO(b"signed feed")]), \
+         patch(__name__ + ".time.sleep") as pause:
+        verify_public_feed("https://example.org/appcast.xml", b"signed feed")
+        pause.assert_called_once_with(2)
+    for response in [lambda *args, **kwargs: BytesIO(b"old"), OSError("offline")]:
+        with patch(__name__ + ".urllib.request.urlopen", side_effect=response) as fetch, \
+             patch(__name__ + ".time.sleep"):
+            try:
+                verify_public_feed("https://example.org/appcast.xml", b"signed feed")
+            except ValueError as error:
+                assert "public update feed" in str(error)
+            else:
+                raise AssertionError("Unverified public feed accepted")
+            assert fetch.call_count == 5
     print("release self-check ok")
 
 

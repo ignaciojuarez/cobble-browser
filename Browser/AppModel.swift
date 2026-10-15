@@ -213,6 +213,8 @@ final class AppModel {
         let profile = Profile(name: name, storeBinding: .named(UUID()))
         profiles.append(profile)
         spaces.append(Space(profileID: profile.id, isGeneratedDefault: true))
+        undoStates.removeAll()
+        canUndoOrganization = false
         persist()
         return profile
     }
@@ -261,6 +263,8 @@ final class AppModel {
         if let engine = requiredEngines.first(where: { !$0.capabilities.supportsProfileDeletion }) {
             return String(format: String(localized: "%@ cannot delete its profile data yet. No profile data was removed."), engine.name)
         }
+        deletingProfiles.insert(id)
+        defer { deletingProfiles.remove(id) }
         for engine in requiredEngines {
             do { try await engine.preflightProfileDeletion(profile) }
             catch {
@@ -268,8 +272,6 @@ final class AppModel {
                               engine.name, error.localizedDescription)
             }
         }
-        deletingProfiles.insert(id)
-        defer { deletingProfiles.remove(id) }
         let affected = windows.filter { $0.record.profileID == id }
         for window in affected {
             guard await window.requestClosePages() else {
@@ -418,7 +420,19 @@ final class AppModel {
         guard snapshot.pendingProfileDeletions?.isEmpty != false else {
             throw EngineError.notReady(String(localized: "This workspace contains an unfinished profile deletion. Restore a completed backup instead."))
         }
-        let restored = try SessionSnapshot.decode(JSONEncoder().encode(snapshot.withoutLocalFileBookmarks()))
+        var restored = try SessionSnapshot.decode(JSONEncoder().encode(snapshot.withoutLocalFileBookmarks()))
+        var restoredUsage = Dictionary(uniqueKeysWithValues: (restored.profileEngineUsage ?? []).map {
+            ($0.profileID, Set($0.engineIDs))
+        })
+        // Profile-keyed engine data survives even a change to WebKit's store binding.
+        for profile in restored.profiles where profiles.contains(where: { $0.id == profile.id }) {
+            if let used = profileEngineUsage[profile.id] {
+                restoredUsage[profile.id, default: []].formUnion(used)
+            }
+        }
+        restored.profileEngineUsage = restoredUsage.map {
+            ProfileEngineUsage(profileID: $0.key, engineIDs: $0.value.sorted { $0.rawValue < $1.rawValue })
+        }.sorted { $0.profileID.uuidString < $1.profileID.uuidString }
         pendingSave?.cancel()
         pendingSave = nil
         try store.replace(with: restored, preserving: self.snapshot)

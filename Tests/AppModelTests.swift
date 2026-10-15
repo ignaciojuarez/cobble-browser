@@ -1674,6 +1674,35 @@ final class AppModelTests: XCTestCase {
         }
     }
 
+    func testProfileCreationClearsUndoThatPredatesItsSpace() throws {
+        for openBeforeUndo in [false, true] {
+            try withApp { app in
+                app.addSpace(name: "Earlier change", profileID: Profile.defaultID)
+                XCTAssertTrue(app.canUndoOrganization)
+                let profile = try XCTUnwrap(app.createProfile(name: "New profile"))
+                let opened = openBeforeUndo ? app.newWindow(profileID: profile.id) : nil
+                XCTAssertFalse(app.canUndoOrganization)
+                app.undoOrganization()
+                let space = try XCTUnwrap(app.spaces.first { $0.profileID == profile.id })
+                let window = try XCTUnwrap(opened ?? app.newWindow(profileID: profile.id))
+                XCTAssertEqual(window.record.profileID, profile.id)
+                XCTAssertEqual(window.record.selectedSpaceID, space.id)
+            }
+        }
+    }
+
+    func testUnpinSavedItemRejectsAnotherProfilesPin() throws {
+        let item = SavedItem(spaceID: Space.defaultID, urlString: "https://example.com", title: "Pinned")
+        try withApp(SessionSnapshot(savedItems: [item])) { app in
+            let profile = try XCTUnwrap(app.createProfile(name: "Other"))
+            let destination = try XCTUnwrap(app.newWindow(profileID: profile.id))
+            let tabs = destination.record.tabs
+            destination.unpinSavedItem(item.id)
+            XCTAssertEqual(app.savedItems, [item])
+            XCTAssertEqual(destination.record.tabs, tabs)
+        }
+    }
+
     func testUnpinSavedItemTurnsPinIntoTemporaryTabAtIndex() throws {
         let item = SavedItem(spaceID: Space.defaultID, urlString: "https://example.com", title: "Pinned")
         let other = Tab(title: "Temp")
