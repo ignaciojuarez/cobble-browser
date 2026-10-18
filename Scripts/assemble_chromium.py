@@ -145,7 +145,7 @@ def assemble(chromium_app, cobble_app, output, configuration="Release", enable_u
     products = Path(run(["swift", "build", "--configuration", configuration, "--show-bin-path"], True).strip())
     sys.path.insert(0, str(sdk / "scripts"))
     from assemble_harness import validate_embedded_manifest
-    from build import read_lock, required_sdk_exports
+    from build import read_lock, required_sdk_exports, sdk_revision
     lock = read_lock()
     engine_info = read_plist(chromium_app / "Contents/Info.plist")
     cobble_info = read_plist(cobble_app / "Contents/Info.plist")
@@ -158,7 +158,9 @@ def assemble(chromium_app, cobble_app, output, configuration="Release", enable_u
             raise ValueError("Automatic updates require the public update key, signed feed and verification before extraction")
     if engine_info.get("CFBundleShortVersionString") != lock["version"]:
         raise ValueError("The runtime version differs from Cobble's selected SDK")
-    validate_embedded_manifest(chromium_app, lock)
+    embedded = validate_embedded_manifest(chromium_app, lock)
+    if embedded["sdk_revision"] != sdk_revision(sdk):
+        raise ValueError("The runtime SDK revision differs from Cobble's selected SDK; rebuild and package Chromium")
     framework = chromium_app / "Contents/Frameworks/Chromium Framework.framework/Versions" / lock["version"] / "Chromium Framework"
     symbols = {line.split()[-1] for line in run(["nm", "-gU", framework], True).splitlines() if line.split()}
     missing = sorted(required_sdk_exports() - symbols)
