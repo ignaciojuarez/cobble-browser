@@ -30,6 +30,8 @@ Implementation status is in [FEATURES.md](FEATURES.md); release gates are in
 
 ## Unreleased
 
+- Enable H.264/AAC in the Chromium runtime so social-site MP4 videos and streams
+  can load. Pin the matching ABI 18 SDK and check codec support in the Full smoke test.
 - Park keyboard focus when switching to a space with no loaded tabs, preventing
   automatic sidebar search focus after leaving a Chromium page.
 - Use Command-Shift-R for Force Reload, preserving cookies and website data.

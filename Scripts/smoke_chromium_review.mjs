@@ -242,6 +242,16 @@ async function runSmoke(configuration, fixture) {
     const socket = new URL(target.webSocketDebuggerUrl); socket.hostname = "127.0.0.1";
     page = new CDP(socket.href); await page.connect();
     await poll("page A DOM", () => page.evaluate("document.querySelector('#heading')?.textContent === 'Native Chromium fixture'"), configuration.timeout); result.checks.pageA = true;
+    result.checks.mediaCodecs = await page.evaluate(`(() => {
+      const video = document.createElement('video');
+      return ['video/mp4; codecs="avc1.42E01E"', 'audio/mp4; codecs="mp4a.40.2"',
+              'video/webm; codecs="vp9"'].map(type => ({
+        type, playback: video.canPlayType(type), streaming: MediaSource.isTypeSupported(type)
+      }));
+    })()`);
+    if (result.checks.mediaCodecs.some(codec => !codec.playback || !codec.streaming)) {
+      fail("Chromium runtime lacks H.264/AAC MP4 or VP9 playback/streaming support");
+    }
     await page.evaluate("document.querySelector('#query').value='cobble-smoke';document.querySelector('#submit').click()");
     await poll("form navigation", () => page.evaluate("location.pathname.endsWith('/result') && document.querySelector('#result')?.textContent === 'cobble-smoke'"), configuration.timeout); result.checks.formNavigation = true;
     await page.send("Page.navigate", { url: fixture.pageB });
@@ -281,7 +291,7 @@ async function main() {
   const manifest = JSON.parse(await readFile(join(configuration.app, "Contents/Resources/CobbleChromiumSDK.json"), "utf8"));
   const bundleID = execFileSync("/usr/bin/plutil", ["-extract", "CFBundleIdentifier", "raw", "-o", "-", join(configuration.app, "Contents/Info.plist")], { encoding: "utf8" }).trim();
   if (bundleID !== "com.ignacio.cobble" || manifest.variant !== "sdk" || manifest.release_ready !== false) fail("App is not an Cobble bundle with the pinned SDK runtime");
-  const { startFixture } = await import(pathToFileURL(join(configuration.sdk, "scripts/smoke.mjs")).href);
+  const { startFixture, closeFixture } = await import(pathToFileURL(join(configuration.sdk, "scripts/smoke.mjs")).href);
   const fixture = await startFixture(randomUUID());
   const report = { schema: 1, startedAt: new Date().toISOString(), app: configuration.app, bundleID, sdk: configuration.sdk, chromium: { version: manifest.lock?.version, sdkRevision: manifest.sdk_revision }, launchFlags: LAUNCH_FLAGS, baselines: [], scope: "Isolated review app and loopback-only fixture. Samples follow a three-second startup settle with background networking, updates, sync, and pings disabled; they are startup diagnostics, not idle production costs or zero-telemetry evidence." };
   try {
@@ -289,7 +299,14 @@ async function main() {
     if (!configuration.skipSmoke) report.smoke = await runSmoke(configuration, fixture);
     report.status = "passed";
   } catch (error) { report.status = "failed"; report.error = error.message; throw error; }
-  finally { fixture.server.closeAllConnections(); await new Promise((done) => fixture.server.close(done)); report.finishedAt = new Date().toISOString(); await writeFile(join(configuration.artifacts, "result.json"), `${JSON.stringify(report, null, 2)}\n`); }
+  finally {
+    try { await closeFixture(fixture); }
+    catch (error) { report.status = "failed"; report.cleanupError = error.message; throw error; }
+    finally {
+      report.finishedAt = new Date().toISOString();
+      await writeFile(join(configuration.artifacts, "result.json"), `${JSON.stringify(report, null, 2)}\n`);
+    }
+  }
 }
 
 main().catch((error) => { console.error(`FAIL: ${error.message}`); process.exitCode = 1; });

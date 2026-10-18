@@ -36,7 +36,7 @@ both Chromium and WebKit.
 | Chromium | `153.0.8010.37` (`b75a5a95ea1a1b55bdbfd6d9f42d47be7507fb8b`) |
 | depot_tools | `81577f19a8497ba7e41afac322e8f03553a863ec` |
 | Cobble SDK | Exact public revision in `Package.swift` and `Package.resolved` |
-| Cobble ABI | 17 |
+| Cobble ABI | 18 |
 
 `Package.swift` is the build's authoritative SDK revision. Its explicit
 `COBBLE_CHROMIUM_SDK_PATH` override selects an absolute development checkout;
@@ -45,14 +45,16 @@ revision alone cannot identify uncommitted native payloads. The client accepts
 ABI 3 and 10–18; unsupported ABI values fail before compilation. Do not mix a
 client from one ABI with a runtime from another.
 
-## ABI 18 development audit
+## ABI 18 integration
 
-An explicit local ABI 18 SDK checkout adds structured navigation failures,
+The pinned ABI 18 SDK adds structured navigation failures,
 load progress and primary-renderer responsiveness to the adapter. Shared page
 state stays engine-neutral; WebKit supplies its native progress estimate too.
 The SDK also exposes runtime identity and download source/interruption metadata.
-The public source pin and ordinary packaged runtime remain ABI 17 until an
-immutable matching ABI 18 SDK revision/runtime is published and qualified.
+The unbranded runtime enables H.264/AAC for MP4, Media Source Extensions and
+HLS. Earlier runtimes omitted these codecs and could show reload/load errors
+for social-site videos. Full builds require the matched rebuilt runtime;
+rebuilding the Swift client alone cannot add codecs.
 
 The SDK's `AUDIT.md` owns the 125-area gap inventory, research, bridge ownership,
 and implementation evidence. General permissions, owned fullscreen/lock UI,
@@ -82,7 +84,7 @@ For SDK development, `COBBLE_CHROMIUM_SDK_PATH` selects an absolute checkout.
 The optional `Scripts/run.sh local full` wrapper uses the separate build-kit
 runner configured by `BUILD_TOOLS`; it is not required for direct assembly.
 Both paths wrap an **already built** runtime. The assembler checks the embedded
-SDK manifest, exports and payload and refuses mismatched inputs or an existing
+SDK revision, lock, exports and payload and refuses mismatched inputs or an existing
 output app. The wrapper also refuses an active native build and requests an
 orderly quit before replacing its staged app. Keep builds and receipts outside
 source control.
@@ -106,6 +108,19 @@ both the original private ABI 17 runtime and the rebuilt public runtime. This
 is an existing open qualification issue, not a passing download/release gate.
 The runtime remains a development artifact; no new signed app update is
 published by this source migration.
+
+## Media validation (2026-10-17)
+
+The [matched development runtime](https://github.com/ignaciojuarez/chrome-sdk/releases/tag/sdk-153.0.8010.37-abi18-dec9f53)
+includes the immutable archive, checksum and validation summary.
+
+The pinned ABI 18 runtime decoded synthetic H.264/AAC MP4 and advanced video
+frames. PNG, JPEG and WebP decoded too. Full smoke passed MP4/AAC and VP9
+playback/MSE capability checks, navigation, WebGL2, history and cleanup. The SDK
+harness passed all 237 native checks with zero skips using a 120-second timeout;
+the initial 30-second run timed out during repost validation. Archive checksum,
+ZIP integrity and deep/strict app signatures passed. These are isolated fixture
+checks; live Instagram/X account playback and release qualification remain open.
 
 ## Historical development evidence
 
@@ -155,8 +170,7 @@ or AIM requests while component update and network-time traffic remained.
 - **Media and security:** camera/microphone prompts, content blocking and
   printing exist on the ABI 16 path. Hardware/TCC, Safe Browsing service
   availability, proprietary codecs/DRM and ordinary network behavior need
-  direct tests. The reviewed unbranded build does not include Widevine or
-  proprietary codecs.
+  direct tests. The unbranded build enables H.264/AAC but does not include Widevine.
 - **Storage and identity:** Chromium profile deletion has an app preflight and
   durable recovery path; physical cleanup, private isolation and restoration
   still need native end-to-end qualification. Do not copy WebKit cookie files
