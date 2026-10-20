@@ -10,6 +10,26 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Tue, 20 Oct 2026 14:54:56 -0700</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Command-clicking a link in a WebKit tab now opens the destination through Automatic engine selection.
+- Cross-engine destinations open in the configured engine; same-engine child tabs keep their live WebKit page.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK and its matching Chromium runtime.
+
+This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.7/Cobble-v0.1.0-beta.7.zip" length="164357609" type="application/octet-stream" sparkle:edSignature="mI0JFP8mnF9vwP4YXgQPgtOFeY6oo7AqR4X0rz825OlbKIHzFAN0aiWQTsg9yIrJu3//U72rIuTFB6OUI1y6CA=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Wed, 14 Oct 2026 16:38:08 -0700</pubDate>
             <sparkle:version>6</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -54,32 +74,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.5/Cobble-v0.1.0-beta.5.zip" length="163542537" type="application/octet-stream" sparkle:edSignature="juvrU+FJLbJ8l6Ve8WteqTwqw9LoAnBGiqV45NqVUEMLHNKOG+yv0pFesRrVZzIfCLmmI4WZ8t8CtVtT9I+nCg=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Sat, 03 Oct 2026 13:25:59 -0700</pubDate>
-            <sparkle:version>4</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Updated Chromium to 153.0.8010.37 with the matching public ABI 17 SDK.
-- Command-click and middle-click open links in background tabs.
-- Closing the last tab keeps the selected space.
-- Added page loading progress, including WebKit’s native estimate.
-- Rejected stale native focus callbacks and removed obsolete default-browser callback code.
-
-Includes WebKit, Chromium and signed in-app updates.
-
-This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified. ABI 18 development features are not included.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version’s updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.4/Cobble-v0.1.0-beta.4.zip" length="163522212" type="application/octet-stream" sparkle:edSignature="xQDDAPeAgQHhE2kWNeBbNp2zgMmUeFQAVxXH9+3dlG/kD55TgAeQoF7lhnEzQc3QovvUmYOnbC5kl27zvbp3DQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: SKaH9EV0pAHt3QgkYrizPT3pUOTVQohk/IfX9XHGqrEXEBfwwi6ixUVQ6PKANmvf0y8nU8/RB69kcMgAWdaLBA==
-length: 6040
+edSignature: NSLzHiYj0HDz97M6hx8SoryefBAkbZPoiwj5Gbqr3uJGxUa9WPtbFbQe9XFtzLVqzuQ3XbctGPhaKIDlCmhYDQ==
+length: 5929
 -->
