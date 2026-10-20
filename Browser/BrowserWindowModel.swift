@@ -366,6 +366,26 @@ final class BrowserWindowModel: Identifiable {
             if activate { self.select(tab.id) }
             return true
         }
+        host.events.onCreatePageForRequest = { [weak self] child, request, activate in
+            guard let self, self.isCurrent(tabID, generation: generation), child.contextID == contextID,
+                  host.state.lifecycle == .ready, self.closeRequests[tabID] == nil,
+                  !self.preservingTabsForTermination,
+                  !self.app.suspendedContexts.contains(contextID),
+                  !self.record.tabs.contains(where: { $0.id == child.tabID }),
+                  let parent = self.record.tabs.first(where: { $0.id == tabID }),
+                  let url = request.url else { return false }
+            let engineID = self.app.preferences.engine(for: url)
+            guard self.app.engines.effectiveID(engineID) == contextID.engineID else {
+                self.addTab(url: url, activate: activate)
+                return false
+            }
+            let tab = Tab(id: child.tabID, spaceID: parent.spaceID, title: "Opening…",
+                          engineID: engineID)
+            self.insertNewTemporaryTab(tab)
+            self.adopt(child)
+            if activate { self.select(tab.id) }
+            return true
+        }
         host.events.onExternalURL = { [weak self] url in
             guard let self, self.isCurrent(tabID, generation: generation) else { return }
             self.openExternalURL(url)

@@ -100,6 +100,7 @@ enum PageArchiveFormat: Sendable {
     var onVisit: ((UUID, String, String) -> Void)?
     var onFavicon: ((UUID, URL, Data) -> Void)?
     var onCreatePage: ((any BrowserPage, _ activate: Bool) -> Bool)?
+    var onCreatePageForRequest: ((any BrowserPage, URLRequest, _ activate: Bool) -> Bool)?
     var onDownload: ((any EngineDownload) -> Void)?
     var onClose: (() -> Void)?
     var onActivate: (() -> Void)?
@@ -113,7 +114,7 @@ enum PageArchiveFormat: Sendable {
     var onClientCertificateRequest: ((PageClientCertificateRequest) -> Void)?
     var onPromptCancelled: ((UUID) -> Void)?
     func clear() {
-        onChange = nil; onVisit = nil; onFavicon = nil; onCreatePage = nil
+        onChange = nil; onVisit = nil; onFavicon = nil; onCreatePage = nil; onCreatePageForRequest = nil
         onDownload = nil; onClose = nil; onActivate = nil; onExternalURL = nil; onKeyEvent = nil
         onMediaPermissionRequest = nil; onJavaScriptDialog = nil; onHTTPAuthRequest = nil
         onFileChooserRequest = nil; onExternalProtocolRequest = nil; onClientCertificateRequest = nil
