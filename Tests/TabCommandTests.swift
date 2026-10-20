@@ -166,6 +166,26 @@ final class TabCommandTests: XCTestCase {
         }
     }
 
+    func testCommandClickChildUsesAutomaticEngineSelection() async throws {
+        let parent = Tab(urlString: "https://example.com/", title: "Parent",
+                         engineID: .webKit, engineOverride: .webKit)
+        try await withTestAppEngines(SessionSnapshot(windows: [WindowRecord(selectedTabID: parent.id, tabs: [parent])])) { app, _, automatic in
+            XCTAssertTrue(app.preferences.setDefaultEngine(automatic.id))
+            let window = try XCTUnwrap(app.windows.first)
+            window.select(parent.id)
+            let opener = try XCTUnwrap(window.selectedPage)
+            let child = TestPage(tabID: UUID(), contextID: opener.contextID)
+            let destination = URL(string: "https://example.com/child")!
+            child.state.urlString = destination.absoluteString
+
+            XCTAssertFalse(opener.events.onCreatePageForRequest?(child, URLRequest(url: destination), true) == true)
+            XCTAssertNotEqual(window.selectedTab?.id, child.tabID)
+            XCTAssertEqual(window.selectedTab?.engineID, automatic.id)
+            XCTAssertNil(window.selectedTab?.engineOverride)
+            XCTAssertEqual(window.selectedPage?.contextID.engineID, automatic.id)
+        }
+    }
+
     func testAddressModifiersOpenForegroundAndLoadedBackgroundTabs() async throws {
         let tab = Tab(urlString: "https://example.com/", title: "Parent")
         try await withTestApp(SessionSnapshot(windows: [WindowRecord(selectedTabID: tab.id, tabs: [tab])])) { app, engine in
@@ -700,6 +720,21 @@ final class TabCommandTests: XCTestCase {
         let app = AppModel(store: store, engines: EngineRegistry([engine]))
         defer { app.windows.forEach { $0.closePages() }; app.flush(); app.library.close() }
         try await body(app, engine)
+    }
+
+    private func withTestAppEngines(_ snapshot: SessionSnapshot,
+                                    body: (AppModel, TestEngine, TestEngine) async throws -> Void) async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleTabSelection-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SessionStore(directory: directory)
+        store.save(snapshot) { XCTAssertNil($0) }
+        store.flush()
+        let webKit = TestEngine(.webKit)
+        let automatic = TestEngine(EngineID(rawValue: "automatic-fixture"))
+        let app = AppModel(store: store, engines: EngineRegistry([webKit, automatic]))
+        defer { app.windows.forEach { $0.closePages() }; app.flush(); app.library.close() }
+        try await body(app, webKit, automatic)
     }
 }
 

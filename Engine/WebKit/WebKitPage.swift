@@ -911,7 +911,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
            action.modifierFlags.contains(.command) || action.buttonNumber == 2,
            events.onCreatePage != nil {
             _ = createChild(configuration: webView.configuration, request: action.request,
-                            activate: Self.activatesNewTab(modifiers: action.modifierFlags, buttonNumber: action.buttonNumber))
+                            activate: Self.activatesNewTab(modifiers: action.modifierFlags, buttonNumber: action.buttonNumber),
+                            automaticEngine: action.modifierFlags.contains(.command))
             decisionHandler(.cancel)
             return
         }
@@ -1429,14 +1430,23 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         return true
     }
 
-    private func createChild(configuration: WKWebViewConfiguration, request: URLRequest?, activate: Bool) -> WKWebView? {
-        guard !closed, let create = events.onCreatePage else { return nil }
+    private func createChild(configuration: WKWebViewConfiguration, request: URLRequest?, activate: Bool,
+                             automaticEngine: Bool = false) -> WKWebView? {
+        guard !closed, events.onCreatePage != nil || events.onCreatePageForRequest != nil else { return nil }
         let child = WebKitPage(tabID: UUID(), dataStore: configuration.websiteDataStore,
             configuration: configuration, siteSettings: siteSettings, profileID: profileID,
             isPrivate: isPrivate, context: context, contextID: contextID,
             windowID: windowID, clientCertificateSearchList: clientCertificateSearchList) { _, _, _ in }
         child.applyContentRules()
-        guard create(child, activate) else { child.close(); return nil }
+        let accepted = if automaticEngine, let request, request.url != nil, let createForRequest = events.onCreatePageForRequest,
+                            ["GET", "HEAD"].contains(request.httpMethod?.uppercased() ?? "GET") {
+            createForRequest(child, request, activate)
+        } else if let create = events.onCreatePage {
+            create(child, activate)
+        } else {
+            false
+        }
+        guard accepted else { child.close(); return nil }
         if let request { child.trackNavigation(child.webView.load(request)) }
         return child.webView
     }
