@@ -1,20 +1,11 @@
 import AppKit
 import CobbleChromium
 
-#if COBBLE_CHROMIUM_ABI10
 let chromiumPageOperations: Set<PageOperation> = [
     .find, .zoom, .muteAudio, .printPage, .reloadFromOrigin, .snapshot, .localFile,
     .savePage, .pageDOM, .openDevTools, .detach
 ]
-#else
-let chromiumPageOperations: Set<PageOperation> = [.find, .zoom]
-#endif
 
-private let chromiumLegacyDataRemoval: Set<WebsiteDataRemovalCapability> = [
-    .init(categories: [.siteData, .cache], scope: .recordsAllTime),
-    .init(categories: [.cache], scope: .profileAllTime),
-]
-#if COBBLE_CHROMIUM_ABI13
 private let chromiumDataRemoval: Set<WebsiteDataRemovalCapability> = [
     .init(categories: [.siteData], scope: .recordsAllTime),
     .init(categories: [.cache], scope: .recordsAllTime),
@@ -24,29 +15,14 @@ private let chromiumDataRemoval: Set<WebsiteDataRemovalCapability> = [
     .init(categories: [.siteData, .cache], scope: .profileAllTime),
     .init(categories: [.cache], scope: .profileSince),
 ]
-#else
-private let chromiumDataRemoval = chromiumLegacyDataRemoval
-#endif
 
-#if COBBLE_CHROMIUM_ABI4
 let chromiumPermissions: Set<PermissionKind> = [.camera, .microphone]
 let chromiumCaptureControls: Set<PageCaptureControl> = [.stopAllUserMedia]
 let chromiumSupportsPopupPolicy = true
 private let chromiumSupportsProfileDeletion = true
-#else
-let chromiumPermissions: Set<PermissionKind> = []
-let chromiumCaptureControls: Set<PageCaptureControl> = []
-let chromiumSupportsPopupPolicy = false
-private let chromiumSupportsProfileDeletion = false
-#endif
 
-#if COBBLE_CHROMIUM_ABI14
 private let chromiumSupportsCookieTransfer = true
-#else
-private let chromiumSupportsCookieTransfer = false
-#endif
 
-#if COBBLE_CHROMIUM_ABI16
 private let chromiumSupportsBrowserIdentity = true
 
 extension SiteBrowserIdentity {
@@ -60,9 +36,6 @@ extension SiteBrowserIdentity {
         }
     }
 }
-#else
-private let chromiumSupportsBrowserIdentity = false
-#endif
 
 /// The Chromium runtime is assembled by the outer launcher. This adapter does
 /// not register it with the app until that launcher and its framework are
@@ -76,30 +49,20 @@ private let chromiumSupportsBrowserIdentity = false
                                           supportsProfileDeletion: chromiumSupportsProfileDeletion,
                                           supportsCookieTransfer: chromiumSupportsCookieTransfer,
                                           supportsBrowserIdentity: chromiumSupportsBrowserIdentity)
-    #if COBBLE_CHROMIUM_ABI4
     lazy var chromiumContentBlocker = ChromiumContentBlocker(
         engine: self, runtime: runtime, directory: extensionDirectory)
     var contentBlocker: (any EngineContentBlocker)? { chromiumContentBlocker }
-    #else
-    var contentBlocker: (any EngineContentBlocker)? { nil }
-    #endif
 
     private let runtime: ChromiumRuntime
     private let extensionDirectory: URL
     private var pages: [ObjectIdentifier: ChromiumPage] = [:]
-    #if COBBLE_CHROMIUM_ABI15
     private var extensionInstallAlerts: [UInt64: (page: ObjectIdentifier, window: NSWindow, alert: NSAlert)] = [:]
-    #endif
-    #if COBBLE_CHROMIUM_ABI4
     private var mediaRequestIDs: [UInt64: UUID] = [:]
     private var javaScriptDialogIDs: [UInt64: UUID] = [:]
     private var httpAuthRequestIDs: [UInt64: UUID] = [:]
     private var fileChooserIDs: [UInt64: UUID] = [:]
     private var externalProtocolIDs: [UInt64: UUID] = [:]
-    #if COBBLE_CHROMIUM_ABI12
     private var clientCertificateIDs: [UInt64: UUID] = [:]
-    #endif
-    #endif
     private var normalContexts: [UUID: ChromiumContext] = [:]
     private lazy var chromiumExtensionManager = ChromiumExtensionManager(
         engine: self, runtime: runtime, directory: extensionDirectory)
@@ -108,34 +71,22 @@ private let chromiumSupportsBrowserIdentity = false
     init(runtime: ChromiumRuntime, directory: URL) {
         self.runtime = runtime
         extensionDirectory = directory
-        #if COBBLE_CHROMIUM_ABI17
         runtime.onPopupWithDisposition = { [weak self] parent, child, disposition in
             self?.receivePopup(parent: parent, child: child, activate: Self.activatesPopup(disposition))
         }
-        #else
-        runtime.onPopup = { [weak self] parent, child in
-            self?.receivePopup(parent: parent, child: child, activate: true)
-        }
-        #endif
-        #if COBBLE_CHROMIUM_ABI15
         runtime.extensionInstallRequested = { [weak self] request in
             self?.receiveExtensionInstall(request)
         }
         runtime.extensionInstallCancelled = { [weak self] id in
             self?.cancelExtensionInstall(id, resolve: false)
         }
-        #endif
-        #if COBBLE_CHROMIUM_ABI4
         runtime.popupPolicy = { [weak self] request in self?.allowsPopup(request) ?? false }
         runtime.onMediaPermissionRequest = { [weak self] request in self?.receiveMediaPermission(request) }
         runtime.onJavaScriptDialog = { [weak self] request in self?.receiveJavaScriptDialog(request) }
         runtime.onHTTPAuthRequest = { [weak self] request in self?.receiveHTTPAuth(request) }
         runtime.onFileChooserRequest = { [weak self] request in self?.receiveFileChooser(request) }
         runtime.onExternalProtocolRequest = { [weak self] request in self?.receiveExternalProtocol(request) }
-        #if COBBLE_CHROMIUM_ABI12
         runtime.onClientCertificateRequest = { [weak self] request in self?.receiveClientCertificate(request) }
-        #endif
-        #endif
         runtime.onDownload = { [weak self] page, download in
             self?.receiveDownload(page: page, download: download)
         }
@@ -157,47 +108,33 @@ private let chromiumSupportsBrowserIdentity = false
     }
 
     func preflightProfileDeletion(_ profile: Profile) async throws {
-        #if COBBLE_CHROMIUM_ABI4
         guard case .named = profile.storeBinding else { return }
         try await runtime.waitUntilReady()
         try await runtime.preflightProfileDeletion(key: chromiumProfileKey(profile.id))
-        #else
-        throw EngineError.notReady("Chromium profile deletion is unavailable in this build.")
-        #endif
     }
 
     func removeProfile(_ profile: Profile) async throws {
-        #if COBBLE_CHROMIUM_ABI4
         guard case .named = profile.storeBinding else { return }
         try await runtime.waitUntilReady()
         try await runtime.scheduleProfileDeletion(key: chromiumProfileKey(profile.id))
         try chromiumExtensionManager.removeProfile(profile.id)
         try await chromiumContentBlocker.removeProfile(profile.id)
-        #else
-        throw EngineError.notReady("Chromium profile deletion is unavailable in this build.")
-        #endif
     }
 
     func shutdown() async {
-        #if COBBLE_CHROMIUM_ABI15
         for id in Array(extensionInstallAlerts.keys) { cancelExtensionInstall(id, resolve: true) }
-        #endif
         // A manager may have opened a normal context before the user created a
         // Chromium tab. Those contexts are not in EngineRegistry, so close all
         // retained hosts here before the launcher tears down Chromium.
         let contexts = Array(normalContexts.values)
         for context in contexts { await context.close() }
         pages.removeAll()
-        #if COBBLE_CHROMIUM_ABI4
         mediaRequestIDs.removeAll()
         javaScriptDialogIDs.removeAll()
         httpAuthRequestIDs.removeAll()
         fileChooserIDs.removeAll()
         externalProtocolIDs.removeAll()
-        #if COBBLE_CHROMIUM_ABI12
         clientCertificateIDs.removeAll()
-        #endif
-        #endif
         normalContexts.removeAll()
     }
 
@@ -206,12 +143,10 @@ private let chromiumSupportsBrowserIdentity = false
     }
 
     func forget(_ source: CobbleChromium.ChromiumPage) {
-        #if COBBLE_CHROMIUM_ABI15
         let page = ObjectIdentifier(source)
         for id in extensionInstallAlerts.keys.filter({ extensionInstallAlerts[$0]?.page == page }) {
             cancelExtensionInstall(id, resolve: true)
         }
-        #endif
         pages.removeValue(forKey: ObjectIdentifier(source))
     }
 
@@ -237,18 +172,15 @@ private let chromiumSupportsBrowserIdentity = false
 
     fileprivate func contextOpened(_ context: ChromiumContext, native: CobbleChromium.ChromiumContext) {
         guard !context.isPrivate else { return }
-        #if COBBLE_CHROMIUM_ABI15
         let profileID = context.id.profileID
         native.onExtensionsChanged = { [weak self, weak native] in
             guard let self, let native else { return }
             Task { await self.chromiumExtensionManager.refreshFromNative(
                 profileID: profileID, context: native) }
         }
-        #endif
         Task { await chromiumExtensionManager.refreshFromNative(profileID: context.id.profileID, context: native) }
     }
 
-    #if COBBLE_CHROMIUM_ABI15
     private func receiveExtensionInstall(_ request: ChromiumExtensionInstallRequest) {
         guard let host = pages[ObjectIdentifier(request.page)], host.source === request.page,
               host.state.lifecycle == .ready, !host.closing, !host.contextID.isPrivate,
@@ -291,14 +223,11 @@ private let chromiumSupportsBrowserIdentity = false
         }
         if resolve { runtime.resolveExtensionInstall(id, accept: false) }
     }
-    #endif
 
     fileprivate func contextDidClose(_ context: ChromiumContext) {
         guard let current = normalContexts[context.id.profileID], current === context else { return }
         normalContexts.removeValue(forKey: context.id.profileID)
-        #if COBBLE_CHROMIUM_ABI4
         chromiumContentBlocker.contextDidClose(context.id.profileID)
-        #endif
         chromiumExtensionManager.contextDidClose(context)
     }
 
@@ -309,11 +238,9 @@ private let chromiumSupportsBrowserIdentity = false
         profileID == Profile.defaultID ? "" : profileID.uuidString
     }
 
-    #if COBBLE_CHROMIUM_ABI17
     static func activatesPopup(_ disposition: ChromiumPopupRequest.Disposition) -> Bool {
         disposition != .newBackgroundTab
     }
-    #endif
 
     private func receivePopup(parent: CobbleChromium.ChromiumPage?, child: CobbleChromium.ChromiumPage,
                               activate: Bool) {
@@ -347,7 +274,6 @@ private let chromiumSupportsBrowserIdentity = false
         host.attach(child)
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     private func allowsPopup(_ request: ChromiumPopupRequest) -> Bool {
         guard let host = pages[ObjectIdentifier(request.opener)], host.state.lifecycle == .ready,
               !host.closing, host.source === request.opener,
@@ -437,20 +363,16 @@ private let chromiumSupportsBrowserIdentity = false
             }
             identity.visiblePageOrigin = visibleURL
         }
-        #if COBBLE_CHROMIUM_ABI11
         if request.kind == .formRepost && !request.isReload {
             request.cancel()
             return
         }
-        #endif
         let kind: PageJavaScriptDialogKind = switch request.kind {
         case .alert: .alert
         case .confirm: .confirm
         case .prompt: .prompt
         case .beforeUnload: .beforeUnload
-        #if COBBLE_CHROMIUM_ABI11
         case .formRepost: .formRepost
-        #endif
         }
         let id = UUID()
         let nativeID = request.id
@@ -614,7 +536,6 @@ private let chromiumSupportsBrowserIdentity = false
         publish(shared)
     }
 
-    #if COBBLE_CHROMIUM_ABI12
     private func receiveClientCertificate(_ request: ChromiumClientCertificateRequest) {
         guard request.isPending, let host = promptHost(request.page),
               let challengerURL = URL(string: request.challengerOrigin),
@@ -696,7 +617,6 @@ private let chromiumSupportsBrowserIdentity = false
         let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? String(localized: "Unknown") : text
     }
-    #endif
 
     private func promptHost(_ page: CobbleChromium.ChromiumPage) -> ChromiumPage? {
         guard let host = pages[ObjectIdentifier(page)], host.source === page,
@@ -716,7 +636,6 @@ private let chromiumSupportsBrowserIdentity = false
             windowID: host.windowID, documentID: documentID, frameID: frameID,
             requestingOrigin: requestingURL, topLevelOrigin: topLevelURL)
     }
-    #endif
 
     private func receiveDownload(page: CobbleChromium.ChromiumPage, download: ChromiumDownload) {
         guard let host = pages[ObjectIdentifier(page)], host.state.lifecycle == .ready else {
@@ -770,7 +689,6 @@ private let chromiumSupportsBrowserIdentity = false
 
     func attach(siteSettings: SiteSettingsStore) { self.siteSettings = siteSettings }
 
-    #if COBBLE_CHROMIUM_ABI14
     func exportCookies(for url: URL) async throws -> CookieTransferSnapshot {
         guard isAvailable else { throw EngineError.closed }
         guard !isPrivate else { throw EngineError.unsupported("private login sharing") }
@@ -809,7 +727,6 @@ private let chromiumSupportsBrowserIdentity = false
         guard isAvailable else { throw EngineError.closed }
         return result.rejected
     }
-    #endif
 
     func makePage(tabID: UUID, windowID: UUID) throws -> any BrowserPage {
         guard isAvailable else { throw EngineError.closed }
@@ -845,7 +762,6 @@ private let chromiumSupportsBrowserIdentity = false
             }
         }
         let context = try await nativeContext()
-        #if COBBLE_CHROMIUM_ABI13
         var nativeCategories: ChromiumWebsiteDataCategories = []
         if request.categories.contains(.siteData) { nativeCategories.insert(.siteData) }
         if request.categories.contains(.cache) { nativeCategories.insert(.cache) }
@@ -865,24 +781,6 @@ private let chromiumSupportsBrowserIdentity = false
             try await context.removeWebsiteData(categories: nativeCategories, modifiedSince: modifiedSince)
             websiteDataRecords.removeAll()
         }
-        #else
-        switch request.scope {
-        case .records(let ids):
-            let selected = try ids.map { id in
-                guard let domain = websiteDataRecords[id] else {
-                    throw EngineError.notReady("Website data changed. Refresh and try again.")
-                }
-                return (id, domain)
-            }
-            for (id, domain) in selected {
-                try await context.removeWebsiteData(for: domain)
-                websiteDataRecords.removeValue(forKey: id)
-            }
-        case .profile:
-            try await context.clearCache()
-            websiteDataRecords.removeAll()
-        }
-        #endif
     }
 
     func close() async {
@@ -946,12 +844,10 @@ private let chromiumSupportsBrowserIdentity = false
                     await opened.close()
                     throw EngineError.closed
                 }
-                #if COBBLE_CHROMIUM_ABI16
                 opened.identityResolver = { [weak self] url in
                     guard let self, let siteSettings = self.siteSettings else { return .standard }
                     return siteSettings.browserIdentity(for: url, profileID: self.id.profileID).chromiumIdentity
                 }
-                #endif
                 self.context = opened
                 self.engine.contextOpened(self, native: opened)
                 return opened

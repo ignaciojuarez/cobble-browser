@@ -10,11 +10,7 @@ import CobbleChromium
                                           permissions: chromiumPermissions, captureControls: chromiumCaptureControls,
                                           supportsPopupPolicy: chromiumSupportsPopupPolicy)
     let nativeView = NSView(frame: .zero)
-    #if COBBLE_CHROMIUM_ABI4
     let archiveFormat: PageArchiveFormat = .mhtml
-    #else
-    let archiveFormat: PageArchiveFormat = .webArchive
-    #endif
 
     let context: ChromiumContext
     private(set) var windowID: UUID
@@ -34,9 +30,7 @@ import CobbleChromium
     private var appleSignInURL: String?
     private var publishedURL = ""
     private var publishedTitle = ""
-    #if COBBLE_CHROMIUM_ABI18
     private var publishedNavigationFailure: ChromiumNavigationFailure?
-    #endif
     private var publishedFaviconPNG: Data?
     private var publishedFaviconOrigin: String?
     private var securityErrorPage = false
@@ -46,14 +40,10 @@ import CobbleChromium
     private var committedURL: URL?
     private var zoomOrigin: String?
     private var pendingZoom: (origin: String, factor: Double)?
-    #if COBBLE_CHROMIUM_ABI4
     private var findRequestID: Int32?
     private weak var devToolsSession: ChromiumPageDevToolsSession?
-    #endif
-    #if COBBLE_CHROMIUM_ABI10
     private var scopedLocalFileURL: URL?
     private var authorizedLocalFileURL: URL?
-    #endif
 
     init(tabID: UUID, context: ChromiumContext, windowID: UUID, engine: ChromiumEngine,
          source: CobbleChromium.ChromiumPage? = nil) {
@@ -73,11 +63,9 @@ import CobbleChromium
         if let prepareTask { return try await prepareTask.value }
         let task = Task { @MainActor [weak self] in
             guard let self else { throw EngineError.closed }
-            #if COBBLE_CHROMIUM_ABI4
             if !self.contextID.isPrivate {
                 try await self.engine.chromiumContentBlocker.prepare(profileID: self.contextID.profileID)
             }
-            #endif
             let source = try await self.context.makeNativePage(hostWindowID: self.windowID)
             guard !self.closing else {
                 // The tab was retired while Chromium was opening its page.
@@ -113,18 +101,12 @@ import CobbleChromium
         guard !closing, let source else { return }
         cancelAppleSignIn()
         resetFind()
-        #if COBBLE_CHROMIUM_ABI4
         invalidateConnectionDetails()
-        #if COBBLE_CHROMIUM_ABI10
         if reloadLocalFile(source) { return }
-        #endif
         if !source.reload() {
             state.errorMessage = String(localized: "This page cannot be reloaded right now.")
             refresh(source)
         }
-        #else
-        source.reload()
-        #endif
     }
     func stop() { guard !closing else { return }; source?.stop() }
     func focus() { guard !closing else { return }; source?.focus() }
@@ -135,35 +117,24 @@ import CobbleChromium
     }
     func setAppPromptPending(_ pending: Bool) {
         appPromptPending = pending
-        #if COBBLE_CHROMIUM_ABI4
         state.hasPendingPrompt = pending || source?.hasPendingPrompt == true
-        #else
-        state.hasPendingPrompt = pending
-        #endif
     }
     func setVisible(_ visible: Bool) {
         isVisible = visible
-        #if COBBLE_CHROMIUM_ABI4
         source?.setVisible(visible)
-        #endif
     }
 
     func setInspectable(_ enabled: Bool) {
         inspectable = enabled
-        #if COBBLE_CHROMIUM_ABI4
         if !enabled { _ = devToolsSession?.close() }
-        #endif
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     private func closeDevTools() {
         _ = devToolsSession?.close()
         devToolsSession = nil
     }
-    #endif
 
     func moveToWindow(_ windowID: UUID) throws {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, state.lifecycle == .ready, !state.isLoading,
               !state.hasPendingPrompt, let source else {
             throw EngineError.notReady("Finish the current page action before moving this Chromium tab.")
@@ -172,9 +143,6 @@ import CobbleChromium
             try source.move(toHostWindowID: windowID)
             self.windowID = windowID
         } catch { throw chromiumEngineError(error) }
-        #else
-        throw EngineError.unsupported(String(localized: "moving live tabs between windows"))
-        #endif
     }
 
     func find(_ text: String, backwards: Bool) {
@@ -182,13 +150,9 @@ import CobbleChromium
         state.findQuery = text
         state.findMatchFound = nil
         do {
-            #if COBBLE_CHROMIUM_ABI4
             findRequestID = nil
             findRequestID = try source.find(text, backwards: backwards)
             if let result = source.findResult { receiveFindResult(result) }
-            #else
-            try source.find(text, backwards: backwards)
-            #endif
         }
         catch { state.errorMessage = error.localizedDescription }
     }
@@ -221,22 +185,15 @@ import CobbleChromium
     }
 
     func reloadFromOrigin() {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, let source else { return }
         cancelAppleSignIn()
         resetFind()
         invalidateConnectionDetails()
-        #if COBBLE_CHROMIUM_ABI10
         if reloadLocalFile(source) { return }
-        #endif
         do { try source.reloadFromOrigin() }
         catch { state.errorMessage = chromiumEngineError(error).localizedDescription; refresh(source) }
-        #else
-        state.errorMessage = EngineError.unsupported(String(localized: "Reload from Origin")).localizedDescription
-        #endif
     }
 
-    #if COBBLE_CHROMIUM_ABI10
     static func isAuthorizedLocalFile(_ currentURL: URL?, authorizedURL: URL?) -> Bool {
         guard let currentURL, currentURL.isFileURL, let authorizedURL else { return false }
         return currentURL.standardizedFileURL == authorizedURL.standardizedFileURL
@@ -293,10 +250,8 @@ import CobbleChromium
         scopedLocalFileURL = nil
         authorizedLocalFileURL = nil
     }
-    #endif
 
     func pageArchive() async throws -> Data {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, state.lifecycle == .ready, let source else { throw EngineError.closed }
         do {
             let data = try await source.webArchive()
@@ -304,13 +259,9 @@ import CobbleChromium
             return data
         }
         catch { throw chromiumEngineError(error) }
-        #else
-        throw EngineError.unsupported(String(localized: "saving pages"))
-        #endif
     }
 
     func currentDOM() async throws -> String {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, state.lifecycle == .ready, let source else { throw EngineError.closed }
         do {
             let dom = try await source.currentDOM()
@@ -318,13 +269,9 @@ import CobbleChromium
             return dom
         }
         catch { throw chromiumEngineError(error) }
-        #else
-        throw EngineError.unsupported(String(localized: "viewing the current page DOM"))
-        #endif
     }
 
     func connectionDetails() async throws -> PageConnectionDetails? {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, state.lifecycle == .ready, let source else { throw EngineError.closed }
         let revision = state.connectionDetailsRevision
         do {
@@ -362,13 +309,9 @@ import CobbleChromium
                     ranWithCertificateErrors: mixed.ranWithCertificateErrors))
         } catch let error as EngineError { throw error }
         catch { throw chromiumEngineError(error) }
-        #else
-        return nil
-        #endif
     }
 
     func openDevTools(hostWindowID: UUID) throws -> any PageDevToolsSession {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, state.lifecycle == .ready, !hasPendingPrompt, let source else {
             throw EngineError.notReady("The Chromium page is not ready for Developer Tools.")
         }
@@ -381,12 +324,8 @@ import CobbleChromium
             devToolsSession = session
             return session
         } catch { throw chromiumEngineError(error) }
-        #else
-        throw EngineError.unsupported(String(localized: "Developer Tools"))
-        #endif
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     private static func securityText(_ value: String) -> String {
         let text = value.trimmingCharacters(in: .whitespacesAndNewlines)
         return text.isEmpty ? String(localized: "Unknown") : text
@@ -413,19 +352,13 @@ import CobbleChromium
         default: String(format: String(localized: "Certificate error: %@"), String(code.prefix(128)))
         }
     }
-    #endif
 
     func printPage() {
-        #if COBBLE_CHROMIUM_ABI4
         guard !closing, let source else { return }
         do { try source.printPage() }
         catch { state.errorMessage = error.localizedDescription }
-        #else
-        state.errorMessage = "Printing is not available in Chromium yet."
-        #endif
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     @discardableResult func stopMediaCapture() -> Bool {
         guard !closing, let source else { return false }
         guard source.stopMediaCapture() else {
@@ -457,7 +390,6 @@ import CobbleChromium
         }
         return image
     }
-    #endif
 
     func applyContentRules() {}
 
@@ -495,10 +427,8 @@ import CobbleChromium
         source.onClose = { [weak self] in self?.finishClose() }
         source.onCloseCancelled = { [weak self] in self?.closeCancelled() }
         source.onNavigationCommitted = nil
-        #if COBBLE_CHROMIUM_ABI4
         source.onFindResult = nil
         source.onPrimaryMainFrameCommitted = nil
-        #endif
         source.onActivate = nil
         source.close()
         let closed = await source.waitUntilClosed()
@@ -516,9 +446,7 @@ import CobbleChromium
     func close() {
         externalApplications.cancelAll()
         guard state.lifecycle != .closed else { return }
-        #if COBBLE_CHROMIUM_ABI4
         closeDevTools()
-        #endif
         if closing {
             source?.onCloseCancelled = nil
             closeForced = true
@@ -544,10 +472,8 @@ import CobbleChromium
         source.onClose = { [weak self] in self?.finishClose() }
         source.onCloseCancelled = nil
         source.onNavigationCommitted = nil
-        #if COBBLE_CHROMIUM_ABI4
         source.onFindResult = nil
         source.onPrimaryMainFrameCommitted = nil
-        #endif
         source.onActivate = nil
         source.forceClose()
     }
@@ -578,9 +504,7 @@ import CobbleChromium
             guard let self, let source, self.source === source else { return }
             self.navigationCommitted(url, title: title)
         }
-        #if COBBLE_CHROMIUM_ABI4
         observePageDetails(source)
-        #endif
         source.onActivate = { [weak self, weak source] in
             guard let self, let source, self.source === source, !self.closing else { return }
             self.events.onActivate?()
@@ -591,9 +515,7 @@ import CobbleChromium
         pageView.autoresizingMask = [.width, .height]
         nativeView.addSubview(pageView)
         if isActive { source.focus() }
-        #if COBBLE_CHROMIUM_ABI4
         source.setVisible(isVisible)
-        #endif
         state.lifecycle = .ready
         refresh(source)
     }
@@ -606,22 +528,17 @@ import CobbleChromium
         state.urlString = source.urlString
         state.title = source.title
         state.isLoading = source.isLoading
-        #if COBBLE_CHROMIUM_ABI18
         state.estimatedProgress = source.estimatedProgress
         state.isUnresponsive = source.isUnresponsive
         if publishedNavigationFailure != source.navigationFailure {
             publishedNavigationFailure = source.navigationFailure
             state.errorMessage = source.navigationFailure?.localizedDescription
         }
-        #endif
         state.canGoBack = source.canGoBack
         state.canGoForward = source.canGoForward
         state.isCrashed = source.isCrashed
-        #if COBBLE_CHROMIUM_ABI4
         if source.isCrashed {
-            #if COBBLE_CHROMIUM_ABI10
             releaseLocalFileAccess()
-            #endif
             if state.connectionDetailsReady || previousConnection != .unknown {
                 state.connectionDetailsRevision = UUID()
             }
@@ -644,9 +561,7 @@ import CobbleChromium
             publishedFaviconPNG = nil
             publishedFaviconOrigin = nil
         } else {
-            #if COBBLE_CHROMIUM_ABI10
             if source.securityErrorPage { releaseLocalFileAccess() }
-            #endif
             state.isPlayingAudio = source.isAudible
             state.isAudioMuted = source.isAudioMuted
             state.camera = source.isCapturingCamera ? .active : .none
@@ -682,7 +597,6 @@ import CobbleChromium
                 state.connectionDetailsRevision = UUID()
             }
         }
-        #endif
         if let pendingZoom,
            URL(string: source.urlString).flatMap(AddressResolver.canonicalOrigin) != pendingZoom.origin {
             self.pendingZoom = nil
@@ -696,7 +610,6 @@ import CobbleChromium
         events.onChange?(tabID, source.urlString, source.title)
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     private func publishFavicon(_ source: CobbleChromium.ChromiumPage) {
         let faviconOrigin = URL(string: source.urlString).flatMap(AddressResolver.canonicalOrigin)
         guard publishedFaviconPNG != source.faviconPNG || publishedFaviconOrigin != faviconOrigin else { return }
@@ -708,14 +621,11 @@ import CobbleChromium
         state.faviconOrigin = state.favicon == nil ? nil : faviconOrigin
         if let url, let png, state.favicon != nil { events.onFavicon?(tabID, url, png) }
     }
-    #endif
 
     private func resetFind() {
         state.findQuery = ""
         state.findMatchFound = nil
-        #if COBBLE_CHROMIUM_ABI4
         findRequestID = nil
-        #endif
     }
 
     private func invalidateConnectionDetails() {
@@ -723,7 +633,6 @@ import CobbleChromium
         state.connectionDetailsRevision = UUID()
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     private func observePageDetails(_ source: CobbleChromium.ChromiumPage) {
         source.onPrimaryMainFrameCommitted = { [weak self, weak source] url in
             guard let self, let source, self.source === source, !self.closing else { return }
@@ -735,9 +644,7 @@ import CobbleChromium
                 self.state.grantedMediaKinds.removeAll()
             }
             self.committedURL = url
-            #if COBBLE_CHROMIUM_ABI10
             self.releaseLocalFileAccess(unlessCurrentURL: url)
-            #endif
             self.state.connectionDetailsRevision = UUID()
             self.zoomOrigin = nil
             self.resetFind()
@@ -753,15 +660,10 @@ import CobbleChromium
         guard findRequestID == result.requestID, result.isFinal, !state.findQuery.isEmpty else { return }
         state.findMatchFound = result.matchCount > 0
     }
-    #endif
 
     private var canUseCommittedZoom: Bool {
         guard committedURL != nil else { return false }
-        #if COBBLE_CHROMIUM_ABI4
         return true
-        #else
-        return source?.isLoading == false
-        #endif
     }
 
     private func rememberZoom(_ source: CobbleChromium.ChromiumPage) {
@@ -799,19 +701,12 @@ import CobbleChromium
 
     private func navigationCommitted(_ url: URL, title: String) {
         state.errorMessage = nil
-        #if !COBBLE_CHROMIUM_ABI4
-        committedURL = url
-        zoomOrigin = nil
-        applyRememberedZoom()
-        #endif
         guard !context.isPrivate,
               ["http", "https"].contains(url.scheme?.lowercased() ?? "") else { return }
         events.onVisit?(tabID, url.absoluteString, title)
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     var committedOrigin: String? { committedURL.flatMap(AddressResolver.canonicalOrigin) }
-    #endif
 
     func offerExternalApplication(_ url: URL) {
         guard !closing, isActive, state.lifecycle == .ready, !hasPendingPrompt,
@@ -884,9 +779,7 @@ import CobbleChromium
             guard let self, let source, self.source === source else { return }
             self.navigationCommitted(url, title: title)
         }
-        #if COBBLE_CHROMIUM_ABI4
         observePageDetails(source)
-        #endif
         source.onActivate = { [weak self, weak source] in
             guard let self, let source, self.source === source, !self.closing else { return }
             self.events.onActivate?()
@@ -895,12 +788,8 @@ import CobbleChromium
 
     private func finishClose() {
         guard state.lifecycle != .closed else { return }
-        #if COBBLE_CHROMIUM_ABI4
         closeDevTools()
-        #endif
-        #if COBBLE_CHROMIUM_ABI10
         releaseLocalFileAccess()
-        #endif
         appleSignIn?.cancel()
         appleSignIn = nil
         resetFind()
@@ -912,10 +801,8 @@ import CobbleChromium
             source.onClose = nil
             source.onCloseCancelled = nil
             source.onNavigationCommitted = nil
-            #if COBBLE_CHROMIUM_ABI4
             source.onFindResult = nil
             source.onPrimaryMainFrameCommitted = nil
-            #endif
             source.onActivate = nil
             source.nativeView.removeFromSuperview()
             engine.forget(source)
@@ -944,7 +831,6 @@ import CobbleChromium
     }
 }
 
-#if COBBLE_CHROMIUM_ABI4
 @MainActor private final class ChromiumPageDevToolsSession: PageDevToolsSession {
     private let source: ChromiumDevToolsSession
 
@@ -960,4 +846,3 @@ import CobbleChromium
     func setVisible(_ visible: Bool) { source.setVisible(visible) }
     @discardableResult func close() -> Bool { source.close() }
 }
-#endif

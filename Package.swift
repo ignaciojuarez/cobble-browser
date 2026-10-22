@@ -19,24 +19,14 @@ let localSDKABI: Int = localSDKPath.map { path in
     }
     return value
 } ?? 18
-precondition([3, 10, 11, 12, 13, 14, 15, 16, 17, 18].contains(localSDKABI),
-             "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 3 and 10 through 18")
+precondition(localSDKABI == 18,
+             "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 18")
 let chromiumSDK: Package.Dependency = localSDKPath.map {
     .package(name: "chrome-sdk", path: $0)
 } ?? .package(url: "https://github.com/ignaciojuarez/chrome-sdk.git",
               revision: "dec9f5313e654b1d8bac53855ce37bde10cc4d6b")
 let clientSettings: [SwiftSetting] = [.define("COBBLE_CHROMIUM_CLIENT")]
     + (ProcessInfo.processInfo.environment["COBBLE_AUTH_FIXTURE"] == "1" ? [.define("COBBLE_AUTH_FIXTURE", .when(configuration: .debug))] : [])
-    + (localSDKABI >= 4 ? [.define("COBBLE_CHROMIUM_ABI4")] : [])
-    + (localSDKABI >= 10 ? [.define("COBBLE_CHROMIUM_ABI10")] : [])
-    + (localSDKABI >= 11 ? [.define("COBBLE_CHROMIUM_ABI11")] : [])
-    + (localSDKABI >= 12 ? [.define("COBBLE_CHROMIUM_ABI12")] : [])
-    + (localSDKABI >= 13 ? [.define("COBBLE_CHROMIUM_ABI13")] : [])
-    + (localSDKABI >= 14 ? [.define("COBBLE_CHROMIUM_ABI14")] : [])
-    + (localSDKABI >= 15 ? [.define("COBBLE_CHROMIUM_ABI15")] : [])
-    + (localSDKABI >= 16 ? [.define("COBBLE_CHROMIUM_ABI16")] : [])
-    + (localSDKABI >= 17 ? [.define("COBBLE_CHROMIUM_ABI17")] : [])
-    + (localSDKABI >= 18 ? [.define("COBBLE_CHROMIUM_ABI18")] : [])
 
 // The regular Xcode app remains the system-WebKit executable. This product
 // builds Cobble's same native UI as the owned Chromium launcher's client.

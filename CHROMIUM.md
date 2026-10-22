@@ -42,8 +42,8 @@ both Chromium and WebKit.
 `COBBLE_CHROMIUM_SDK_PATH` override selects an absolute development checkout;
 the header ABI, SDK lock, archive and packaged runtime must still match. A Git
 revision alone cannot identify uncommitted native payloads. The client accepts
-ABI 3 and 10–18; unsupported ABI values fail before compilation. Do not mix a
-client from one ABI with a runtime from another.
+only ABI 18; other ABI values fail before compilation. Do not mix a client from
+one ABI with a runtime from another.
 
 ## ABI 18 integration
 

@@ -6,7 +6,9 @@ import QuartzCore
 final class BrowserWindowModel: Identifiable {
     nonisolated let id: UUID
     unowned let app: AppModel
-    var record: WindowRecord { didSet { if !isPrivate { app.persist() } } }
+    var record: WindowRecord { didSet { recordRevision &+= 1; if !isPrivate { app.persist() } } }
+    @ObservationIgnored private var recordRevision = 0
+    @ObservationIgnored private var savedTabs: (revision: Int, byItem: [UUID: Tab])?
     let isPrivate: Bool
     var addressDraft = ""
     var isEditingAddress = false
@@ -36,6 +38,10 @@ final class BrowserWindowModel: Identifiable {
     private var pages: [UUID: any BrowserPage] = [:]
     private var historyVisits: [UUID: (url: String, date: Date)] = [:]
     @ObservationIgnored private var pendingPages: [UUID: any BrowserPage] = [:]
+    /// When each live page was last shown; tab sleeping picks the longest-hidden pages.
+    @ObservationIgnored private var lastShown: [UUID: Date] = [:]
+    /// In-memory engine state of slept/unloaded tabs, restored when the tab is next opened.
+    @ObservationIgnored private var sleptStates: [UUID: (engineID: EngineID, state: Data)] = [:]
     @ObservationIgnored private(set) var isClosed = false
     @ObservationIgnored private var generations: [UUID: UUID] = [:]
     @ObservationIgnored private(set) var closedTabs: [Tab] = []
@@ -128,9 +134,22 @@ final class BrowserWindowModel: Identifiable {
         return cached.flatMap(app.image(for:))
     }
 
-    func isSavedItemLoaded(_ id: UUID) -> Bool {
-        record.tabs.contains { $0.savedItemID == id && pages[$0.id] != nil }
+    /// This window's instance of a saved item. Sidebar rows ask on every render, so index once per record change.
+    func tab(forSavedItem id: UUID) -> Tab? {
+        let tabs = record.tabs
+        if savedTabs?.revision != recordRevision {
+            savedTabs = (recordRevision, Dictionary(tabs.compactMap { tab in tab.savedItemID.map { ($0, tab) } },
+                                                    uniquingKeysWith: { first, _ in first }))
+        }
+        return savedTabs?.byItem[id]
     }
+
+    func isSavedItemLoaded(_ id: UUID) -> Bool {
+        tab(forSavedItem: id).map { pages[$0.id] != nil } == true
+    }
+
+    /// Lets one row's icon observe loading on its own instead of redrawing the sidebar.
+    func pageState(_ tabID: UUID) -> PageState? { pages[tabID]?.state }
 
     func unloadSavedItem(_ id: UUID) {
         guard let index = record.tabs.firstIndex(where: { $0.savedItemID == id }),
@@ -229,6 +248,7 @@ final class BrowserWindowModel: Identifiable {
     private func activate(_ id: UUID) {
         guard let tab = record.tabs.first(where: { $0.id == id }) else { return }
         if !selectingRecentTab { endRecentTabCycle(); rememberRecentTab(id) }
+        if let previous = record.selectedTabID, previous != id, pages[previous] != nil { lastShown[previous] = Date() }
         if let index = record.tabs.firstIndex(where: { $0.id == id }) { record.tabs[index].isUnloaded = nil }
         record.selectedTabID = id
         if tab.savedItemID.flatMap({ itemID in app.savedItems.first { $0.id == itemID } })?.spaceID != nil || tab.savedItemID == nil { record.selectedSpaceID = tab.spaceID }
@@ -297,8 +317,10 @@ final class BrowserWindowModel: Identifiable {
         }
         do {
             let host = try createPage(for: tab)
+            let slept = sleptStates.removeValue(forKey: tab.id)
             adopt(host)
-            load(Self.loadURL(for: tab), in: host)
+            load(Self.loadURL(for: tab), in: host,
+                 restoring: slept.flatMap { $0.engineID == host.contextID.engineID ? $0.state : nil })
         } catch { addressError = error.localizedDescription }
     }
 
@@ -339,6 +361,7 @@ final class BrowserWindowModel: Identifiable {
         historyVisits[tabID] = historyVisit
         generations[tabID] = generation
         pages[tabID] = host
+        lastShown[tabID] = Date()
         host.setInspectable(app.preferences.webInspectorEnabled)
         host.events.onChange = { [weak self] id, url, title in
             guard let self, id == tabID, self.isCurrent(id, generation: generation),
@@ -775,11 +798,12 @@ final class BrowserWindowModel: Identifiable {
         }
     }
 
-    private func load(_ url: URL?, in host: any BrowserPage) {
+    private func load(_ url: URL?, in host: any BrowserPage, restoring state: Data? = nil) {
         let generation = generations[host.tabID]
         let request = UUID(); loads[host.tabID] = request
         if host.state.lifecycle == .ready {
             loads.removeValue(forKey: host.tabID)
+            if let state, host.restore(state, at: url) { return }
             if let url { navigate(url, in: host) }
             return
         }
@@ -789,6 +813,7 @@ final class BrowserWindowModel: Identifiable {
                 guard let self, let generation, self.isCurrent(host.tabID, generation: generation),
                       self.loads[host.tabID] == request, !self.app.suspendedContexts.contains(host.contextID) else { return }
                 self.loads.removeValue(forKey: host.tabID)
+                if let state, host.restore(state, at: url) { return }
                 if let url { self.navigate(url, in: host) }
             } catch {
                 guard let self, let generation, self.isCurrent(host.tabID, generation: generation), self.loads[host.tabID] == request else { return }
@@ -832,6 +857,8 @@ final class BrowserWindowModel: Identifiable {
 
     private func retireHost(_ id: UUID, leavingUnloaded: Bool = false) {
         generations.removeValue(forKey: id)
+        sleptStates.removeValue(forKey: id)
+        lastShown.removeValue(forKey: id)
         cancelPagePrompts(for: id)
         historyVisits.removeValue(forKey: id)
         if leavingUnloaded, let index = record.tabs.firstIndex(where: { $0.id == id }) {
@@ -1763,7 +1790,31 @@ final class BrowserWindowModel: Identifiable {
 
     func discardSelected() {
         guard let id = record.selectedTabID else { return }
+        unloadKeepingState(id)
+    }
+
+    /// Unloads the page but keeps the engine's back/forward and scroll state in memory for the next open.
+    private func unloadKeepingState(_ id: UUID) {
+        let page = pages[id]
+        let state = page?.restorableState
         retireHost(id, leavingUnloaded: true)
+        if let page, let state { sleptStates[id] = (page.contextID.engineID, state) }
+    }
+
+    /// Sleeps live background pages hidden since `cutoff` (nil: any). Pages that are selected, playing
+    /// audio, capturing, prompting or mid-operation stay live. Unsaved form input cannot be detected.
+    @discardableResult func sleepBackgroundTabs(hiddenSince cutoff: Date?) -> Int {
+        guard !isClosed, !preservingTabsForTermination, nativeWindow?.attachedSheet == nil,
+              !pageFileOperations.hasPendingOperations else { return 0 }
+        let ids = pages.compactMap { id, page -> UUID? in
+            guard id != record.selectedTabID, page.state.lifecycle == .ready, !page.state.isPlayingAudio,
+                  !isCapturing(id), !page.hasPendingPrompt, closeRequests[id] == nil, switches[id] == nil,
+                  loads[id] == nil, pendingPages[id] == nil, !app.suspendedContexts.contains(page.contextID),
+                  cutoff.map({ (lastShown[id] ?? .distantPast) <= $0 }) ?? true else { return nil }
+            return id
+        }
+        ids.forEach(unloadKeepingState)
+        return ids.count
     }
 
     func applyContentRules() { pages.values.forEach { $0.applyContentRules() } }
@@ -1774,6 +1825,8 @@ final class BrowserWindowModel: Identifiable {
     }
     func unloadPages() {
         generations.removeAll()
+        sleptStates.removeAll()
+        lastShown.removeAll()
         cancelAllPagePrompts()
         switches.removeAll()
         loads.removeAll()

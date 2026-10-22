@@ -112,6 +112,17 @@ final class SyncCoordinator {
         } catch { state = previous; errorMessage = error.localizedDescription }
     }
 
+    /// A restored workspace replaces organization and windows wholesale. Merge it like a rejoin:
+    /// local-only items upload, and items missing from the file are not deleted on other devices.
+    func workspaceReplaced() {
+        guard writable else { return }
+        let previous = state
+        activeRun?.cancel()
+        generation += 1
+        state.resuming.formUnion(state.initialized.intersection([.organization, .openTabs]))
+        do { try saveState() } catch { state = previous; errorMessage = error.localizedDescription }
+    }
+
     private func saveState() throws {
         guard writable else { throw SyncFailure.localWrite(String(localized: "Sync storage is unavailable.")) }
         do {

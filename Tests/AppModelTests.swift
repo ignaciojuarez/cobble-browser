@@ -301,6 +301,21 @@ final class AppModelTests: XCTestCase {
         XCTAssertFalse(app.siteSettings.entries.filter { $0.profileID == profile.id }.isEmpty)
     }
 
+    func testRecoveryNoticeSurvivesSuccessfulSaves() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleRecoveryNotice-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SessionStore(directory: directory)
+        try Data("{broken".utf8).write(to: store.url)
+        try JSONEncoder().encode(SessionSnapshot()).write(to: store.backupURL)
+        let app = AppModel(store: store, websiteDataStoreOverride: .nonPersistent())
+        defer { app.windows.forEach { $0.closePages() }; app.library.close() }
+        let notice = try XCTUnwrap(app.persistenceMessage)
+        let saved = await app.flushAndWait()
+        XCTAssertNil(saved)
+        XCTAssertEqual(app.persistenceMessage, notice)
+    }
+
     func testFailedFinalSaveCanCancelTerminationAndLaterSuccessClearsTheWarning() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleQuitSaveTests-\(UUID())", isDirectory: true)
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)

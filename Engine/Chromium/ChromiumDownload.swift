@@ -34,11 +34,7 @@ import CobbleChromium
         }
         source.onFailure = { [weak self] error in
             guard let self, !self.terminal else { return }
-            #if COBBLE_CHROMIUM_ABI4
             self.terminal = !self.source.canResume
-            #else
-            self.terminal = true
-            #endif
             self.onFailure?(error)
         }
         guard let onDestination else {
@@ -57,7 +53,6 @@ import CobbleChromium
         }
     }
 
-    #if COBBLE_CHROMIUM_ABI4
     var canPause: Bool { !terminal && source.canPause }
     var canResume: Bool { !terminal && source.canResume }
     func pause(completion: @escaping (Result<Void, Error>) -> Void) {
@@ -68,7 +63,6 @@ import CobbleChromium
         do { try source.resume(); completion(.success(())) }
         catch { completion(.failure(chromiumEngineError(error))) }
     }
-    #endif
 
     func detach() {
         terminal = true
