@@ -834,10 +834,42 @@ final class BrowserWindowModel: Identifiable {
         if let pending = pendingPages.removeValue(forKey: id) { app.engines.retire(pending) }
     }
 
-    /// Nil restores the default or site-rule choice.
+    /// Tab-only choice; nil restores the default or site-rule choice.
     func setEngine(_ engineID: EngineID?, for tabID: UUID) {
         guard let tab = record.tabs.first(where: { $0.id == tabID }), let url = tab.url else { return }
         changeEngine(for: tab, to: app.preferences.engine(for: url, override: engineID), url: url, override: engineID)
+    }
+
+    /// The engine choice shown for a tab's website; nil is Automatic.
+    /// Private windows keep choices on the tab, so their Automatic still honors a saved website choice.
+    func engineChoice(for tab: Tab) -> EngineID? {
+        tab.engineOverride ?? (isPrivate ? nil : tab.url.flatMap(app.preferences.engineRule(for:)))
+    }
+
+    /// Automatic first, then each engine, plus the saved choice if this build lacks it.
+    func engineChoices(for tab: Tab) -> [(id: EngineID?, title: String)] {
+        let automatic = isPrivate ? tab.url.map { app.preferences.engine(for: $0) } ?? app.preferences.defaultEngine
+            : app.preferences.defaultEngine
+        var choices: [(id: EngineID?, title: String)] = [(nil, String(format: String(localized: "Automatic (%@)"), app.engines.name(for: app.engines.effectiveID(automatic))))]
+        choices += app.engines.engines.map { ($0.id, $0.name) }
+        if let current = engineChoice(for: tab), app.engines.engine(current) == nil { choices.append((current, app.engines.name(for: current))) }
+        return choices
+    }
+
+    /// Normal windows remember the choice for the website on this Mac; private windows keep it on the tab.
+    func setSiteEngine(_ engineID: EngineID?, for tabID: UUID) {
+        guard let tab = record.tabs.first(where: { $0.id == tabID }), let url = tab.url else { return }
+        // Edit the rule already governing this page, so Automatic really returns to the default.
+        guard !isPrivate, let host = app.preferences.governingEngineRule(for: url)?.host ?? EngineRule.siteHost(for: url),
+              let site = URL(string: "https://\(host)") else { setEngine(engineID, for: tabID); return }
+        let previous = app.preferences.engineRules.first { $0.host == host }?.engineID
+        guard app.preferences.setEngineRule(for: site, engineID: engineID) else {
+            addressError = app.preferences.errorMessage; return
+        }
+        // A declined reload leaves the website as it was.
+        if !changeEngine(for: tab, to: app.preferences.engine(for: url), url: url, override: nil) {
+            app.preferences.setEngineRule(for: site, engineID: previous)
+        }
     }
 
     func nonDefaultEngine(for tab: Tab) -> (any BrowserEngine)? {
@@ -846,13 +878,14 @@ final class BrowserWindowModel: Identifiable {
         return app.engines.engine(engineID)
     }
 
-    private func changeEngine(for tab: Tab, to engineID: EngineID, url: URL, override: EngineID?) {
-        guard !isClosed else { return }
+    /// Returns false when the switch is refused or declined.
+    @discardableResult private func changeEngine(for tab: Tab, to engineID: EngineID, url: URL, override: EngineID?) -> Bool {
+        guard !isClosed else { return false }
         guard app.suspendedContexts.isDisjoint(with: [contextID(for: tab.engineID), contextID(for: engineID)]) else {
             addressError = String(localized: "Website data is being updated. Try switching engines again shortly.")
-            return
+            return false
         }
-        guard let engine = app.engines.engine(app.engines.effectiveID(engineID)) else { addressError = EngineError.unavailable(engineID).localizedDescription; return }
+        guard let engine = app.engines.engine(app.engines.effectiveID(engineID)) else { addressError = EngineError.unavailable(engineID).localizedDescription; return false }
         if app.engines.effectiveID(tab.engineID) == engine.id {
             switches.removeValue(forKey: tab.id)
             if let pending = pendingPages.removeValue(forKey: tab.id) { app.engines.retire(pending) }
@@ -861,12 +894,12 @@ final class BrowserWindowModel: Identifiable {
                 record.tabs[i].engineOverride = override
             }
             app.persist()
-            return
+            return true
         }
         let message = String(format: String(localized: "Reload with %@? Unsaved changes and back/forward history will be lost. You may need to sign in again."), engine.name)
         let accepted = confirmEngineSwitch?(message) ?? (PagePresenter.alert(title: String(localized: "Change engine?"), message: message,
             buttons: [String(localized: "Reload"), String(localized: "Cancel")]).runModal() == .alertFirstButtonReturn)
-        guard accepted, !isClosed, record.tabs.contains(where: { $0.id == tab.id }) else { return }
+        guard accepted, !isClosed, record.tabs.contains(where: { $0.id == tab.id }) else { return false }
         if let pending = pendingPages.removeValue(forKey: tab.id) { app.engines.retire(pending) }
         let operation = UUID(); switches[tab.id] = operation
         let oldGeneration = generations[tab.id]
@@ -918,6 +951,7 @@ final class BrowserWindowModel: Identifiable {
                 if self.switches[tab.id] == operation { self.switches.removeValue(forKey: tab.id); self.addressError = error.localizedDescription }
             }
         }
+        return true
     }
 
     private func receiveFavicon(tabID: UUID, generation: UUID, url: URL, png: Data) {

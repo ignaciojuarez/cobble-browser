@@ -75,41 +75,6 @@ struct SettingsView: View {
                 }
             }
             SettingsGroup("Browser") {
-                SettingsRow("Default web engine", detail: "Used for new sites unless a site rule chooses another engine.") {
-                    Picker("Default web engine", selection: Binding(
-                        get: { app.preferences.defaultEngine },
-                        set: { app.preferences.setDefaultEngine($0) }
-                    )) {
-                        ForEach(app.engines.engines, id: \.id) { Text($0.name).tag($0.id) }
-                        if app.engines.engine(app.preferences.defaultEngine) == nil {
-                            if app.engines.effectiveID(app.preferences.defaultEngine) == .webKit {
-                                Text("Chromium (using WebKit)").tag(app.preferences.defaultEngine).disabled(true)
-                            } else {
-                                Text(String(format: String(localized: "Unavailable (%@)"), app.preferences.defaultEngine.rawValue)).tag(app.preferences.defaultEngine)
-                            }
-                        }
-                    }
-                    .labelsHidden()
-                    .frame(width: 180)
-                    .disabled(app.preferences.readError != nil)
-                }
-                if app.engines.effectiveID(EngineID(rawValue: "chromium")) == .webKit {
-                    Text("Chromium is not included in this build. Chromium tabs use WebKit temporarily; your engine preferences are remembered.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                Divider()
-                SettingsRow("Experimental cross-engine login sharing", detail: "Attempts to carry login cookies when switching engines within the same profile. Existing cookies are kept unless you choose to replace them. Private windows are excluded. Some sites still require sign-in. Requires a compatible Full build.") {
-                    Toggle("Experimental cross-engine login sharing", isOn: Binding(
-                        get: { app.preferences.experimentalLoginSharing },
-                        set: { app.preferences.setExperimentalLoginSharing($0) }
-                    )).labelsHidden().toggleStyle(.switch)
-                        .disabled(app.preferences.readError != nil)
-                }
-                if app.preferences.experimentalLoginSharing, let status = app.loginSharingMessage {
-                    Text(status).font(.caption).foregroundStyle(.secondary)
-                        .accessibilityLabel(String(format: String(localized: "Login sharing status: %@"), status))
-                }
-                Divider()
                 SettingsRow("Default browser", detail: "Open web links from other apps in Cobble.") {
                     Button("Make Cobble the Default Browser") {
                         message = nil
@@ -131,6 +96,7 @@ struct SettingsView: View {
                     }.disabled(settingDefaultBrowser)
                 }
             }
+            engineSettings
             SettingsGroup("Workspace") {
                 SettingsRow("Backup and restore", detail: "Includes normal windows, tabs, spaces, pins, and favorites. Website data and private windows stay on this Mac.") {
                     Button("Export…") { exportWorkspace() }
@@ -170,55 +136,110 @@ struct SettingsView: View {
                         })
                 }
             }
-            SettingsGroup("Engines") {
-                ForEach(Array(app.engines.engines.enumerated()), id: \.element.id) { index, engine in
-                    if index > 0 { Divider() }
-                    SettingsRow(verbatim: engine.name, detail: capabilitySummary(engine)) {
-                        if engine.id == app.preferences.defaultEngine {
-                            Text("Default").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                                .padding(.horizontal, 9).padding(.vertical, 4)
-                                .background(.secondary.opacity(0.12), in: Capsule())
-                        } else {
-                            Button("Make Default") { app.preferences.setDefaultEngine(engine.id) }
-                        }
+            SettingsGroup("Browser Identity") {
+                SiteIdentityRulesView(app: app)
+            }
+        }
+    }
+
+    /// This Mac's default plus one Automatic/engine choice per website.
+    private var engineSettings: some View {
+        SettingsGroup("Web Engine") {
+            SettingsRow("Default on this Mac", detail: "Websites set to Automatic open with this engine. Each Mac keeps its own choice.") {
+                let choices = app.engines.engines.map(\.id) + (app.engines.engine(app.preferences.defaultEngine) == nil ? [app.preferences.defaultEngine] : [])
+                if choices.count > 1 {
+                    Picker("Default web engine", selection: Binding(
+                        get: { app.preferences.defaultEngine },
+                        set: { app.preferences.setDefaultEngine($0) }
+                    )) {
+                        ForEach(choices, id: \.self) { Text(app.engines.name(for: $0)).tag($0) }
                     }
+                    .labelsHidden().pickerStyle(.segmented).fixedSize()
+                    .disabled(app.preferences.readError != nil)
+                } else {
+                    Text(app.engines.name(for: app.preferences.defaultEngine)).foregroundStyle(.secondary)
                 }
             }
-            SettingsGroup("Site Rules") {
-                Text("Open matching websites with a specific engine. Rules apply to the exact host and take effect on the next navigation.")
-                    .font(.callout).foregroundStyle(.secondary)
-                HStack {
-                    TextField("example.com", text: $ruleHost)
-                        .textFieldStyle(.roundedBorder)
-                        .onSubmit { addRule() }
-                    Picker("Engine", selection: Binding(
-                        get: { ruleEngine ?? app.preferences.defaultEngine },
-                        set: { ruleEngine = $0 }
-                    )) {
-                        ForEach(app.engines.engines, id: \.id) { Text($0.name).tag($0.id) }
-                        if app.engines.engine(app.preferences.defaultEngine) == nil {
-                            Text(String(format: String(localized: "Unavailable (%@)"), app.preferences.defaultEngine.rawValue)).tag(app.preferences.defaultEngine)
+            if app.engines.effectiveID(EngineID(rawValue: "chromium")) == .webKit {
+                Text("Chromium is not included in this build. Chromium choices use WebKit for now and are remembered.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+            DisclosureGroup("Compare engines") {
+                VStack(alignment: .leading, spacing: 8) {
+                    ForEach(app.engines.engines, id: \.id) { engine in
+                        HStack(alignment: .top, spacing: 8) {
+                            TabEngineIcon(engine: engine)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(engine.name).font(.callout.weight(.medium))
+                                Text(capabilitySummary(engine)).font(.caption).foregroundStyle(.secondary)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            }
                         }
                     }
-                    .labelsHidden().frame(width: 170)
-                    Button("Add") { addRule() }
-                        .disabled(ruleHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                                  || app.engines.engine(ruleEngine ?? app.preferences.defaultEngine) == nil)
                 }
-                ForEach(app.preferences.engineRules, id: \.host) { rule in
-                    Divider()
-                    SettingsRow(verbatim: rule.host) {
-                        Text(app.engines.engine(rule.engineID)?.name ?? String(localized: "Unavailable"))
-                            .foregroundStyle(.secondary)
-                        Button("Remove", systemImage: "minus.circle") { removeRule(rule) }
-                            .labelStyle(.iconOnly).buttonStyle(.borderless)
+                .padding(.top, 6)
+            }
+            .font(.callout)
+            Divider()
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Websites").font(.body.weight(.medium))
+                Text("Choose an engine from a website’s site menu in the address bar, or add one here. Covers subdomains and applies on the next load.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(app.preferences.engineRules, id: \.host) { rule in
+                HStack(spacing: 10) {
+                    TabEngineIcon.image(for: rule.engineID)
+                        .resizable().scaledToFit().frame(width: 16, height: 16)
+                        .accessibilityHidden(true)
+                    Text(verbatim: rule.host).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 12)
+                    Picker(rule.host, selection: Binding<EngineID?>(
+                        get: { rule.engineID },
+                        set: { setRule($0, host: rule.host) }
+                    )) {
+                        Text(String(format: String(localized: "Automatic (%@)"),
+                            app.engines.name(for: app.engines.effectiveID(app.preferences.defaultEngine)))).tag(EngineID?.none)
+                        Divider()
+                        ForEach(app.engines.engines, id: \.id) { Text($0.name).tag(Optional($0.id)) }
+                        if app.engines.engine(rule.engineID) == nil {
+                            Text(app.engines.name(for: rule.engineID)).tag(Optional(rule.engineID))
+                        }
                     }
+                    .labelsHidden().frame(width: 200, alignment: .trailing)
+                    Button("Remove", systemImage: "minus.circle") { setRule(nil, host: rule.host) }
+                        .labelStyle(.iconOnly).buttonStyle(.borderless)
+                        .help("Use Automatic")
                 }
-                Divider()
-                SiteIdentityRulesView(app: app)
-                if let error = app.preferences.errorMessage {
-                    Text(error).font(.callout).foregroundStyle(.orange)
+                .accessibilityElement(children: .contain)
+            }
+            HStack {
+                TextField("example.com", text: $ruleHost)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit { addRule() }
+                Picker("Engine", selection: Binding(
+                    get: { ruleEngine.flatMap { app.engines.engine($0)?.id } ?? app.engines.engines.first?.id ?? .webKit },
+                    set: { ruleEngine = $0 }
+                )) {
+                    ForEach(app.engines.engines, id: \.id) { Text($0.name).tag($0.id) }
                 }
+                .labelsHidden().frame(width: 200, alignment: .trailing)
+                Button("Add") { addRule() }
+                    .disabled(ruleHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            if let error = app.preferences.errorMessage {
+                Text(error).font(.callout).foregroundStyle(.orange)
+            }
+            Divider()
+            SettingsRow("Experimental cross-engine login sharing", detail: "Attempts to carry login cookies when switching engines within the same profile. Existing cookies are kept unless you choose to replace them. Private windows are excluded. Some sites still require sign-in. Requires a compatible Full build.") {
+                Toggle("Experimental cross-engine login sharing", isOn: Binding(
+                    get: { app.preferences.experimentalLoginSharing },
+                    set: { app.preferences.setExperimentalLoginSharing($0) }
+                )).labelsHidden().toggleStyle(.switch)
+                    .disabled(app.preferences.readError != nil)
+            }
+            if app.preferences.experimentalLoginSharing, let status = app.loginSharingMessage {
+                Text(status).font(.caption).foregroundStyle(.secondary)
+                    .accessibilityLabel(String(format: String(localized: "Login sharing status: %@"), status))
             }
         }
     }
@@ -339,15 +360,14 @@ struct SettingsView: View {
     }
     private func addRule() {
         let host = ruleHost.trimmingCharacters(in: .whitespacesAndNewlines)
-        let engineID = ruleEngine ?? app.preferences.defaultEngine
+        let engineID = ruleEngine.flatMap { app.engines.engine($0)?.id } ?? app.engines.engines.first?.id ?? .webKit
         guard let url = URL(string: host.contains("://") ? host : "https://\(host)"),
-              app.engines.engine(engineID) != nil,
               app.preferences.setEngineRule(for: url, engineID: engineID) else { return }
         ruleHost = ""
     }
-    private func removeRule(_ rule: EngineRule) {
-        guard let url = URL(string: "https://\(rule.host)") else { return }
-        app.preferences.setEngineRule(for: url, engineID: nil)
+    private func setRule(_ engineID: EngineID?, host: String) {
+        guard let url = URL(string: "https://\(host)") else { return }
+        app.preferences.setEngineRule(for: url, engineID: engineID)
     }
     private func siteEngineNames(_ site: WebsiteDataGroup) -> String {
         let ids = Set(site.members.map { $0.contextID.engineID })

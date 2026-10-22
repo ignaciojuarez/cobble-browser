@@ -19,6 +19,14 @@ import Foundation
            engine(.webKit) != nil { return .webKit }
         return requested
     }
+    /// Names an engine as this build runs it, e.g. a remembered Chromium choice in a WebKit-only build.
+    func name(for id: EngineID) -> String {
+        if let engine = engine(id) { return engine.name }
+        if effectiveID(id) != id, let fallback = engine(effectiveID(id)) {
+            return String(format: String(localized: "%@ (using %@)"), id == EngineID(rawValue: "chromium") ? "Chromium" : id.rawValue, fallback.name)
+        }
+        return String(format: String(localized: "Unavailable (%@)"), id.rawValue)
+    }
     func context(engineID: EngineID, profile: Profile, privateWindowID: UUID? = nil,
                  siteSettings: SiteSettingsStore, recordUse: Bool = true) throws -> any EngineContext {
         let tracksEngineUse = recordUse && privateWindowID == nil
