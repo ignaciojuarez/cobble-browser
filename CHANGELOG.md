@@ -1,5 +1,12 @@
 # Changelog
 
+## Unreleased
+
+- Engine choice is one per-website setting — Automatic, WebKit or Chromium — from
+  the site menu, the tab's engine menu or Settings → General → Web Engine,
+  which also holds this Mac's default. Website choices now cover subdomains, so
+  `figma.com` also applies to `www.figma.com`. Declining the reload keeps the previous choice.
+
 ## 0.1.0-beta.6 — 2026-10-14
 
 - Preserve inherited local runner settings so worktrees show the configured

@@ -318,14 +318,21 @@ import SQLite3
         }
     }
 
-    func testRoutingUsesExactHostsExplicitChoiceAndArbitraryThirdEngine() async throws {
+    func testRoutingUsesHostRulesExplicitChoiceAndArbitraryThirdEngine() async throws {
         try await withApp { app, engines in
             XCTAssertTrue(app.preferences.setDefaultEngine(self.secondID))
             XCTAssertTrue(app.preferences.setEngineRule(for: self.destination, engineID: self.thirdID))
             XCTAssertEqual(app.preferences.engine(for: self.destination), self.thirdID)
             XCTAssertEqual(app.preferences.engine(for: URL(string: "http://FIGMA.com.:8080/other")!), self.thirdID)
-            XCTAssertEqual(app.preferences.engine(for: URL(string: "https://www.figma.com")!), self.secondID)
+            XCTAssertEqual(app.preferences.engine(for: URL(string: "https://www.figma.com")!), self.thirdID, "Rules cover subdomains")
             XCTAssertEqual(app.preferences.engine(for: URL(string: "https://figma.com.evil.example")!), self.secondID)
+            XCTAssertEqual(app.preferences.engine(for: URL(string: "https://notfigma.com")!), self.secondID)
+            XCTAssertTrue(app.preferences.setEngineRule(for: URL(string: "https://help.figma.com")!, engineID: .webKit))
+            XCTAssertEqual(app.preferences.engine(for: URL(string: "https://a.help.figma.com")!), .webKit, "The most specific rule wins")
+            XCTAssertEqual(app.preferences.engine(for: URL(string: "https://www.figma.com")!), self.thirdID)
+            XCTAssertEqual(EngineRule.siteHost(for: URL(string: "https://www.figma.com/x")!), "figma.com")
+            XCTAssertEqual(EngineRule.siteHost(for: URL(string: "https://www")!), "www")
+            XCTAssertTrue(app.preferences.setEngineRule(for: URL(string: "https://help.figma.com")!, engineID: nil))
             XCTAssertEqual(app.preferences.engine(for: self.destination, override: .webKit), .webKit)
             let window = app.windows[0]
             window.addTab(url: self.destination)
@@ -742,6 +749,41 @@ import SQLite3
             XCTAssertFalse(stalePopup(TestPage(tabID: UUID(), contextID: original.contextID), true))
             XCTAssertTrue(app.library.search("stale", profileID: Profile.defaultID).isEmpty)
             XCTAssertEqual(window.selectedTab?.urlString, self.destination.absoluteString)
+        }
+    }
+
+    func testWebsiteEngineChoiceIsOneSettingAndDeclineKeepsIt() async throws {
+        try await withApp { app, _ in
+            let window = app.windows[0]
+            window.addTab(url: self.destination)
+            let tabID = try XCTUnwrap(window.selectedTab?.id)
+            window.record.tabs[window.record.tabs.count - 1].engineOverride = .webKit
+            XCTAssertEqual(window.engineChoice(for: window.selectedTab!), .webKit, "An existing tab choice stays visible")
+            XCTAssertEqual(window.engineChoices(for: window.selectedTab!).map(\.id), [nil, .webKit, self.secondID, self.thirdID])
+
+            window.confirmEngineSwitch = { _ in false }
+            window.setSiteEngine(self.secondID, for: tabID)
+            XCTAssertNil(app.preferences.engineRule(for: self.destination), "Declining the reload restores the website choice")
+            XCTAssertEqual(window.selectedTab?.engineOverride, .webKit)
+
+            window.confirmEngineSwitch = { _ in true }
+            window.setSiteEngine(self.secondID, for: tabID)
+            XCTAssertEqual(app.preferences.engineRule(for: self.destination), self.secondID)
+            try await self.eventually { window.selectedPage?.contextID.engineID == self.secondID }
+            XCTAssertNil(window.selectedTab?.engineOverride)
+            XCTAssertEqual(window.engineChoice(for: window.selectedTab!), self.secondID)
+            window.addTab(url: URL(string: "https://www.figma.com/other")!)
+            XCTAssertEqual(window.selectedTab?.engineID, self.secondID, "The website and its subdomains follow the choice")
+
+            window.setSiteEngine(nil, for: tabID)
+            XCTAssertNil(app.preferences.engineRule(for: self.destination))
+            XCTAssertNil(window.engineChoice(for: window.record.tabs.first { $0.id == tabID }!))
+
+            let isolated = app.newWindow(isPrivate: true, url: self.destination)
+            isolated.confirmEngineSwitch = { _ in true }
+            isolated.setSiteEngine(self.thirdID, for: try XCTUnwrap(isolated.selectedTab?.id))
+            XCTAssertNil(app.preferences.engineRule(for: self.destination), "Private windows never save website choices")
+            try await self.eventually { isolated.selectedTab?.engineOverride == self.thirdID }
         }
     }
 

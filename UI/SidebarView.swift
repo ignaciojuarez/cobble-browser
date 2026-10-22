@@ -55,11 +55,11 @@ private struct TabLeadingIcon: View {
     }
 }
 
-private struct TabEngineIcon: View {
+struct TabEngineIcon: View {
     let engine: any BrowserEngine
 
-    private var image: Image {
-        switch engine.id {
+    static func image(for id: EngineID) -> Image {
+        switch id {
         case .webKit: Image("SafariEngine")
         case EngineID(rawValue: "chromium"): Image("ChromeEngine")
         default: Image(systemName: "gearshape.2")
@@ -67,7 +67,7 @@ private struct TabEngineIcon: View {
     }
 
     var body: some View {
-        image.resizable().scaledToFit().frame(width: 16, height: 16).foregroundStyle(.secondary)
+        Self.image(for: engine.id).resizable().scaledToFit().frame(width: 16, height: 16).foregroundStyle(.secondary)
     }
 }
 
@@ -840,19 +840,14 @@ struct SidebarView: View {
 
     @ViewBuilder
     private func engineChoices(for tab: Tab) -> some View {
-        Button {
-            window.setEngine(nil, for: tab.id)
-        } label: {
-            if tab.engineOverride == nil { Label("Automatic", systemImage: "checkmark") }
-            else { Text("Automatic") }
-        }
-        Divider()
-        ForEach(window.app.engines.engines, id: \.id) { engine in
+        let current = window.engineChoice(for: tab)
+        ForEach(Array(window.engineChoices(for: tab).enumerated()), id: \.offset) { index, choice in
+            if index == 1 { Divider() }
             Button {
-                window.setEngine(engine.id, for: tab.id)
+                window.setSiteEngine(choice.id, for: tab.id)
             } label: {
-                if tab.engineOverride == engine.id { Label(engine.name, systemImage: "checkmark") }
-                else { Text(engine.name) }
+                if choice.id == current { Label(choice.title, systemImage: "checkmark") }
+                else { Text(choice.title) }
             }
         }
     }

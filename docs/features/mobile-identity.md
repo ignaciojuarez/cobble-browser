@@ -1,6 +1,6 @@
 # Per-site browser identity
 
-Settings → Browsing → Site Rules provides exact-origin, per-profile rules for Default, Android Phone, Android Tablet, iPhone, and iPad. Rules apply on navigation or reload. Private contexts read saved rules without persisting private activity; Default restores native identity.
+Settings → Browsing → Browser Identity provides exact-origin, per-profile rules for Default, Android Phone, Android Tablet, iPhone, and iPad. Rules apply on navigation or reload. Private contexts read saved rules without persisting private activity; Default restores native identity.
 
 | Area | Current implementation |
 | --- | --- |

@@ -792,6 +792,10 @@ struct SiteControlPopover: View {
                     }
                 }
             }
+            if let tab = window.selectedTab, let url = tab.url,
+               let host = window.app.preferences.governingEngineRule(for: url)?.host ?? EngineRule.siteHost(for: url) {
+                engineRow(tab, host: host)
+            }
             if window.isPrivate {
                 Label("Private window · Permissions aren’t saved", systemImage: "hand.raised")
                     .font(.caption).foregroundStyle(.secondary)
@@ -1019,12 +1023,43 @@ struct SiteControlPopover: View {
         case .ask: String(localized: "Ask Each Time")
         }
     }
-    private func settingsRow(_ title: String, detail: String, symbol: String, editable: Bool = true) -> some View {
+    /// One choice per website: Automatic follows this Mac's default engine.
+    @ViewBuilder private func engineRow(_ tab: Tab, host: String) -> some View {
+        let choices = window.engineChoices(for: tab)
+        if choices.count > 2 {
+            let current = window.engineChoice(for: tab)
+            let title = String(localized: "Engine")
+            let detail = choices.first { $0.id == current }?.title ?? choices[0].title
+            settingsRow(title, detail: detail, symbol: "", icon: TabEngineIcon.image(for: window.app.engines.effectiveID(tab.engineID)))
+                .overlay {
+                    SiteMenuAnchor(label: "\(title), \(detail)", entries: choices.map { choice in
+                        (choice.title, choice.id == current, { chooseEngine(choice.id, for: tab.id) })
+                    })
+                }
+                .help(window.isPrivate ? String(localized: "Applies to this private tab only.")
+                    : String(format: String(localized: "Cobble remembers this for %@ and its subdomains on this Mac. Automatic uses the default engine from Settings."), host))
+        }
+    }
+
+    private func chooseEngine(_ engineID: EngineID?, for tabID: UUID) {
+        dismiss()
+        // Let the popover close before a reload confirmation appears.
+        Task { @MainActor in
+            await Task.yield()
+            guard window.selectedTab?.id == tabID else { return }
+            window.setSiteEngine(engineID, for: tabID)
+        }
+    }
+
+    private func settingsRow(_ title: String, detail: String, symbol: String, icon: Image? = nil, editable: Bool = true) -> some View {
         HStack(spacing: 10) {
-            Image(systemName: symbol).font(.system(size: 16, weight: .medium))
-                .frame(width: 34, height: 34)
-                .background(.primary.opacity(0.08), in: Circle())
-                .accessibilityHidden(true)
+            Group {
+                if let icon { icon.resizable().scaledToFit().frame(width: 18, height: 18) }
+                else { Image(systemName: symbol).font(.system(size: 16, weight: .medium)) }
+            }
+            .frame(width: 34, height: 34)
+            .background(.primary.opacity(0.08), in: Circle())
+            .accessibilityHidden(true)
             VStack(alignment: .leading, spacing: 2) {
                 Text(title).font(.system(size: 14, weight: .semibold))
                 Text(detail).font(.callout).foregroundStyle(.secondary)

@@ -280,8 +280,15 @@ final class BrowserPreferences {
         if next.defaultSearchEngineID == id { next.defaultSearchEngineID = SearchEngine.duckDuckGo.id }
         return save(next)
     }
+    /// The most specific rule covering the URL's host.
+    func governingEngineRule(for url: URL) -> EngineRule? {
+        guard let host = EngineRule.host(for: url) else { return nil }
+        return engineRules.filter { $0.covers(host) }.max { $0.host.count < $1.host.count }
+    }
+    /// The website's saved choice; nil means Automatic (this Mac's default).
+    func engineRule(for url: URL) -> EngineID? { governingEngineRule(for: url)?.engineID }
     func engine(for url: URL, override: EngineID? = nil) -> EngineID {
-        override ?? engineRules.first(where: { $0.host == EngineRule.host(for: url) })?.engineID ?? defaultEngine
+        override ?? engineRule(for: url) ?? defaultEngine
     }
     @discardableResult func setDefaultEngine(_ id: EngineID) -> Bool {
         guard !id.rawValue.isEmpty else { errorMessage = String(localized: "Choose an available browser engine."); return false }
