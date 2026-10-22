@@ -10,6 +10,28 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Thu, 22 Oct 2026 13:22:28 -0700</pubDate>
+            <sparkle:version>8</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Engine choice is now one setting per website: Automatic, WebKit or Chromium. Change it from the site menu in the address bar, the tab's engine menu, or Settings → General → Web Engine, which also holds this Mac's default engine.
+- Website engine choices now cover subdomains, so a choice for figma.com also applies to www.figma.com. The most specific website choice wins.
+- Declining the reload when switching engines keeps the website's previous choice.
+- Private windows keep engine choices on the tab and never save the websites you visit.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK and its matching Chromium runtime.
+
+This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.8/Cobble-v0.1.0-beta.8.zip" length="164374996" type="application/octet-stream" sparkle:edSignature="ygkGljlNAV+nhAdwSQrB90ViihvGbdq0iMs+0JZLbROk0jaJiLSYcTLnlfH5vyzBsgSIDHauai6kBqMJfd08CQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Tue, 20 Oct 2026 14:54:56 -0700</pubDate>
             <sparkle:version>7</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -50,33 +72,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.6/Cobble-v0.1.0-beta.6.zip" length="163548161" type="application/octet-stream" sparkle:edSignature="ERyH1VNCMqLnrfEcJmXoK6SrayiEwfY/MR9gh5WJJuHlCIHyG2eAM/xZsu1PZxTEvw94r7f4tPIfqfHkG7xTAw=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Wed, 14 Oct 2026 10:53:16 -0700</pubDate>
-            <sparkle:version>5</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Switching from a Chromium page to an empty space keeps the space empty without automatically focusing sidebar search.
-- Command-Shift-R performs Force Reload; Command-R remains normal reload. Chromium bypasses its cache and WebKit revalidates cached resources. Cookies and website data are preserved.
-- Site controls now use full-width action buttons and matching security/page-action controls. One counted Certificate button expands certificate details.
-- Downloads show native file icons and clearer filenames. Browser separators are translucent white and folders show disclosure chevrons beside their titles.
-- WebKit supports native fullscreen video playback.
-- Mail links ask for confirmation before opening an external application.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 17 SDK and its matching Chromium runtime.
-
-This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.5/Cobble-v0.1.0-beta.5.zip" length="163542537" type="application/octet-stream" sparkle:edSignature="juvrU+FJLbJ8l6Ve8WteqTwqw9LoAnBGiqV45NqVUEMLHNKOG+yv0pFesRrVZzIfCLmmI4WZ8t8CtVtT9I+nCg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: NSLzHiYj0HDz97M6hx8SoryefBAkbZPoiwj5Gbqr3uJGxUa9WPtbFbQe9XFtzLVqzuQ3XbctGPhaKIDlCmhYDQ==
-length: 5929
+edSignature: As/S6ybBoerHrxtVXR51KFcrUGQMUtOLbf9TiudZfN9QPPQg6G2dFPmG//MSOX56KbD1w9RSD9W9hLCvzIMRDw==
+length: 5738
 -->
