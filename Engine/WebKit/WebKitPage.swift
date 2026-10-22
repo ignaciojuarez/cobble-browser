@@ -38,6 +38,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     private var hasCaptureHistory = false
     private var findRequestID = UUID()
     private var pageIdentity = UUID()
+    private var externalPromptPending = false
+    private var externalPromptsDeclined: UUID?
     private var windowID: UUID
     private var pendingClientCertificate: PageClientCertificateRequest?
     private var pendingClientCertificateNavigation: WKNavigation?
@@ -84,7 +86,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         self.context = context
         self.contextID = context?.id ?? contextID ?? BrowsingContextID(engineID: .webKit, profileID: profileID, privateWindowID: isPrivate ? UUID() : nil)
         events.onChange = onChange
-        state.lifecycle = context?.blocker.isReady == false ? .preparing : .ready
+        // `prepare()` gates navigation, so a page is ready only when preparation has nothing left to do.
+        state.lifecycle = context.map { Self.isPrepared($0, profileID: profileID, isPrivate: isPrivate) } == false ? .preparing : .ready
         self.siteSettings = siteSettings
         self.profileID = profileID
         self.isPrivate = isPrivate
@@ -138,11 +141,18 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         return view
     }
 
+    /// Pages in one context share a controller; replacing its rules updates every page process,
+    /// so skip when the shared controller already holds this compiled list. Swap only Cobble's
+    /// own list: the controller may also carry lists it did not add.
+    private static let appliedRules = NSMapTable<WKUserContentController, WKContentRuleList>.weakToStrongObjects()
     func applyContentRules(_ rule: WKContentRuleList?) {
         guard !closed else { return }
         let controller = (storedWebView?.configuration ?? configuration).userContentController
-        controller.removeAllContentRuleLists()
+        let previous = Self.appliedRules.object(forKey: controller)
+        guard previous !== rule else { return }
+        if let previous { controller.remove(previous) }
         if let rule { controller.add(rule) }
+        Self.appliedRules.setObject(rule, forKey: controller)
     }
 
     func navigate(to url: URL?) {
@@ -481,7 +491,6 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         state.camera = .none
         state.microphone = .none
         state.grantedMediaKinds.removeAll()
-        state.mediaPlayback = .none
         state.isAudioMuted = false
         state.isPlayingAudio = false
         state.isDisplayCapturing = false
@@ -546,31 +555,16 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         }
     }
 
-    // ponytail: poll native playback/audio state; remove when a supported observation API exists.
+    // ponytail: poll native audio/mute state; remove when a supported observation API exists.
     private func startMediaProbe() {
         mediaProbe?.cancel()
         mediaProbe = Task { [weak self] in
             while let self, !self.closed, !Task.isCancelled {
-                self.refreshMediaPlayback()
-                let interval: Duration = (self.state.mediaPlayback == .playing || self.state.isAudioMuted)
+                self.refreshAudioState()
+                let interval: Duration = (self.state.isPlayingAudio || self.state.isAudioMuted)
                     ? .seconds(1) : .seconds(4)
                 try? await Task.sleep(for: interval)
             }
-        }
-    }
-
-    private func refreshMediaPlayback() {
-        guard !closed, let view = storedWebView else { return }
-        refreshAudioState()
-        view.requestMediaPlaybackState { [weak self] playback in
-            guard let self, !self.closed else { return }
-            let next: PageMediaPlayback = switch playback {
-            case .playing: .playing
-            case .paused: .paused
-            case .suspended: .suspended
-            default: .none
-            }
-            self.state.mediaPlayback = next
         }
     }
 
@@ -1344,11 +1338,19 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         }
     }
 
+    /// One prompt at a time, and none after Cancel until the next navigation:
+    /// a script looping custom-scheme redirects would otherwise queue sheets that lock the window.
     private func offerExternalApplication(_ url: URL) {
+        guard !externalPromptPending, externalPromptsDeclined != pageIdentity else { return }
+        externalPromptPending = true
+        let identity = pageIdentity
         let alert = PagePresenter.alert(title: String(localized: "Open another application?"),
             message: url.absoluteString, buttons: [String(localized: "Open"), String(localized: "Cancel")])
         present(alert) { [weak self] response in
-            if response == .alertFirstButtonReturn { self?.events.onExternalURL?(url) }
+            guard let self else { return }
+            self.externalPromptPending = false
+            if response == .alertFirstButtonReturn { self.events.onExternalURL?(url) }
+            else { self.externalPromptsDeclined = identity }
         }
     }
 
@@ -1370,6 +1372,11 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         state.lifecycle = .ready
     }
     func applyContentRules() { applyContentRules(context?.blocker.rules(for: profileID)) }
+    private static func isPrepared(_ context: WebKitContext, profileID: UUID, isPrivate: Bool) -> Bool {
+        context.blocker.isReady && context.blocker.canLoad(profileID: profileID)
+            && (isPrivate || context.blocker.hasRules(profileID: profileID))
+            && (context.extensionSession as? WebKitExtensionSession)?.prepared != false
+    }
     func applySiteSettings() {
         applyPopupPreference()
         applyRememberedZoom()

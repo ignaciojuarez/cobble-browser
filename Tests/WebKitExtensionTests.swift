@@ -22,6 +22,8 @@ final class WebKitExtensionTests: XCTestCase {
             let context = try XCTUnwrap(try engine.makeContext(profile: profile, id: contextID,
                 siteSettings: SiteSettingsStore(directory: storage)) as? WebKitContext)
             let page = try XCTUnwrap(try context.makePage(tabID: UUID(), windowID: UUID()) as? WebKitPage)
+            // Installed extensions load in prepare(); a fresh context's page must not skip it.
+            XCTAssertEqual(page.state.lifecycle, .preparing)
             try await page.prepare()
             let session = try XCTUnwrap(context.extensionSession as? WebKitExtensionSession)
             let native = try XCTUnwrap(session.controller.extensionContexts.first)

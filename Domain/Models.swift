@@ -182,7 +182,7 @@ struct ProfileEngineUsage: Equatable, Codable, Sendable {
     var engineIDs: [EngineID]
 }
 
-struct SessionSnapshot: Codable, Sendable {
+struct SessionSnapshot: Equatable, Codable, Sendable {
     static let currentVersion = 10
     var version: Int = currentVersion
     var profiles: [Profile] = [Profile(id: Profile.defaultID)]

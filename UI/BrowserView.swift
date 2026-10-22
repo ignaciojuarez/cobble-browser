@@ -133,7 +133,7 @@ struct BrowserView: View {
                 Label("Private Window — browsing activity is not saved", systemImage: "hand.raised")
                     .font(.caption).foregroundStyle(.secondary).padding(6)
             }
-            SidebarView(window: window) { addressFocused = false }
+            SidebarView(window: window)
         }
         .frame(width: width)
         .frame(maxHeight: .infinity)
@@ -451,20 +451,7 @@ struct BrowserView: View {
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .background(Color(nsColor: .textBackgroundColor))
                 }
-                if let link = host.state.hoveredLink {
-                    Text(link)
-                        .font(.caption)
-                        .lineLimit(1)
-                        .truncationMode(.middle)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 4)
-                        .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
-                        .padding(10)
-                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
-                        .allowsHitTesting(false)
-                        .accessibilityLabel("Link destination")
-                        .accessibilityValue(link)
-                }
+                HoveredLinkOverlay(state: host.state)
                 if window.findPresented {
                     findBar
                         .padding(14)
@@ -523,6 +510,9 @@ struct CommandOverlay: View {
     }
 
     var body: some View {
+        // Filter once per pass; each keystroke re-runs this body.
+        let tabs = matchingTabs
+        let selectedTabID = window.record.selectedTabID
         VStack(alignment: .leading, spacing: 0) {
             HStack(spacing: 12) {
                 Image(systemName: "magnifyingglass").foregroundStyle(.secondary)
@@ -561,9 +551,9 @@ struct CommandOverlay: View {
                                 Label(String(format: String(localized: "Open “%@” in a new tab"), window.commandQuery), systemImage: "arrow.up.right")
                             }
                         }
-                        if !matchingTabs.isEmpty {
+                        if !tabs.isEmpty {
                             heading(String(localized: "OPEN TABS"))
-                            ForEach(matchingTabs) { tab in
+                            ForEach(tabs) { tab in
                                 choiceButton(.tab(tab.id)) {
                                     HStack(spacing: 12) {
                                         Image(systemName: "globe").foregroundStyle(.secondary)
@@ -574,7 +564,7 @@ struct CommandOverlay: View {
                                             }
                                         }
                                         Spacer()
-                                        if window.selectedTab?.id == tab.id {
+                                        if selectedTabID == tab.id {
                                             Image(systemName: "checkmark").foregroundStyle(.secondary)
                                         }
                                     }
@@ -1419,4 +1409,25 @@ private struct SidebarPeekTracker: NSViewRepresentable {
     }
 
     static func dismantleNSView(_ nsView: Tracker, coordinator: ()) { nsView.stop() }
+}
+
+/// Observes link hover alone; reading it in BrowserView would rebuild the window chrome per link crossed.
+private struct HoveredLinkOverlay: View {
+    let state: PageState
+    var body: some View {
+        if let link = state.hoveredLink {
+            Text(link)
+                .font(.caption)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 4)
+                .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 4))
+                .padding(10)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .bottomLeading)
+                .allowsHitTesting(false)
+                .accessibilityLabel("Link destination")
+                .accessibilityValue(link)
+        }
+    }
 }

@@ -472,6 +472,9 @@ final class AppModelTests: XCTestCase {
             window.reopenClosedTab(id: first.id)
             XCTAssertEqual(window.closedTabs.map(\.id), [second.id])
             XCTAssertTrue(window.record.tabs.contains { $0.id == first.id })
+            // A stale undo for an already reopened tab must not reopen a different one.
+            window.reopenClosedTab(id: first.id)
+            XCTAssertEqual(window.closedTabs.map(\.id), [second.id])
             window.reopenClosedTab()
             XCTAssertTrue(window.closedTabs.isEmpty)
             XCTAssertTrue(window.record.tabs.contains { $0.id == second.id })

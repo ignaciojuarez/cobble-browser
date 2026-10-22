@@ -120,6 +120,17 @@ final class AppModel {
         }
     }
 
+    /// Sidebar rows ask on every render; a fresh NSImage per pass also forces SwiftUI to redraw it.
+    @ObservationIgnored private var faviconImages: [Data: NSImage] = [:]
+    func image(for favicon: CachedFavicon) -> NSImage? {
+        if let image = faviconImages[favicon.png] { return image }
+        guard let image = NSImage(data: favicon.png) else { return nil }
+        // ponytail: wholesale reset bounds memory; switch to LRU if icon churn ever shows in profiles.
+        if faviconImages.count >= 512 { faviconImages.removeAll() }
+        faviconImages[favicon.png] = image
+        return image
+    }
+
     func cachedFavicon(urlString: String, profileID: UUID) -> CachedFavicon? {
         guard let url = URL(string: urlString), let origin = AddressResolver.canonicalOrigin(url) else { return nil }
         if let icon = savedItems.first(where: { $0.profileID == profileID && $0.favicon?.origin == origin })?.favicon { return icon }
@@ -176,14 +187,14 @@ final class AppModel {
         pendingSave = Task { [weak self] in
             do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
             guard !Task.isCancelled else { return }
-            self?.saveNow()
+            self?.saveNow(skippingUnchanged: true)
         }
     }
 
-    func saveNow() {
+    func saveNow(skippingUnchanged: Bool = false) {
         pendingSave?.cancel()
         pendingSave = nil
-        store.save(snapshot) { [weak self] message in
+        store.save(snapshot, skippingUnchanged: skippingUnchanged) { [weak self] message in
             Task { @MainActor in self?.persistenceMessage = message }
         }
     }
