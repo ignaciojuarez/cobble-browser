@@ -26,7 +26,9 @@ enum AddressResolver {
 
     static func resolve(_ input: String, engines: [SearchEngine] = SearchEngine.builtIns,
                         defaultEngine: SearchEngine = .duckDuckGo) -> AddressResolution {
-        let raw = input.trimmingCharacters(in: .whitespacesAndNewlines)
+        // Wrapped pastes: drop line breaks and the indentation around them, as other browsers do.
+        let raw = input.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }.joined()
         if raw.isEmpty || raw.lowercased() == "about:blank" { return .blank }
         guard !raw.unicodeScalars.contains(where: { CharacterSet.controlCharacters.contains($0) }) else {
             return .invalid(String(localized: "The address contains control characters."))
