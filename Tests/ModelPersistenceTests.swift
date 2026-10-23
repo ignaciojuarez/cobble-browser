@@ -188,6 +188,7 @@ final class ModelPersistenceTests: XCTestCase {
             XCTAssertEqual(AddressResolver.resolve(input), .navigate(URL(string: expected)!), input)
         }
         XCTAssertEqual(AddressResolver.resolve(" \n "), .blank)
+        XCTAssertEqual(AddressResolver.resolve("https://exa\n mple.com/a?b=c\r\n  d"), .navigate(URL(string: "https://example.com/a?b=cd")!))
         XCTAssertEqual(AddressResolver.resolve("about:blank"), .blank)
         XCTAssertEqual(AddressResolver.resolve("mailto:a@example.com"), .external(URL(string: "mailto:a@example.com")!))
         guard case let .navigate(search) = AddressResolver.resolve("swift & webkit") else { return XCTFail("Expected search") }
@@ -204,7 +205,7 @@ final class ModelPersistenceTests: XCTestCase {
     }
 
     func testAddressTrustBoundaries() {
-        for input in ["javascript:alert(1)", "data:text/html,hi", "file:///etc/passwd", "unknown:payload", "https://", "https://user:pass@example.com", "https://example.com:70000", "http://999.1.1.1", "https://exa\nmple.com"] {
+        for input in ["javascript:alert(1)", "data:text/html,hi", "file:///etc/passwd", "unknown:payload", "https://", "https://user:pass@example.com", "https://example.com:70000", "http://999.1.1.1", "https://exa\u{0}mple.com"] {
             guard case .invalid = AddressResolver.resolve(input) else { XCTFail("Accepted \(input)"); continue }
         }
         XCTAssertNil(Tab(urlString: "private search terms").url)
