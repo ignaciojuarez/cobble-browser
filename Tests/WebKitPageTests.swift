@@ -405,7 +405,12 @@ final class WebKitPageTests: XCTestCase {
         defer { page.close(); children.forEach { $0.close() } }
         page.navigate(to: parent.url("/"))
         try await waitFor { page.webView.title == "Parent" && !page.webView.isLoading }
-        let blocked = try await page.webView.evaluateJavaScript("window.popupBlocked") as? Bool
+        // The iframe's message can arrive after the parent finishes loading.
+        var blocked: Bool?
+        for _ in 0..<100 where blocked == nil {
+            blocked = try await page.webView.evaluateJavaScript("window.popupBlocked") as? Bool
+            if blocked == nil { try await Task.sleep(for: .milliseconds(20)) }
+        }
         XCTAssertEqual(blocked, true)
         XCTAssertTrue(children.isEmpty)
     }
