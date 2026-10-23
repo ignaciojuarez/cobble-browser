@@ -117,11 +117,17 @@ struct BrowserView: View {
         VStack(spacing: 0) {
             navigationChrome
             if let message = window.app.persistenceMessage {
-                Label(message, systemImage: "exclamationmark.triangle")
-                    .font(.callout)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(10)
-                    .background(.yellow.opacity(0.12))
+                HStack(alignment: .top) {
+                    Label(message, systemImage: "exclamationmark.triangle")
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                    Button { window.app.persistenceMessage = nil } label: { Image(systemName: "xmark") }
+                        .buttonStyle(.plain)
+                        .help("Dismiss")
+                        .accessibilityLabel("Dismiss")
+                }
+                .font(.callout)
+                .padding(10)
+                .background(.yellow.opacity(0.12))
             }
             if let message = window.app.contentBlocker?.lastError {
                 Label(message, systemImage: "shield.slash").font(.callout).foregroundStyle(.orange).padding(8)

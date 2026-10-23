@@ -405,7 +405,12 @@ final class WebKitPageTests: XCTestCase {
         defer { page.close(); children.forEach { $0.close() } }
         page.navigate(to: parent.url("/"))
         try await waitFor { page.webView.title == "Parent" && !page.webView.isLoading }
-        let blocked = try await page.webView.evaluateJavaScript("window.popupBlocked") as? Bool
+        // The iframe's message can arrive after the parent finishes loading.
+        var blocked: Bool?
+        for _ in 0..<100 where blocked == nil {
+            blocked = try await page.webView.evaluateJavaScript("window.popupBlocked") as? Bool
+            if blocked == nil { try await Task.sleep(for: .milliseconds(20)) }
+        }
         XCTAssertEqual(blocked, true)
         XCTAssertTrue(children.isEmpty)
     }
@@ -1242,6 +1247,46 @@ final class WebKitPageTests: XCTestCase {
         try await Task.sleep(for: .milliseconds(100))
         XCTAssertEqual(urls.last, "")
         XCTAssertEqual(host.webView.url?.absoluteString, "about:blank")
+    }
+
+    func testBackSkipsARedirectThatRanDuringTheIconFetch() async throws {
+        let http = try LocalHTTPFixture { request in
+            request.path == "/redirect"
+                ? .init(body: "<title>Redirect</title><script>setTimeout(() => location.href = '/c', 300)</script>")
+                : .init(body: "<title>\(request.path)</title><a id='link' href='/redirect'>Next</a>")
+        }
+        try await http.start()
+        defer { http.stop() }
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { page.close() }
+        page.webView.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
+        page.navigate(to: http.url("/a"))
+        try await waitFor { page.webView.url?.path == "/a" && !page.webView.isLoading }
+        _ = try await page.webView.evaluateJavaScript("document.getElementById('link').click(); void 0")
+        try await waitFor { page.webView.url?.path == "/c" && !page.webView.isLoading }
+        // App-run icon scripts once made the page's timed redirect look user-initiated, so Back looped.
+        XCTAssertEqual(page.webView.backForwardList.backList.map(\.url.path), ["/a"])
+        page.goBack()
+        try await waitFor { page.webView.url?.path == "/a" && !page.webView.isLoading }
+    }
+
+    func testRestorableStateResumesBackForwardList() async throws {
+        let http = try LocalHTTPFixture { request in .init(body: "<title>\(request.path)</title>") }
+        try await http.start()
+        defer { http.stop() }
+        let first = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        first.navigate(to: http.url("/one"))
+        try await waitFor { first.webView.url?.path == "/one" && !first.webView.isLoading }
+        first.navigate(to: http.url("/two"))
+        try await waitFor { first.webView.url?.path == "/two" && !first.webView.isLoading }
+        let saved = try XCTUnwrap(first.restorableState)
+        first.close()
+        let second = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { second.close() }
+        XCTAssertTrue(second.restore(saved, at: http.url("/two")))
+        try await waitFor { second.webView.url?.path == "/two" && !second.webView.isLoading }
+        XCTAssertTrue(second.webView.canGoBack)
+        XCTAssertEqual(second.webView.backForwardList.backItem?.url.path, "/one")
     }
 
     func testFaviconUsesIsolatedWebKitFetchAndClearsForBlank() async throws {

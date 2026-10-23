@@ -141,9 +141,10 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         guard !testing else { return }
         if ProcessInfo.processInfo.environment["COBBLE_DATA_DIRECTORY"] == nil { model.sync.start() }
         model.updates.start()
+        model.startTabSleeping()
         CobbleScriptTabs.app = model
         buildMenus()
-        model.preferences.onChange = { [weak self] in self?.buildMenus() }
+        model.preferences.onChange = { [weak self] in self?.buildMenus(); self?.model.updateTabSleepTimer() }
         model.onOpenWindow = { [weak self] in self?.show($0) }
         model.onActivateWindow = { [weak self] windowModel in
             self?.controllers[windowModel.id]?.showWindow(nil)

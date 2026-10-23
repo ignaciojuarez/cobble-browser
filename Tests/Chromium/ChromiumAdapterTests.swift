@@ -1,12 +1,9 @@
 #if COBBLE_CHROMIUM_CLIENT
 import XCTest
 @testable import CobbleNativeClient
-#if COBBLE_CHROMIUM_ABI15
 import CobbleChromium
-#endif
 
 @MainActor final class ChromiumAdapterTests: XCTestCase {
-    #if COBBLE_CHROMIUM_ABI4
     func testExternalApplicationURLsPreserveMailParametersAndRejectBrowserSchemes() {
         let mail = URL(string: "mailto:test@example.com?subject=Hello&body=Message")!
         XCTAssertEqual(ChromiumEngine.externalApplicationURL(mail), mail)
@@ -20,16 +17,13 @@ import CobbleChromium
         }
         XCTAssertNil(ChromiumEngine.externalApplicationURL(nil))
     }
-    #endif
 
-    #if COBBLE_CHROMIUM_ABI17
     func testPopupDispositionPreservesBackgroundOpening() {
         XCTAssertFalse(ChromiumEngine.activatesPopup(.newBackgroundTab))
         for disposition: ChromiumPopupRequest.Disposition in [.newForegroundTab, .newWindow, .newPopup, .unknown] {
             XCTAssertTrue(ChromiumEngine.activatesPopup(disposition))
         }
     }
-    #endif
 
     func testExtensionSiteGrantsRejectInvalidPorts() throws {
         XCTAssertEqual(try ChromiumExtensionManager.concreteOrigin("HTTPS://Example.com:443/*"),
@@ -69,14 +63,9 @@ import CobbleChromium
         XCTAssertFalse(String(decoding: encoded, as: UTF8.self).contains("sourcePath"))
         XCTAssertEqual(try JSONDecoder().decode(ChromiumExtensionManager.Snapshot.self, from: encoded).records,
                        store.records)
-        #if COBBLE_CHROMIUM_ABI15
         XCTAssertTrue(ChromiumExtensionManager.isVisible(store.records[0], profileID: profileID))
-        #else
-        XCTAssertFalse(ChromiumExtensionManager.isVisible(store.records[0], profileID: profileID))
-        #endif
     }
 
-    #if COBBLE_CHROMIUM_ABI15
     func testOnlyManageableStoreExtensionsAreAdopted() throws {
         let id = String(repeating: "a", count: 32)
         func extensionItem(source: String, manageable: Bool, id: String = id) throws -> ChromiumExtension {
@@ -93,9 +82,7 @@ import CobbleChromium
         XCTAssertFalse(ChromiumExtensionManager.canAdoptStore(try extensionItem(source: "other", manageable: true)))
         XCTAssertFalse(ChromiumExtensionManager.canAdoptStore(try extensionItem(source: "store", manageable: true, id: "bad")))
     }
-    #endif
 
-    #if COBBLE_CHROMIUM_ABI10
     func testLocalReloadAuthorizationRequiresTheExactFile() {
         let file = URL(fileURLWithPath: "/tmp/Cobble-local-reload.html")
         XCTAssertTrue(ChromiumPage.isAuthorizedLocalFile(file, authorizedURL: file))
@@ -104,7 +91,6 @@ import CobbleChromium
         XCTAssertFalse(ChromiumPage.isAuthorizedLocalFile(URL(string: "https://example.com"), authorizedURL: file))
         XCTAssertFalse(ChromiumPage.isAuthorizedLocalFile(file, authorizedURL: nil))
     }
-    #endif
 
     func testPrivateContextsOmitWebsiteDataRemoval() {
         XCTAssertFalse(ChromiumContext.capabilities(isPrivate: false).websiteDataRemoval.isEmpty)
@@ -113,33 +99,21 @@ import CobbleChromium
 
     func testLoginSharingRequiresNewSDKAndNormalContext() {
         XCTAssertFalse(ChromiumContext.capabilities(isPrivate: true).supportsCookieTransfer)
-        #if COBBLE_CHROMIUM_ABI14
         XCTAssertTrue(ChromiumContext.capabilities(isPrivate: false).supportsCookieTransfer)
-        #else
-        XCTAssertFalse(ChromiumContext.capabilities(isPrivate: false).supportsCookieTransfer)
-        #endif
     }
 
     func testBrowserIdentityCapabilityAndPresetMapping() {
         XCTAssertTrue(WebKitEngine.supported.supportsBrowserIdentity)
-        #if COBBLE_CHROMIUM_ABI16
         XCTAssertTrue(ChromiumContext.capabilities(isPrivate: false).supportsBrowserIdentity)
         XCTAssertTrue(ChromiumContext.capabilities(isPrivate: true).supportsBrowserIdentity)
         XCTAssertEqual(SiteBrowserIdentity.allCases.map(\.chromiumIdentity),
                        [.standard, .androidPhone, .androidTablet, .iPhone, .iPad])
-        #else
-        XCTAssertFalse(ChromiumContext.capabilities(isPrivate: false).supportsBrowserIdentity)
-        #endif
     }
 
     func testCacheCutoffIsAdvertisedOnlyForNormalContextsWhenSupported() {
         let normal = ChromiumContext.capabilities(isPrivate: false)
         let privateContext = ChromiumContext.capabilities(isPrivate: true)
-        #if COBBLE_CHROMIUM_ABI13
         XCTAssertTrue(normal.supportsWebsiteDataRemoval(categories: [.cache], scope: .profileSince))
-        #else
-        XCTAssertFalse(normal.supportsWebsiteDataRemoval(categories: [.cache], scope: .profileSince))
-        #endif
         XCTAssertFalse(privateContext.supportsWebsiteDataRemoval(categories: [.cache], scope: .profileSince))
         XCTAssertFalse(privateContext.supportsWebsiteDataRemoval(categories: [.siteData], scope: .profileSince))
     }

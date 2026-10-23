@@ -6,7 +6,8 @@ private struct TabLeadingIcon: View {
     var microphone: PageCapture
     var display = false
     var audioOnly = false
-    var isLoading = false
+    /// Read here, not by the row, so loading start/stop redraws only this icon.
+    var loadingState: PageState?
     var favicon: NSImage?
     var emptyURL = false
     var loadingIndicator = TabLoadingIndicatorStyle.system
@@ -40,7 +41,7 @@ private struct TabLeadingIcon: View {
                     .font(.system(size: 8, weight: .bold)).foregroundStyle(.secondary)
             }
             Group {
-                if isLoading, favicon == nil {
+                if loadingState?.isLoading == true, favicon == nil {
                     TabLoadingIndicator(style: loadingIndicator)
                 } else if let favicon {
                     Image(nsImage: favicon).resizable().scaledToFit()
@@ -477,16 +478,16 @@ struct SidebarView: View {
     }
 
     private func pinTile(_ item: SavedItem, kind: SidebarDropKind, trackDrop: Bool) -> some View {
-        let selected = window.selectedTab?.savedItemID == item.id
+        let tab = window.tab(forSavedItem: item.id)
+        let selected = tab.map { $0.id == window.record.selectedTabID } == true
         let favorite = kind == .favorite
         let loaded = window.isSavedItemLoaded(item.id)
-        let tab = window.record.tabs.first { $0.savedItemID == item.id }
         let captureState = tab.map { window.captureState(for: $0.id) } ?? (camera: .none, microphone: .none, display: false)
         let capturing = tab.map { window.isCapturing($0.id) } ?? false
         let icon = tab.map { window.icon(for: $0.id) } ?? window.icon(for: item)
         let capture = TabLeadingIcon(camera: captureState.camera, microphone: captureState.microphone, display: captureState.display,
             audioOnly: !capturing && tab.map { window.isPlayingAudio($0.id) || window.isAudioMuted($0.id) } == true,
-            isLoading: tab.map { window.isLoading($0.id) } == true, favicon: icon, emptyURL: item.urlString.isEmpty,
+            loadingState: tab.flatMap { window.pageState($0.id) }, favicon: icon, emptyURL: item.urlString.isEmpty,
             loadingIndicator: window.app.preferences.tabLoadingIndicator)
         return Hovering { hovered in
             ZStack(alignment: .topTrailing) {
@@ -545,14 +546,14 @@ struct SidebarView: View {
     }
 
     private func savedRow(_ item: SavedItem, favorite: Bool = false, trackDrop: Bool = false) -> some View {
-        let selected = window.selectedTab?.savedItemID == item.id
+        let tab = window.tab(forSavedItem: item.id)
+        let selected = tab.map { $0.id == window.record.selectedTabID } == true
         let loaded = window.isSavedItemLoaded(item.id)
-        let tab = window.record.tabs.first { $0.savedItemID == item.id }
         let captureState = tab.map { window.captureState(for: $0.id) } ?? (camera: .none, microphone: .none, display: false)
         let capturing = tab.map { window.isCapturing($0.id) } ?? false
         let capture = TabLeadingIcon(camera: captureState.camera, microphone: captureState.microphone, display: captureState.display,
             audioOnly: !capturing && tab.map { window.isPlayingAudio($0.id) || window.isAudioMuted($0.id) } == true,
-            isLoading: tab.map { window.isLoading($0.id) } == true,
+            loadingState: tab.flatMap { window.pageState($0.id) },
             favicon: tab.map { window.icon(for: $0.id) } ?? window.icon(for: item),
             emptyURL: item.urlString.isEmpty,
             loadingIndicator: window.app.preferences.tabLoadingIndicator)
@@ -722,12 +723,12 @@ struct SidebarView: View {
     }
 
     private func tabRow(_ tab: Tab, trackDrop: Bool = false) -> some View {
-        let selected = window.isTemporaryTabSelected(tab.id) || window.selectedTab?.id == tab.id
+        let selected = window.isTemporaryTabSelected(tab.id) || window.record.selectedTabID == tab.id
         let captureState = window.captureState(for: tab.id)
         let capturing = window.isCapturing(tab.id)
         let capture = TabLeadingIcon(camera: captureState.camera, microphone: captureState.microphone, display: captureState.display,
             audioOnly: !capturing && (window.isPlayingAudio(tab.id) || window.isAudioMuted(tab.id)),
-            isLoading: window.isLoading(tab.id), favicon: window.icon(for: tab.id), emptyURL: tab.urlString.isEmpty,
+            loadingState: window.pageState(tab.id), favicon: window.icon(for: tab.id), emptyURL: tab.urlString.isEmpty,
             loadingIndicator: window.app.preferences.tabLoadingIndicator)
         return Hovering { hovered in
             HStack(spacing: 0) {

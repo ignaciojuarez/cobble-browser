@@ -1,6 +1,30 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Sleep inactive tabs" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Suspender pestañas inactivas"}}}
+    },
+    "Unloads tabs you have not looked at for a while to save memory; they reload, with their back and forward history, when you return. Tabs playing audio or using the camera or microphone stay awake. When memory runs low, Cobble also sleeps hidden tabs. Unsaved form input in a sleeping tab is lost." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Descarga las pestañas que no has mirado desde hace un rato para ahorrar memoria; se vuelven a cargar, con su historial de atrás y adelante, cuando vuelves. Las pestañas que reproducen audio o usan la cámara o el micrófono siguen activas. Cuando queda poca memoria, Cobble también suspende las pestañas ocultas. Lo que hayas escrito en formularios sin guardar de una pestaña suspendida se pierde."}}}
+    },
+    "Never" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Nunca"}}}
+    },
+    "After 15 minutes" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Después de 15 minutos"}}}
+    },
+    "After 30 minutes" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Después de 30 minutos"}}}
+    },
+    "After 1 hour" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Después de 1 hora"}}}
+    },
+    "After 2 hours" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Después de 2 horas"}}}
+    },
+    "Dismiss" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Descartar"}}}
+    },
     "Chromium block/allow JSON · Normal windows" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "JSON de bloqueo/permisos de Chromium · Ventanas normales"}}}
     },
@@ -8930,12 +8954,12 @@
         }
       }
     },
-    "Unloading discards unsaved forms and this page’s back/forward history. The tab stays; reload to open it again." : {
+    "Unloading discards unsaved forms. The tab stays; open it again to reload it." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Al descartar se eliminan los formularios no guardados y el historial de atrás/adelante de esta página. La pestaña permanece; recárgala para abrirla de nuevo."
+            "value" : "Al descartar se eliminan los formularios no guardados. La pestaña permanece; ábrela de nuevo para recargarla."
           }
         }
       }

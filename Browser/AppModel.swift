@@ -48,7 +48,9 @@ final class AppModel {
     var folders: [Folder]
     var savedItems: [SavedItem]
     var windows: [BrowserWindowModel] = []
+    /// Load notices stay until dismissed or replaced; a later successful save clears only a save error.
     var persistenceMessage: String?
+    @ObservationIgnored private var lastSaveError: String?
     @ObservationIgnored lazy var sync = SyncCoordinator(app: self, provider: CloudKitSyncProvider())
     let updates = AppUpdater()
     let downloads: DownloadStore
@@ -131,6 +133,41 @@ final class AppModel {
         return image
     }
 
+    @ObservationIgnored private var memoryPressure: DispatchSourceMemoryPressure?
+    @ObservationIgnored private var tabSleepTimer: Task<Void, Never>?
+
+    /// Started by the application, never by isolated fixtures. Low memory sleeps hidden tabs even
+    /// when the timer is off: tabs hidden 5+ minutes on a warning, all eligible tabs when critical.
+    func startTabSleeping() {
+        guard memoryPressure == nil else { return }
+        let source = DispatchSource.makeMemoryPressureSource(eventMask: [.warning, .critical], queue: .main)
+        source.setEventHandler { [weak self] in
+            MainActor.assumeIsolated {
+                guard let self, let event = self.memoryPressure?.data else { return }
+                self.sleepBackgroundTabs(hiddenSince: event.contains(.critical) ? nil : Date().addingTimeInterval(-5 * 60))
+            }
+        }
+        memoryPressure = source
+        source.activate()
+        updateTabSleepTimer()
+    }
+
+    func updateTabSleepTimer() {
+        tabSleepTimer?.cancel()
+        tabSleepTimer = nil
+        guard memoryPressure != nil, let minutes = preferences.tabSleepMinutes else { return }
+        tabSleepTimer = Task { [weak self] in
+            while true {
+                do { try await Task.sleep(for: .seconds(60), tolerance: .seconds(15)) } catch { return }
+                self?.sleepBackgroundTabs(hiddenSince: Date().addingTimeInterval(-Double(minutes) * 60))
+            }
+        }
+    }
+
+    @discardableResult func sleepBackgroundTabs(hiddenSince cutoff: Date?) -> Int {
+        windows.reduce(0) { $0 + $1.sleepBackgroundTabs(hiddenSince: cutoff) }
+    }
+
     func cachedFavicon(urlString: String, profileID: UUID) -> CachedFavicon? {
         guard let url = URL(string: urlString), let origin = AddressResolver.canonicalOrigin(url) else { return nil }
         if let icon = savedItems.first(where: { $0.profileID == profileID && $0.favicon?.origin == origin })?.favicon { return icon }
@@ -172,7 +209,7 @@ final class AppModel {
         if let error = store.saveSynchronously(snapshot) {
             if previous.isEmpty { profileEngineUsage.removeValue(forKey: profileID) }
             else { profileEngineUsage[profileID] = previous }
-            persistenceMessage = error
+            recordSaveResult(error)
             return false
         }
         return true
@@ -195,7 +232,7 @@ final class AppModel {
         pendingSave?.cancel()
         pendingSave = nil
         store.save(snapshot, skippingUnchanged: skippingUnchanged) { [weak self] message in
-            Task { @MainActor in self?.persistenceMessage = message }
+            Task { @MainActor in self?.recordSaveResult(message) }
         }
     }
 
@@ -203,8 +240,14 @@ final class AppModel {
         pendingSave?.cancel()
         pendingSave = nil
         let message = await store.save(snapshot)
-        persistenceMessage = message
+        recordSaveResult(message)
         return message
+    }
+
+    private func recordSaveResult(_ message: String?) {
+        if let message { persistenceMessage = message }
+        else if persistenceMessage == lastSaveError { persistenceMessage = nil }
+        lastSaveError = message
     }
 
     func flushAndWait() async -> String? {
@@ -462,6 +505,7 @@ final class AppModel {
         })
         undoStates.removeAll()
         canUndoOrganization = false
+        sync.workspaceReplaced()
         onReplaceWindows?()
         if !pendingProfileDeletions.isEmpty {
             Task { [weak self] in await self?.resumePendingProfileDeletions() }

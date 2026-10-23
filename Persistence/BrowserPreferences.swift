@@ -45,6 +45,8 @@ final class BrowserPreferences {
         var themeTemplate: BrowserThemePreset?
         var themeAccentHex: String?
         var windowStyle: BrowserWindowStyle?
+        /// Minutes before hidden tabs sleep; nil never sleeps them on a timer. This Mac only.
+        var tabSleepMinutes: Int?
 
         init() {}
 
@@ -68,6 +70,7 @@ final class BrowserPreferences {
             themeTemplate = try container.decodeIfPresent(BrowserThemePreset.self, forKey: .themeTemplate)
             themeAccentHex = try container.decodeIfPresent(String.self, forKey: .themeAccentHex)
             windowStyle = try container.decodeIfPresent(BrowserWindowStyle.self, forKey: .windowStyle)
+            tabSleepMinutes = try container.decodeIfPresent(Int.self, forKey: .tabSleepMinutes)
         }
     }
     private static let maximumDownloadFolderBookmarkSize = 1_048_576
@@ -92,7 +95,8 @@ final class BrowserPreferences {
                 loaded.themeTemplate = .legacy
             }
             guard loaded.themeTemplate != .custom,
-                  loaded.themeAccentHex.map(Self.validColorHex) ?? true else { throw CocoaError(.fileReadCorruptFile) }
+                  loaded.themeAccentHex.map(Self.validColorHex) ?? true,
+                  loaded.tabSleepMinutes.map(Self.tabSleepChoices.contains) ?? true else { throw CocoaError(.fileReadCorruptFile) }
             for command in BrowserCommand.allCases {
                 if let shortcut = loaded.shortcuts[command.id] {
                     guard shortcut.isValid else { throw CocoaError(.fileReadCorruptFile) }
@@ -193,6 +197,8 @@ final class BrowserPreferences {
     }
     var newTabsNextToActive: Bool { record.newTabsNextToActive ?? false }
     var cycleAllRecentTabs: Bool { record.cycleAllRecentTabs ?? false }
+    static let tabSleepChoices = [15, 30, 60, 120]
+    var tabSleepMinutes: Int? { record.tabSleepMinutes }
     var webInspectorEnabled: Bool { record.webInspectorEnabled ?? false }
     var tabLoadingIndicator: TabLoadingIndicatorStyle { record.tabLoadingIndicator ?? themeTemplate.loadingIndicator }
     var browserChromeFont: BrowserChromeFont { record.browserChromeFont ?? themeTemplate.defaultFont }
@@ -208,6 +214,10 @@ final class BrowserPreferences {
     }
     @discardableResult func setCycleAllRecentTabs(_ enabled: Bool) -> Bool {
         var next = record; next.cycleAllRecentTabs = enabled; return save(next)
+    }
+    @discardableResult func setTabSleepMinutes(_ minutes: Int?) -> Bool {
+        guard minutes.map(Self.tabSleepChoices.contains) ?? true else { return false }
+        var next = record; next.tabSleepMinutes = minutes; return save(next)
     }
     @discardableResult func setWebInspectorEnabled(_ enabled: Bool) -> Bool {
         var next = record; next.webInspectorEnabled = enabled; return save(next)

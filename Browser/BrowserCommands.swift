@@ -14,7 +14,7 @@ enum BrowserCommand: Int, CaseIterable, Identifiable {
     var id: String { String(describing: self) }
     var explanation: String? {
         switch self {
-        case .unload: String(localized: "Unloading discards unsaved forms and this page’s back/forward history. The tab stays; reload to open it again.")
+        case .unload: String(localized: "Unloading discards unsaved forms. The tab stays; open it again to reload it.")
         case .reloadFromOrigin: String(localized: "Reloads from the website: Chromium bypasses its cache; WebKit revalidates cached resources. Cookies and website data stay.")
         default: nil
         }

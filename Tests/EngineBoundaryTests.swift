@@ -2168,6 +2168,9 @@ import SQLite3
     var archiveContinuation: CheckedContinuation<Data, Error>?
     var domContinuation: CheckedContinuation<String, Error>?
     var localFileContinuation: CheckedContinuation<Void, Error>?
+    var restorableState: Data?
+    var restoredStates: [Data] = []
+    func restore(_ state: Data, at url: URL?) -> Bool { restoredStates.append(state); return true }
     init(tabID: UUID, contextID: BrowsingContextID) {
         self.tabID = tabID; self.contextID = contextID; state.lifecycle = .ready
     }

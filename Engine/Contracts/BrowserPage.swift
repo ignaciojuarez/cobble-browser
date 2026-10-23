@@ -174,6 +174,10 @@ enum PageArchiveFormat: Sendable {
     /// Immediately invalidate callbacks; native teardown may complete later.
     func close()
     func waitUntilClosed() async
+    /// Opaque, in-memory engine state (back/forward list, scroll) for resuming an unloaded tab. Never persisted.
+    var restorableState: Data? { get }
+    /// Starts loading `state` saved from this engine; false means the caller should navigate to `url` instead.
+    func restore(_ state: Data, at url: URL?) -> Bool
 }
 
 extension BrowserPage {
@@ -206,6 +210,8 @@ extension BrowserPage {
     @discardableResult func stopMediaCapture() -> Bool { false }
     func setAudioMuted(_ muted: Bool) throws { throw EngineError.unsupported(String(localized: "tab audio muting")) }
     func applySiteSettings() {}
+    var restorableState: Data? { nil }
+    func restore(_ state: Data, at url: URL?) -> Bool { false }
 }
 
 /// One engine-owned developer-tools frontend hosted in an app-owned window.

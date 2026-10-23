@@ -319,15 +319,11 @@ import CobbleChromium
         let byID = Dictionary(uniqueKeysWithValues: native.map { ($0.id, $0) })
         var next = baseline
         for index in next.indices.reversed() where next[index].profileID == profileID {
-            #if !COBBLE_CHROMIUM_ABI15
-            if next[index].source == .store { continue }
-            #endif
             guard let item = byID[next[index].chromiumID] else {
                 if next[index].source == .store { next.remove(at: index); continue }
                 next[index].errorMessage = "This extension is no longer installed in Chromium."
                 continue
             }
-            #if COBBLE_CHROMIUM_ABI15
             if next[index].source == .store {
                 guard Self.canAdoptStore(item) else {
                     next.remove(at: index)
@@ -336,7 +332,6 @@ import CobbleChromium
                 next[index] = Self.storeRecord(id: next[index].id, profileID: profileID, native: item)
                 continue
             }
-            #endif
             guard let sourcePath = next[index].sourcePath,
                 Self.samePath(item.path, root.appendingPathComponent(sourcePath)) else {
                 next[index].errorMessage = "Chromium reported an unexpected extension path."
@@ -347,11 +342,9 @@ import CobbleChromium
                 chromiumID: next[index].chromiumID,
                 relative: sourcePath, native: item)
         }
-        #if COBBLE_CHROMIUM_ABI15
         let known = Set(next.filter { $0.profileID == profileID }.map(\.chromiumID))
         next += native.filter { Self.canAdoptStore($0) && !known.contains($0.id) }
             .map { Self.storeRecord(id: UUID(), profileID: profileID, native: $0) }
-        #endif
         return next
     }
 
@@ -466,7 +459,6 @@ import CobbleChromium
             allowedOrigins: concreteOrigins(native.allowedOrigins), errorMessage: nil)
     }
 
-    #if COBBLE_CHROMIUM_ABI15
     static func canAdoptStore(_ native: ChromiumExtension) -> Bool {
         native.source == .store && native.userManageable
             && native.id.range(of: "^[a-p]{32}$", options: .regularExpression) != nil
@@ -481,15 +473,10 @@ import CobbleChromium
                requestedOrigins: native.requestedOrigins.sorted(),
                allowedOrigins: concreteOrigins(native.allowedOrigins), errorMessage: nil)
     }
-    #endif
 
     static func isVisible(_ record: Record, profileID: UUID) -> Bool {
         guard record.profileID == profileID else { return false }
-        #if COBBLE_CHROMIUM_ABI15
         return true
-        #else
-        return record.source == nil
-        #endif
     }
 
     static func valid(_ record: Record) -> Bool {

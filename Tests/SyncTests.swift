@@ -366,6 +366,24 @@ final class SyncTests: XCTestCase {
         XCTAssertEqual(server.records["space.\(Space.defaultID)"]?.item?.fields["name"], "Edited while off")
     }
 
+    @MainActor func testRestoringWorkspaceMergesWithoutDeletingCloudItems() async throws {
+        let server = MemorySyncServer(), app = makeApp()
+        defer { cleanup(app) }
+        let sync = SyncCoordinator(app: app, provider: MemorySyncProvider(server: server))
+        app.sync = sync
+        let folder = Folder(name: "Created on another Mac")
+        app.folders = [folder]
+        sync.setEnabled(true); await sync.syncNow()
+        var file = app.snapshot
+        file.folders = []
+        try app.replaceWorkspace(with: file)
+        XCTAssertTrue(app.folders.isEmpty)
+        await sync.syncNow()
+        XCTAssertNil(sync.errorMessage)
+        XCTAssertNil(server.records["folder.\(folder.id)"]?.tombstone)
+        XCTAssertEqual(app.folders.map(\.id), [folder.id])
+    }
+
     @MainActor private func makeApp() -> AppModel {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
         return AppModel(store: SessionStore(directory: directory),

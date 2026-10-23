@@ -1,4 +1,3 @@
-#if COBBLE_CHROMIUM_ABI4
 import Foundation
 import Observation
 import CobbleChromium
@@ -286,4 +285,3 @@ import CobbleChromium
             && source.password == nil && source.fragment == nil && source.absoluteString.utf8.count <= 2_048
     }
 }
-#endif

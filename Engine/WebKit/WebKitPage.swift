@@ -98,9 +98,11 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
 
     var webView: WKWebView {
         if let storedWebView { return storedWebView }
+        if !closed { Self.installFaviconScript(in: configuration.userContentController) }
         let view = WKWebView(frame: .zero, configuration: configuration)
         guard !closed else { return view }
         storedWebView = view
+        Self.faviconPages.setObject(self, forKey: view)
         view.navigationDelegate = self
         view.uiDelegate = self
         view.allowsBackForwardNavigationGestures = true
@@ -167,6 +169,19 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         } else {
             trackNavigation(webView.loadHTMLString("", baseURL: nil))
         }
+    }
+
+    var restorableState: Data? {
+        guard !closed, hasCommittedPage, let view = storedWebView, view.url?.isFileURL != true else { return nil }
+        return view.interactionState as? Data
+    }
+
+    func restore(_ state: Data, at url: URL?) -> Bool {
+        guard !closed, url?.isFileURL != true else { return false }
+        beginNavigation(to: url)
+        webView.interactionState = state
+        // WebKit restores the back/forward list synchronously, then loads its current item.
+        return webView.backForwardList.currentItem != nil
     }
 
     func openLocalFile(_ url: URL) async throws {
@@ -673,10 +688,6 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         guard !closed, hasCommittedPage, navigation === activeNavigation else { return }
         publishPage()
         refreshState()
-        if let url = webView.url,
-           ["http", "https"].contains(url.scheme?.lowercased() ?? "") {
-            loadFavicon(for: url)
-        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
@@ -746,84 +757,115 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         return true
     }
 
-    private func loadFavicon(for url: URL) {
-        guard !closed, let view = storedWebView else { return }
+    /// The page's own document-end script reports icons; the native fetch below is the fallback.
+    private func receiveFaviconCandidates(_ candidates: [String], for url: URL) {
         let generation = faviconGeneration
-        // Fetch inside the page's WebKit store, isolated from page-script overrides.
-        let script = """
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 4000);
-        try {
-            const urls = [], seen = new Set();
-            const push = href => {
-                try {
-                    const candidate = new URL(href, document.baseURI);
-                    if (candidate.protocol !== 'http:' && candidate.protocol !== 'https:') return;
-                    if (seen.has(candidate.href)) return;
-                    seen.add(candidate.href);
-                    urls.push(candidate);
-                } catch (_) {}
-            };
-            for (const wantSame of [true, false]) {
-                for (const link of document.querySelectorAll('link[rel~="icon"]')) {
+        if let encoded = candidates.first, encoded.hasPrefix("data:"), encoded.utf8.count < 100_000,
+           let comma = encoded.firstIndex(of: ","),
+           let data = Data(base64Encoded: String(encoded[encoded.index(after: comma)...])),
+           acceptFavicon(data, for: url, generation: generation) { return }
+        Task { [weak self] in
+            for candidate in candidates.prefix(12) {
+                guard let self, self.faviconGeneration == generation else { return }
+                guard let iconURL = URL(string: candidate), ["http", "https"].contains(iconURL.scheme?.lowercased() ?? "") else { continue }
+                var request = URLRequest(url: iconURL)
+                request.httpShouldHandleCookies = false
+                request.timeoutInterval = 4
+                request.setValue("bytes=0-65535", forHTTPHeaderField: "Range")
+                guard let data = try? await Self.faviconData(for: request, session: Self.faviconSession) else { continue }
+                if self.acceptFavicon(data, for: url, generation: generation) { return }
+            }
+        }
+    }
+
+    /// No cookies or disk cache, so private-window icons leave nothing behind.
+    private static let faviconSession = URLSession(configuration: .ephemeral)
+
+    // Icons are fetched inside the page's WebKit store from an isolated-world *user script*. App-run
+    // scripts (callAsyncJavaScript) execute as a user gesture until their promise settles; a page that
+    // redirected during that fetch kept the redirect in history, so Back looped.
+    private static let faviconMessageName = "cobbleFavicon"
+    private static let faviconPages = NSMapTable<WKWebView, WebKitPage>.weakToWeakObjects()
+    private static let faviconControllers = NSHashTable<WKUserContentController>.weakObjects()
+    private static let faviconMessages = FaviconMessages()
+    private static let faviconScript = WKUserScript(source: """
+        (() => {
+        const load = async () => {
+            if (location.protocol !== 'http:' && location.protocol !== 'https:') return;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 4000);
+            const report = result => webkit.messageHandlers.\(faviconMessageName).postMessage({ href: location.href, result });
+            try {
+                const urls = [], seen = new Set();
+                const push = href => {
                     try {
-                        const candidate = new URL(link.getAttribute('href'), document.baseURI);
-                        if ((candidate.origin === location.origin) === wantSame) push(candidate.href);
+                        const candidate = new URL(href, document.baseURI);
+                        if (candidate.protocol !== 'http:' && candidate.protocol !== 'https:') return;
+                        if (seen.has(candidate.href)) return;
+                        seen.add(candidate.href);
+                        urls.push(candidate);
+                    } catch (_) {}
+                };
+                for (const wantSame of [true, false]) {
+                    for (const link of document.querySelectorAll('link[rel~="icon"]')) {
+                        try {
+                            const candidate = new URL(link.getAttribute('href'), document.baseURI);
+                            if ((candidate.origin === location.origin) === wantSame) push(candidate.href);
+                        } catch (_) {}
+                    }
+                }
+                push('/favicon.ico');
+                for (const icon of urls) {
+                    try {
+                        const cross = icon.origin !== location.origin;
+                        const response = await fetch(icon.href, {
+                            credentials: cross ? 'omit' : 'same-origin', mode: 'cors', redirect: 'follow', signal: controller.signal
+                        });
+                        if (!response.ok || Number(response.headers.get('content-length')) > 65536 || !response.body) continue;
+                        const reader = response.body.getReader();
+                        const chunks = [];
+                        let size = 0, overflow = false;
+                        while (true) {
+                            const { value, done } = await reader.read();
+                            if (done) break;
+                            size += value.byteLength;
+                            if (size > 65536) { await reader.cancel(); overflow = true; break; }
+                            chunks.push(value);
+                        }
+                        if (overflow) continue;
+                        const blob = new Blob(chunks, { type: response.headers.get('content-type') || 'application/octet-stream' });
+                        const encoded = await new Promise(resolve => {
+                            const file = new FileReader();
+                            file.onload = () => resolve(file.result);
+                            file.onerror = () => resolve(null);
+                            file.readAsDataURL(blob);
+                        });
+                        if (typeof encoded === 'string') return report([encoded, ...urls.map(icon => icon.href)]);
                     } catch (_) {}
                 }
-            }
-            push('/favicon.ico');
-            for (const icon of urls) {
-                try {
-                    const cross = icon.origin !== location.origin;
-                    const response = await fetch(icon.href, {
-                        credentials: cross ? 'omit' : 'same-origin', mode: 'cors', redirect: 'follow', signal: controller.signal
-                    });
-                    if (!response.ok || Number(response.headers.get('content-length')) > 65536 || !response.body) continue;
-                    const reader = response.body.getReader();
-                    const chunks = [];
-                    let size = 0, overflow = false;
-                    while (true) {
-                        const { value, done } = await reader.read();
-                        if (done) break;
-                        size += value.byteLength;
-                        if (size > 65536) { await reader.cancel(); overflow = true; break; }
-                        chunks.push(value);
-                    }
-                    if (overflow) continue;
-                    const blob = new Blob(chunks, { type: response.headers.get('content-type') || 'application/octet-stream' });
-                    const encoded = await new Promise(resolve => {
-                        const file = new FileReader();
-                        file.onload = () => resolve(file.result);
-                        file.onerror = () => resolve(null);
-                        file.readAsDataURL(blob);
-                    });
-                    if (typeof encoded === 'string') return [encoded, ...urls.map(icon => icon.href)];
-                } catch (_) {}
-            }
-            return urls.map(icon => icon.href);
-        } catch (_) { return null; }
-        finally { controller.abort(); clearTimeout(timer); }
-        """
-        view.callAsyncJavaScript(script, arguments: [:], in: nil, in: .defaultClient) { [weak self] result in
-            guard let self, case .success(let value) = result,
-                  let candidates = value as? [String] else { return }
-            if let encoded = candidates.first, encoded.hasPrefix("data:"), encoded.utf8.count < 100_000,
-               let comma = encoded.firstIndex(of: ","),
-               let data = Data(base64Encoded: String(encoded[encoded.index(after: comma)...])),
-               self.acceptFavicon(data, for: url, generation: generation) { return }
-            Task { [weak self] in
-                for candidate in candidates.prefix(12) {
-                    guard let self, self.faviconGeneration == generation else { return }
-                    guard let iconURL = URL(string: candidate), ["http", "https"].contains(iconURL.scheme?.lowercased() ?? "") else { continue }
-                    var request = URLRequest(url: iconURL)
-                    request.httpShouldHandleCookies = false
-                    request.timeoutInterval = 4
-                    request.setValue("bytes=0-65535", forHTTPHeaderField: "Range")
-                    guard let data = try? await Self.faviconData(for: request) else { continue }
-                    if self.acceptFavicon(data, for: url, generation: generation) { return }
-                }
-            }
+                report(urls.map(icon => icon.href));
+            } catch (_) {}
+            finally { controller.abort(); clearTimeout(timer); }
+        };
+        load();
+        // Back/forward cache restores do not rerun user scripts.
+        addEventListener('pageshow', event => { if (event.persisted) load(); });
+        })();
+        """, injectionTime: .atDocumentEnd, forMainFrameOnly: true, in: .defaultClient)
+
+    private static func installFaviconScript(in controller: WKUserContentController) {
+        guard !faviconControllers.contains(controller) else { return }
+        faviconControllers.add(controller)
+        controller.addUserScript(faviconScript)
+        controller.add(faviconMessages, contentWorld: .defaultClient, name: faviconMessageName)
+    }
+
+    private final class FaviconMessages: NSObject, WKScriptMessageHandler {
+        func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
+            guard let view = message.webView, let page = WebKitPage.faviconPages.object(forKey: view),
+                  let body = message.body as? [String: Any], let href = body["href"] as? String,
+                  let url = URL(string: href), let candidates = body["result"] as? [String] else { return }
+            page.receiveFaviconCandidates(candidates, for: url)
         }
     }
 

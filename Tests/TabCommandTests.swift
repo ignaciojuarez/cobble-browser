@@ -388,6 +388,29 @@ final class TabCommandTests: XCTestCase {
         }
     }
 
+    func testSleepingKeepsProtectedTabsAndRestoresEngineState() async throws {
+        let a = Tab(urlString: "https://a.example", title: "A"), b = Tab(urlString: "https://b.example", title: "B")
+        let c = Tab(urlString: "https://c.example", title: "C"), d = Tab(urlString: "https://d.example", title: "D")
+        try await withTestApp(SessionSnapshot(windows: [WindowRecord(selectedTabID: a.id, tabs: [a, b, c, d])])) { app, engine in
+            let window = try XCTUnwrap(app.windows.first)
+            for tab in [b, c, d, a] { window.select(tab.id) }
+            let pages = Dictionary(uniqueKeysWithValues: engine.contexts[0].pages.map { ($0.tabID, $0) })
+            try XCTUnwrap(pages[b.id]).restorableState = Data("b-state".utf8)
+            try XCTUnwrap(pages[c.id]).state.isPlayingAudio = true
+            // Pages hidden after the cutoff stay awake.
+            XCTAssertEqual(app.sleepBackgroundTabs(hiddenSince: Date().addingTimeInterval(-60)), 0)
+            // Memory pressure: the selected and audible tabs stay awake.
+            XCTAssertEqual(app.sleepBackgroundTabs(hiddenSince: nil), 2)
+            XCTAssertEqual(window.record.tabs.filter { $0.isUnloaded == true }.map(\.id), [b.id, d.id])
+            window.select(b.id)
+            let woken = try XCTUnwrap(engine.contexts[0].pages.last { $0.tabID == b.id })
+            XCTAssertEqual(woken.restoredStates, [Data("b-state".utf8)])
+            XCTAssertTrue(woken.loadedURLs.isEmpty)
+            window.select(d.id)
+            XCTAssertEqual(engine.contexts[0].pages.last { $0.tabID == d.id }?.loadedURLs, [URL(string: "https://d.example")!])
+        }
+    }
+
     func testSelectedCloseSerializesNativeConfirmationAndContinuesAfterRefusal() async throws {
         let a = Tab(title: "A"), b = Tab(title: "B")
         try await withTestApp(SessionSnapshot(windows: [WindowRecord(selectedTabID: a.id, tabs: [a, b])])) { app, engine in
