@@ -472,7 +472,9 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
     }
     func menuNeedsUpdate(_ menu: NSMenu) {
         if menu === spacesMenu { refreshSpaceTitles(menu) }
-        else if menu === historyMenu { refreshHistoryMenu(menu) }
+        // AppKit also populates menus while matching ⌘ shortcuts; dynamic history rows have none.
+        // Keyboard menu navigation (no ⌘) still refreshes.
+        else if menu === historyMenu, !Self.isCommandKeyDown(NSApp.currentEvent) { refreshHistoryMenu(menu) }
     }
     private func refreshSpaceTitles(_ menu: NSMenu) {
         let spaces = activeWindow?.spaces ?? []
@@ -498,6 +500,9 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
             return row
         }
     }
+    private static func isCommandKeyDown(_ event: NSEvent?) -> Bool {
+        event?.type == .keyDown && event?.modifierFlags.contains(.command) == true
+    }
     private func refreshHistoryMenu(_ menu: NSMenu) {
         let closed = recentlyClosedMenu ?? NSMenu(title: String(localized: "Recently Closed Tabs"))
         closed.removeAllItems()
@@ -520,7 +525,7 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         historyURLItems.forEach(menu.removeItem)
         historyURLItems = []
         guard let window = activeWindow, !window.isPrivate else { return }
-        historyURLItems = model.library.search("", profileID: window.record.profileID, historyOnly: true).prefix(15).map { entry in
+        historyURLItems = model.library.search("", profileID: window.record.profileID, historyOnly: true, limit: 15).map { entry in
             let row = NSMenuItem(title: entry.title.isEmpty ? entry.urlString : entry.title,
                                  action: #selector(openHistoryURL(_:)), keyEquivalent: "")
             row.target = self
@@ -805,10 +810,13 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     }
     func windowDidResignKey(_ notification: Notification) { model.endRecentTabCycle() }
     func windowDidMove(_ notification: Notification) { recordFrame() }
-    func windowDidResize(_ notification: Notification) { recordFrame() }
+    // Live resize records once at the end; each `record` write invalidates the chrome and schedules a save.
+    func windowDidResize(_ notification: Notification) { if window?.inLiveResize != true { recordFrame() } }
+    func windowDidEndLiveResize(_ notification: Notification) { recordFrame() }
     func recordFrame() {
         guard let frame = window?.frame else { return }
-        model.record.frame = WindowFrame(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height)
+        let saved = WindowFrame(x: frame.minX, y: frame.minY, width: frame.width, height: frame.height)
+        if model.record.frame != saved { model.record.frame = saved }
     }
 }
 

@@ -541,7 +541,7 @@ final class WebKitExtensionSession: NSObject, WKWebExtensionControllerDelegate {
     private var movingPages: [ObjectIdentifier: (window: WebKitExtensionWindow, index: Int)] = [:]
     private var windows: [ObjectIdentifier: WebKitExtensionWindow] = [:]
     private var popupWindows: [ObjectIdentifier: PopupWindowLifetime] = [:]
-    private var prepared = false
+    private(set) var prepared = false
     private var revision = 0
     private var appliedRevision = 0
     private var reconcileTask: (id: UUID, task: Task<Void, Error>)?

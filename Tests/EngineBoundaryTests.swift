@@ -1695,13 +1695,6 @@ import SQLite3
         }
     }
 
-    #if COBBLE_CHROMIUM_ABI4
-    func testChromiumPrivateContextDoesNotAdvertiseWebsiteDataRemoval() {
-        XCTAssertFalse(ChromiumContext.capabilities(isPrivate: false).websiteDataRemoval.isEmpty)
-        XCTAssertTrue(ChromiumContext.capabilities(isPrivate: true).websiteDataRemoval.isEmpty)
-    }
-    #endif
-
     func testWebsiteDataRejectsCrossProfileAndPrivateMembersBeforeUnloading() async throws {
         try await withApp { app, engines in
             engines[0].delayClosure = true

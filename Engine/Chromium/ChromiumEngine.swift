@@ -6,10 +6,6 @@ let chromiumPageOperations: Set<PageOperation> = [
     .find, .zoom, .muteAudio, .printPage, .reloadFromOrigin, .snapshot, .localFile,
     .savePage, .pageDOM, .openDevTools, .detach
 ]
-#elseif COBBLE_CHROMIUM_ABI4
-let chromiumPageOperations: Set<PageOperation> = [
-    .find, .zoom, .muteAudio, .printPage, .reloadFromOrigin, .snapshot, .savePage, .pageDOM, .openDevTools, .detach
-]
 #else
 let chromiumPageOperations: Set<PageOperation> = [.find, .zoom]
 #endif

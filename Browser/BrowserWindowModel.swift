@@ -77,10 +77,17 @@ final class BrowserWindowModel: Identifiable {
         addressFocusRequest = UUID()
     }
 
+    /// SwiftUI reads this several times per keystroke; query SQLite once per draft and library revision.
     var addressSuggestions: [LibraryEntry] {
         guard isEditingAddress, !isPrivate else { return [] }
-        return Array(app.library.search(addressDraft, profileID: record.profileID).prefix(6))
+        let key = SuggestionKey(draft: addressDraft, profileID: record.profileID, revision: app.library.revision)
+        if let cached = suggestionCache, cached.key == key { return cached.entries }
+        let entries = app.library.search(addressDraft, profileID: record.profileID, limit: 6)
+        suggestionCache = (key, entries)
+        return entries
     }
+    private struct SuggestionKey: Equatable { var draft: String, profileID: UUID, revision: Int }
+    @ObservationIgnored private var suggestionCache: (key: SuggestionKey, entries: [LibraryEntry])?
 
     var bangSuggestions: [SearchEngine] {
         guard isEditingAddress, !isPrivate else { return [] }
@@ -89,7 +96,7 @@ final class BrowserWindowModel: Identifiable {
 
     func submitAddressSuggestion(_ id: Int64, modifiers: NSEvent.ModifierFlags = []) {
         guard !isPrivate,
-              let entry = app.library.search(addressDraft, profileID: record.profileID).prefix(6).first(where: { $0.id == id }) else { return }
+              let entry = app.library.search(addressDraft, profileID: record.profileID, limit: 6).first(where: { $0.id == id }) else { return }
         addressDraft = entry.urlString
         submitAddress(modifiers: modifiers)
     }
@@ -112,13 +119,13 @@ final class BrowserWindowModel: Identifiable {
         if pages[tabID]?.state.isCrashed == true { return nil }
         if let state = pages[tabID]?.state, state.faviconOrigin == origin, let icon = state.favicon { return icon }
         let icon = tab.favicon?.origin == origin ? tab.favicon : app.cachedFavicon(urlString: tab.urlString, profileID: record.profileID)
-        return icon.flatMap { NSImage(data: $0.png) }
+        return icon.flatMap(app.image(for:))
     }
 
     func icon(for item: SavedItem) -> NSImage? {
         let cached = item.favicon ?? app.cachedFavicon(urlString: item.urlString, profileID: record.profileID)
         guard let url = URL(string: item.urlString), cached?.origin == AddressResolver.canonicalOrigin(url) else { return nil }
-        return cached.flatMap { NSImage(data: $0.png) }
+        return cached.flatMap(app.image(for:))
     }
 
     func isSavedItemLoaded(_ id: UUID) -> Bool {
@@ -336,16 +343,19 @@ final class BrowserWindowModel: Identifiable {
         host.events.onChange = { [weak self] id, url, title in
             guard let self, id == tabID, self.isCurrent(id, generation: generation),
                   let i = self.record.tabs.firstIndex(where: { $0.id == id }) else { return }
-            if self.record.tabs[i].urlString != url {
+            // Mutate a copy: every `record` write invalidates window chrome and schedules a save.
+            var tab = self.record.tabs[i]
+            if tab.urlString != url {
                 self.switches.removeValue(forKey: id)
-                self.record.tabs[i].titleOverride = nil
+                tab.titleOverride = nil
             }
-            self.record.tabs[i].urlString = url
-            self.record.tabs[i].title = title.isEmpty ? (URL(string: url)?.host ?? "New Tab") : title
+            tab.urlString = url
+            tab.title = title.isEmpty ? (URL(string: url)?.host ?? "New Tab") : title
             if URL(string: url)?.isFileURL != true {
-                self.record.tabs[i].localFileBookmark = nil
+                tab.localFileBookmark = nil
                 self.privateLocalFileBookmarks.removeValue(forKey: id)
             }
+            if tab != self.record.tabs[i] { self.record.tabs[i] = tab }
             if self.record.selectedTabID == id && !self.isEditingAddress { self.addressDraft = url }
             if !self.isPrivate, let visit = self.historyVisits[tabID], visit.url == url {
                 self.app.library.updateHistoryTitle(urlString: url, title: title,
@@ -930,6 +940,8 @@ final class BrowserWindowModel: Identifiable {
                       !self.app.suspendedContexts.contains(page.contextID),
                       let i = self.record.tabs.firstIndex(where: { $0.id == tab.id }) else {
                     if self.pendingPages[tab.id] === page { self.pendingPages.removeValue(forKey: tab.id) }
+                    // A stale entry would keep blocking detach and scripted close for this tab.
+                    if self.switches[tab.id] == operation { self.switches.removeValue(forKey: tab.id) }
                     self.app.engines.retire(page); return
                 }
                 self.pendingPages.removeValue(forKey: tab.id)
@@ -958,14 +970,16 @@ final class BrowserWindowModel: Identifiable {
         guard generations[tabID] == generation, let index = record.tabs.firstIndex(where: { $0.id == tabID }),
               let origin = AddressResolver.canonicalOrigin(url) else { return }
         guard let icon = CachedFavicon(origin: origin, png: png).validated(for: url.absoluteString) else { return }
-        record.tabs[index].favicon = icon
+        if record.tabs[index].favicon != icon { record.tabs[index].favicon = icon }
         guard !isPrivate else { return }
-        for i in app.savedItems.indices where app.savedItems[i].profileID == record.profileID {
+        var changed = false
+        for i in app.savedItems.indices where app.savedItems[i].profileID == record.profileID && app.savedItems[i].favicon != icon {
             if let savedURL = URL(string: app.savedItems[i].urlString), AddressResolver.canonicalOrigin(savedURL) == origin {
                 app.savedItems[i].favicon = icon
+                changed = true
             }
         }
-        app.persist()
+        if changed { app.persist() }
     }
 
     func addTab(url: URL? = nil, activate: Bool = true) {
@@ -1221,7 +1235,8 @@ final class BrowserWindowModel: Identifiable {
     }
 
     func reopenClosedTab(id: UUID? = nil) {
-        let index = id.flatMap { target in closedTabs.lastIndex(where: { $0.id == target }) } ?? closedTabs.indices.last
+        // A specific tab that was already reopened must not fall back to a different closed tab.
+        let index = id.map { target in closedTabs.lastIndex(where: { $0.id == target }) } ?? closedTabs.indices.last
         guard let index else { return }
         var tab = closedTabs.remove(at: index)
         if !spaces.contains(where: { $0.id == tab.spaceID }) { tab.spaceID = record.selectedSpaceID }

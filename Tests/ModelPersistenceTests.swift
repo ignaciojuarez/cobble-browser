@@ -421,6 +421,8 @@ final class ModelPersistenceTests: XCTestCase {
         second.windows[0].tabs[0].title = "Second"
         store.save(first) { XCTAssertNil($0) }
         store.save(second) { XCTAssertNil($0) }
+        // An unchanged autosave must not rotate the last distinct version out of the backup.
+        store.save(second, skippingUnchanged: true) { XCTAssertNil($0) }
         store.flush()
         let loaded = try XCTUnwrap(store.load().snapshot)
         XCTAssertEqual(loaded.windows[0].tabs[0].title, "Second")
@@ -443,6 +445,7 @@ final class ModelPersistenceTests: XCTestCase {
         XCTAssertEqual(try Data(contentsOf: preserved[0]), corrupt)
         save(try XCTUnwrap(loaded.snapshot), to: store)
         XCTAssertEqual(try Data(contentsOf: preserved[0]), corrupt)
+        XCTAssertEqual(try SessionSnapshot.decode(Data(contentsOf: store.url)).windows[0].id, snapshot.windows[0].id)
     }
 
     func testFutureVersionInEitherFilePreventsWrites() throws {

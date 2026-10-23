@@ -114,8 +114,9 @@ import WebKit
         guard !closed else { throw EngineError.closed }
         // Reuse handles for records still present; never expose SDK records to Settings.
         var current: [UUID: WKWebsiteDataRecord] = [:]
+        let existing = Dictionary(records.map { ($0.value.displayName, $0.key) }, uniquingKeysWith: { first, _ in first })
         let result = fetched.map { record in
-            let id = records.first(where: { $0.value.displayName == record.displayName })?.key ?? UUID()
+            let id = existing[record.displayName] ?? UUID()
             current[id] = record
             return WebsiteDataRecord(id: id, displayName: record.displayName)
         }

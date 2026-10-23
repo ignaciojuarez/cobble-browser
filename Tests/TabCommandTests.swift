@@ -130,6 +130,9 @@ final class TabCommandTests: XCTestCase {
             XCTAssertEqual(window.visibleTabs.map(\.id), [a.id, duplicate, b.id])
             window.select(a.id)
             let opener = try XCTUnwrap(window.selectedPage)
+            // A context's first WebKit page prepares (extensions, rules) before it can open children.
+            let deadline = Date().addingTimeInterval(10)
+            while opener.state.lifecycle != .ready, Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
             let child = TestPage(tabID: UUID(), contextID: opener.contextID)
             XCTAssertTrue(opener.events.onCreatePage?(child, true) == true)
             XCTAssertEqual(window.visibleTabs.map(\.id), [a.id, child.tabID, duplicate, b.id])

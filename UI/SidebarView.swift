@@ -115,11 +115,10 @@ private extension FolderColor {
 }
 
 struct SidebarView: View {
+    // No closure inputs: SwiftUI cannot compare them, so the whole sidebar would rebuild with BrowserView.
     @Bindable var window: BrowserWindowModel
-    var dismissAddressSuggestions: () -> Void = {}
     @Environment(\.browserTheme) private var theme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var hoveredID: UUID?
     @State private var hoveredSpaceHeader = false
     @State private var hoveredNewTab = false
     @FocusState private var focusedRowAction: UUID?
@@ -198,7 +197,7 @@ struct SidebarView: View {
                     #endif
                 sidebarFooter
             }
-            .background(SidebarSwipeView(window: window, active: swipe != nil, dismissAddressSuggestions: dismissAddressSuggestions, progress: { translation, intent in
+            .background(SidebarSwipeView(window: window, active: swipe != nil, progress: { translation, intent in
                 updateSwipe(translation: translation, intent: intent, width: geometry.size.width)
             }, finish: { cancelled in
                 finishSwipe(cancelled: cancelled)
@@ -489,37 +488,38 @@ struct SidebarView: View {
             audioOnly: !capturing && tab.map { window.isPlayingAudio($0.id) || window.isAudioMuted($0.id) } == true,
             isLoading: tab.map { window.isLoading($0.id) } == true, favicon: icon, emptyURL: item.urlString.isEmpty,
             loadingIndicator: window.app.preferences.tabLoadingIndicator)
-        return ZStack(alignment: .topTrailing) {
-            Button { activateSavedItem(item.id) } label: {
-                capture
-                    .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
-                    .contentShape(RoundedRectangle(cornerRadius: theme.controlCornerRadius))
-            }
-            .buttonStyle(.plain)
-            .help(item.urlString)
-            .accessibilityLabel(String(format: String(localized: "%@: %@, %@"),
-                favorite ? String(localized: "Favorite") : String(localized: "Pinned tab"), item.title,
-                loaded ? String(localized: "loaded") : String(localized: "unloaded")))
-            .accessibilityValue(capture.captureLabel)
-            .accessibilityAddTraits(selected ? [.isSelected] : [])
-            if let tab, window.showsMuteControl(tab.id) {
-                Button { window.toggleMute(tab.id) } label: {
-                    Image(systemName: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2")
-                        .font(.system(size: 8, weight: .bold))
-                        .frame(width: 18, height: 18)
-                        .background(.ultraThinMaterial, in: Circle())
+        return Hovering { hovered in
+            ZStack(alignment: .topTrailing) {
+                Button { activateSavedItem(item.id) } label: {
+                    capture
+                        .frame(maxWidth: .infinity, minHeight: 46, maxHeight: 46)
+                        .contentShape(RoundedRectangle(cornerRadius: theme.controlCornerRadius))
                 }
                 .buttonStyle(.plain)
-                .padding(3)
-                .accessibilityLabel(String(format: String(localized: window.isAudioMuted(tab.id) ? "Unmute %@" : "Mute %@"), item.title))
+                .help(item.urlString)
+                .accessibilityLabel(String(format: String(localized: "%@: %@, %@"),
+                    favorite ? String(localized: "Favorite") : String(localized: "Pinned tab"), item.title,
+                    loaded ? String(localized: "loaded") : String(localized: "unloaded")))
+                .accessibilityValue(capture.captureLabel)
+                .accessibilityAddTraits(selected ? [.isSelected] : [])
+                if let tab, window.showsMuteControl(tab.id) {
+                    Button { window.toggleMute(tab.id) } label: {
+                        Image(systemName: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2")
+                            .font(.system(size: 8, weight: .bold))
+                            .frame(width: 18, height: 18)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .buttonStyle(.plain)
+                    .padding(3)
+                    .accessibilityLabel(String(format: String(localized: window.isAudioMuted(tab.id) ? "Unmute %@" : "Mute %@"), item.title))
+                }
+            }
+            .background(selected || hovered ? theme.selectedPin : theme.pin,
+                        in: RoundedRectangle(cornerRadius: theme.controlCornerRadius))
+            .overlay {
+                if selected { RoundedRectangle(cornerRadius: theme.controlCornerRadius).strokeBorder(theme.selectedPinStroke) }
             }
         }
-        .background(selected || hoveredID == item.id ? theme.selectedPin : theme.pin,
-                    in: RoundedRectangle(cornerRadius: theme.controlCornerRadius))
-        .overlay {
-            if selected { RoundedRectangle(cornerRadius: theme.controlCornerRadius).strokeBorder(theme.selectedPinStroke) }
-        }
-        .onHover { hoveredID = $0 ? item.id : (hoveredID == item.id ? nil : hoveredID) }
         .accessibilityElement(children: .contain)
         .contextMenu {
             Button("Copy Link") { window.copyPageURL(urlString: tab?.urlString ?? item.urlString) }
@@ -556,48 +556,49 @@ struct SidebarView: View {
             favicon: tab.map { window.icon(for: $0.id) } ?? window.icon(for: item),
             emptyURL: item.urlString.isEmpty,
             loadingIndicator: window.app.preferences.tabLoadingIndicator)
-        return HStack(spacing: 0) {
-            Button {
-                activateSavedItem(item.id)
-            } label: {
-                HStack(spacing: 9) {
-                    capture
-                    Text(item.title).lineLimit(1)
-                    Spacer(minLength: 0)
+        return Hovering { hovered in
+            HStack(spacing: 0) {
+                Button {
+                    activateSavedItem(item.id)
+                } label: {
+                    HStack(spacing: 9) {
+                        capture
+                        Text(item.title).lineLimit(1)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(9)
+                    .contentShape(Rectangle())
                 }
-                .padding(9)
-                .contentShape(Rectangle())
-            }
-            .accessibilityAction { reopenSavedItem(item.id) }
-            .buttonStyle(.plain)
-            .help(item.urlString)
-            .accessibilityLabel(String(format: String(localized: "%@: %@, %@"), favorite ? String(localized: "Favorite") : String(localized: "Pinned tab"), item.title, loaded ? String(localized: "loaded") : String(localized: "unloaded")))
-            .accessibilityValue(capture.captureLabel)
-            HStack(spacing: 2) {
-                if let tab, window.showsMuteControl(tab.id) {
+                .accessibilityAction { reopenSavedItem(item.id) }
+                .buttonStyle(.plain)
+                .help(item.urlString)
+                .accessibilityLabel(String(format: String(localized: "%@: %@, %@"), favorite ? String(localized: "Favorite") : String(localized: "Pinned tab"), item.title, loaded ? String(localized: "loaded") : String(localized: "unloaded")))
+                .accessibilityValue(capture.captureLabel)
+                HStack(spacing: 2) {
+                    if let tab, window.showsMuteControl(tab.id) {
+                        SidebarItemButton(
+                            systemImage: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2",
+                            help: window.isAudioMuted(tab.id) ? String(localized: "Unmute Tab") : String(localized: "Mute Tab — silence audio while playback continues")
+                        ) { window.toggleMute(tab.id) }
+                        .accessibilityLabel(String(format: String(localized: window.isAudioMuted(tab.id) ? "Unmute %@" : "Mute %@"), item.title))
+                    }
+                    if let tab { engineButton(for: tab) }
                     SidebarItemButton(
-                        systemImage: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2",
-                        help: window.isAudioMuted(tab.id) ? String(localized: "Unmute Tab") : String(localized: "Mute Tab — silence audio while playback continues")
-                    ) { window.toggleMute(tab.id) }
-                    .accessibilityLabel(String(format: String(localized: window.isAudioMuted(tab.id) ? "Unmute %@" : "Mute %@"), item.title))
+                        systemImage: loaded ? "minus" : "xmark",
+                        help: loaded ? String(localized: "Unload Page (keeps pin; unsaved page content will be lost)") : String(format: String(localized: "Remove %@"), favorite ? String(localized: "Favorite") : String(localized: "Pin"))
+                    ) {
+                        if loaded { window.unloadSavedItem(item.id) }
+                        else { window.removeUnloadedSavedItem(item.id) }
+                    }
+                    .focused($focusedRowAction, equals: item.id)
+                    .opacity(hovered || focusedRowAction == item.id ? 1 : 0)
+                    .accessibilityLabel(String(format: String(localized: loaded ? "Unload %@" : "Remove %@"), item.title))
                 }
-                if let tab { engineButton(for: tab) }
-                SidebarItemButton(
-                    systemImage: loaded ? "minus" : "xmark",
-                    help: loaded ? String(localized: "Unload Page (keeps pin; unsaved page content will be lost)") : String(format: String(localized: "Remove %@"), favorite ? String(localized: "Favorite") : String(localized: "Pin"))
-                ) {
-                    if loaded { window.unloadSavedItem(item.id) }
-                    else { window.removeUnloadedSavedItem(item.id) }
-                }
-                .focused($focusedRowAction, equals: item.id)
-                .opacity(hoveredID == item.id || focusedRowAction == item.id ? 1 : 0)
-                .accessibilityLabel(String(format: String(localized: loaded ? "Unload %@" : "Remove %@"), item.title))
+                .padding(.trailing, 5)
             }
-            .padding(.trailing, 5)
+            .contentShape(Rectangle())
+            .background { rowHighlight(selected: selected, hovered: hovered) }
         }
-        .contentShape(Rectangle())
-        .background { rowHighlight(selected: selected, hovered: hoveredID == item.id) }
-        .onHover { hoveredID = $0 ? item.id : (hoveredID == item.id ? nil : hoveredID) }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
         .contextMenu {
@@ -657,26 +658,27 @@ struct SidebarView: View {
         let highlighted = dropSession.visibleTarget?.highlightedFolder == folder.id
         let children = window.pins(in: folder.spaceID).filter { $0.folderID == folder.id }
         return VStack(alignment: .leading, spacing: 3) {
-            Button {
-                window.toggleFolder(folder.id)
-            } label: {
-                HStack(spacing: 9) {
-                    FolderGlyph(color: folder.color).frame(width: 16, height: 16)
-                    Text(folder.name).lineLimit(1)
-                    Image(systemName: "chevron.right")
-                        .font(.system(size: 9, weight: .semibold))
-                        .foregroundStyle(.secondary)
-                        .rotationEffect(.degrees(collapsed ? 0 : 90))
-                        .accessibilityHidden(true)
-                    Spacer(minLength: 0)
+            Hovering { hovered in
+                Button {
+                    window.toggleFolder(folder.id)
+                } label: {
+                    HStack(spacing: 9) {
+                        FolderGlyph(color: folder.color).frame(width: 16, height: 16)
+                        Text(folder.name).lineLimit(1)
+                        Image(systemName: "chevron.right")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.secondary)
+                            .rotationEffect(.degrees(collapsed ? 0 : 90))
+                            .accessibilityHidden(true)
+                        Spacer(minLength: 0)
+                    }
+                    .padding(9)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .contentShape(Rectangle())
                 }
-                .padding(9)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .contentShape(Rectangle())
+                .buttonStyle(.plain)
+                .background { rowHighlight(selected: highlighted, hovered: hovered) }
             }
-            .buttonStyle(.plain)
-            .background { rowHighlight(selected: highlighted, hovered: hoveredID == folder.id) }
-            .onHover { hoveredID = $0 ? folder.id : (hoveredID == folder.id ? nil : hoveredID) }
             .accessibilityLabel(String(format: String(localized: "%@, level %@, %@ folder"), folder.name,
                                        String(depth + 1), collapsed ? String(localized: "collapsed") : String(localized: "expanded")))
             .accessibilityHint(String(localized: "Shows or hides this folder’s contents"))
@@ -727,48 +729,49 @@ struct SidebarView: View {
             audioOnly: !capturing && (window.isPlayingAudio(tab.id) || window.isAudioMuted(tab.id)),
             isLoading: window.isLoading(tab.id), favicon: window.icon(for: tab.id), emptyURL: tab.urlString.isEmpty,
             loadingIndicator: window.app.preferences.tabLoadingIndicator)
-        return HStack(spacing: 0) {
-            Button {
-                activateTab(tab.id)
-            } label: {
-                HStack(spacing: 9) {
-                    capture
-                    Text(tab.displayedTitle).lineLimit(1)
-                    Spacer(minLength: 0)
-                }
-                .padding(.leading, 9)
-                .padding(.vertical, 9)
-                .contentShape(Rectangle())
-            }
-            .accessibilityAction { selectTemporaryTabForAccessibility(tab.id) }
-            .buttonStyle(.plain)
-            .accessibilityLabel(tab.displayedTitle)
-            .accessibilityValue(capture.captureLabel)
-            HStack(spacing: 2) {
-                if window.showsMuteControl(tab.id) {
-                    SidebarItemButton(
-                        systemImage: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2",
-                        help: window.isAudioMuted(tab.id)
-                            ? String(localized: "Unmute Tab")
-                            : String(localized: "Mute Tab — silence audio while playback continues")
-                    ) {
-                        window.toggleMute(tab.id)
+        return Hovering { hovered in
+            HStack(spacing: 0) {
+                Button {
+                    activateTab(tab.id)
+                } label: {
+                    HStack(spacing: 9) {
+                        capture
+                        Text(tab.displayedTitle).lineLimit(1)
+                        Spacer(minLength: 0)
                     }
-                    .accessibilityLabel(String(format: String(localized: window.isAudioMuted(tab.id) ? "Unmute %@" : "Mute %@"), tab.displayedTitle))
+                    .padding(.leading, 9)
+                    .padding(.vertical, 9)
+                    .contentShape(Rectangle())
                 }
-                engineButton(for: tab)
-                SidebarItemButton(systemImage: "xmark", help: String(localized: "Close Tab")) {
-                    window.closeTab(tab.id)
+                .accessibilityAction { selectTemporaryTabForAccessibility(tab.id) }
+                .buttonStyle(.plain)
+                .accessibilityLabel(tab.displayedTitle)
+                .accessibilityValue(capture.captureLabel)
+                HStack(spacing: 2) {
+                    if window.showsMuteControl(tab.id) {
+                        SidebarItemButton(
+                            systemImage: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2",
+                            help: window.isAudioMuted(tab.id)
+                                ? String(localized: "Unmute Tab")
+                                : String(localized: "Mute Tab — silence audio while playback continues")
+                        ) {
+                            window.toggleMute(tab.id)
+                        }
+                        .accessibilityLabel(String(format: String(localized: window.isAudioMuted(tab.id) ? "Unmute %@" : "Mute %@"), tab.displayedTitle))
+                    }
+                    engineButton(for: tab)
+                    SidebarItemButton(systemImage: "xmark", help: String(localized: "Close Tab")) {
+                        window.closeTab(tab.id)
+                    }
+                    .focused($focusedRowAction, equals: tab.id)
+                    .opacity(hovered || focusedRowAction == tab.id ? 1 : 0)
+                    .accessibilityLabel(String(format: String(localized: "Close %@"), tab.displayedTitle))
                 }
-                .focused($focusedRowAction, equals: tab.id)
-                .opacity(hoveredID == tab.id || focusedRowAction == tab.id ? 1 : 0)
-                .accessibilityLabel(String(format: String(localized: "Close %@"), tab.displayedTitle))
+                .padding(.trailing, 5)
             }
-            .padding(.trailing, 5)
+            .contentShape(Rectangle())
+            .background { rowHighlight(selected: selected, hovered: hovered) }
         }
-        .contentShape(Rectangle())
-        .background { rowHighlight(selected: selected, hovered: hoveredID == tab.id) }
-        .onHover { hoveredID = $0 ? tab.id : (hoveredID == tab.id ? nil : hoveredID) }
         .accessibilityElement(children: .contain)
         .accessibilityAddTraits(selected ? [.isSelected] : [])
         .contextMenu {
@@ -1557,16 +1560,13 @@ struct SidebarSwipeTracker {
 struct SidebarSwipeView: NSViewRepresentable {
     let window: BrowserWindowModel
     var active: Bool
-    var dismissAddressSuggestions: () -> Void
     var progress: (Double, Double) -> Void
     var finish: (Bool) -> Void
     var invalidate: () -> Void
     func makeNSView(context: Context) -> SwipeView {
-        SwipeView(model: window, dismissAddressSuggestions: dismissAddressSuggestions,
-                  progress: progress, finish: finish, invalidate: invalidate)
+        SwipeView(model: window, progress: progress, finish: finish, invalidate: invalidate)
     }
     func updateNSView(_ nsView: SwipeView, context: Context) {
-        nsView.dismissAddressSuggestions = dismissAddressSuggestions
         nsView.progress = progress; nsView.finish = finish; nsView.invalidate = invalidate
         if !active { nsView.stopTracking() }
     }
@@ -1574,7 +1574,6 @@ struct SidebarSwipeView: NSViewRepresentable {
 
     final class SwipeView: NSView {
         let model: BrowserWindowModel
-        var dismissAddressSuggestions: () -> Void
         var progress: (Double, Double) -> Void
         var finish: (Bool) -> Void
         var invalidate: () -> Void
@@ -1585,9 +1584,9 @@ struct SidebarSwipeView: NSViewRepresentable {
         private var expectedSpaceID: UUID?
         private var expectedTabID: UUID?
         private var resignObserver: Any?
-        init(model: BrowserWindowModel, dismissAddressSuggestions: @escaping () -> Void,
+        init(model: BrowserWindowModel,
              progress: @escaping (Double, Double) -> Void, finish: @escaping (Bool) -> Void, invalidate: @escaping () -> Void) {
-            self.model = model; self.dismissAddressSuggestions = dismissAddressSuggestions
+            self.model = model
             self.progress = progress; self.finish = finish; self.invalidate = invalidate; super.init(frame: .zero)
         }
         required init?(coder: NSCoder) { nil }
@@ -1615,7 +1614,7 @@ struct SidebarSwipeView: NSViewRepresentable {
         private func handle(_ event: NSEvent) -> NSEvent? {
             guard event.window === window else { return event }
             if event.type == .leftMouseDown, bounds.contains(convert(event.locationInWindow, from: nil)) {
-                dismissAddressSuggestions()
+                model.isEditingAddress = false
             }
             guard event.type == .scrollWheel else {
                 if tracking || hasProgress { invalidateTracking() }
@@ -1658,4 +1657,11 @@ struct SidebarSwipeView: NSViewRepresentable {
             tracking = false; hasProgress = false; tracker.reset(); expectedSpaceID = nil; expectedTabID = nil
         }
     }
+}
+
+/// Row-local hover; one shared sidebar `@State` rebuilt every visible row per pointer crossing.
+private struct Hovering<Content: View>: View {
+    @ViewBuilder var content: (Bool) -> Content
+    @State private var hovered = false
+    var body: some View { content(hovered).onHover { hovered = $0 } }
 }

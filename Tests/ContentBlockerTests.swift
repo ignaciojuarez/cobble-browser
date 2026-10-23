@@ -80,7 +80,10 @@ final class ContentBlockerTests: XCTestCase {
                                         blocker: blocker, siteSettings: SiteSettingsStore(directory: directory), extensionSession: nil)
             let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(), profileID: profile, context: context) { _, _, _ in }
             defer { page.close() }
+            // The window skips prepare() for ready pages, so an unconfigured profile must not start ready.
+            XCTAssertEqual(page.state.lifecycle, .preparing)
             try await page.prepare()
+            XCTAssertEqual(page.state.lifecycle, .ready)
             XCTAssertTrue(blocker.hasRules(profileID: profile))
             XCTAssertTrue(blocker.isEnabled(profileID: profile))
             XCTAssertNotNil(blocker.rules(for: profile))
@@ -88,6 +91,7 @@ final class ContentBlockerTests: XCTestCase {
             await blocker.setEnabled(false, profileID: profile)
             let later = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(), profileID: profile, context: context) { _, _, _ in }
             defer { later.close() }
+            XCTAssertEqual(later.state.lifecycle, .ready)
             try await later.prepare()
             XCTAssertFalse(blocker.isEnabled(profileID: profile))
 

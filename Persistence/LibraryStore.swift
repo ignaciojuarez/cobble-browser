@@ -107,7 +107,7 @@ final class LibraryStore {
     func recordVisit(urlString: String, title: String, profileID: UUID, at date: Date = Date(), engineID: EngineID = .webKit) {
         guard beginMutation() else { return }
         lastError = initializationError
-        pruneHistory(now: date)
+        pruneHistory(profileID: profileID, now: date)
         guard let url = Self.webURL(urlString) else { return }
         if execute("""
             INSERT INTO entries(profile_id, url, title, visited_at, in_history, engine_id)
@@ -143,7 +143,7 @@ final class LibraryStore {
            sqlite3_changes(database) > 0 { revision += 1 }
     }
 
-    func search(_ query: String, profileID: UUID, bookmarksOnly: Bool = false, historyOnly: Bool = false) -> [LibraryEntry] {
+    func search(_ query: String, profileID: UUID, bookmarksOnly: Bool = false, historyOnly: Bool = false, limit: Int = 100) -> [LibraryEntry] {
         // Refreshing rows must not dismiss a failed write; the next mutation clears it.
         let escaped = query.replacingOccurrences(of: "\\", with: "\\\\")
             .replacingOccurrences(of: "%", with: "\\%").replacingOccurrences(of: "_", with: "\\_")
@@ -154,8 +154,8 @@ final class LibraryStore {
             AND ((in_history = 1 AND \(bookmarksOnly ? 0 : 1) AND title LIKE ? ESCAPE '\\')
                 OR (is_bookmark = 1 AND \(historyOnly ? 0 : 1) AND bookmark_title LIKE ? ESCAPE '\\')
                 OR url LIKE ? ESCAPE '\\')
-            ORDER BY visited_at DESC, id DESC LIMIT 100
-            """, [.text(profileID.uuidString), .text("%\(escaped)%"), .text("%\(escaped)%"), .text("%\(escaped)%")])
+            ORDER BY visited_at DESC, id DESC LIMIT ?
+            """, [.text(profileID.uuidString), .text("%\(escaped)%"), .text("%\(escaped)%"), .text("%\(escaped)%"), .integer(Int64(limit))])
     }
 
     func syncItems(module: SyncModule, profileIDs: Set<UUID>) throws -> [SyncItem] {
@@ -276,7 +276,7 @@ final class LibraryStore {
 
     private static func syncID(profile: UUID, url: String, module: SyncModule) -> String {
         let data = Data((profile.uuidString + "\n" + url).utf8)
-        return "\(module == .bookmarks ? "bookmark" : "visit"):\(SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined())"
+        return "\(module == .bookmarks ? "bookmark" : "visit"):\(SHA256.hash(data: data).hexString)"
     }
 
     @discardableResult
@@ -320,6 +320,15 @@ final class LibraryStore {
             AND COALESCE((SELECT retention_days FROM history_settings WHERE profile_id = entries.profile_id), 90) > 0
             """
         removeHistory(where: condition, values: [.number(now.timeIntervalSince1970)])
+    }
+
+    /// Per-visit pruning stays on the `(profile_id, visited_at)` index; the
+    /// all-profile scan above runs at launch and on retention changes.
+    private func pruneHistory(profileID: UUID, now: Date) {
+        let days = retentionDays(profileID: profileID)
+        guard days > 0 else { return }
+        removeHistory(where: "profile_id = ? AND in_history = 1 AND visited_at < ?",
+                      values: [.text(profileID.uuidString), .number(now.timeIntervalSince1970 - 86400 * Double(days))])
     }
 
     func clearHistory(profileID: UUID, since: Date = .distantPast) {
@@ -577,5 +586,19 @@ final class LibraryStore {
             if let decoded, let range = Range(match.range, in: result) { result.replaceSubrange(range, with: decoded) }
         }
         return result
+    }
+}
+
+extension SHA256.Digest {
+    /// Lowercase hex; sync hashes every library row, where `String(format:)` dominated the cost.
+    var hexString: String {
+        let digits = Array("0123456789abcdef".utf8)
+        var bytes: [UInt8] = []
+        bytes.reserveCapacity(Self.byteCount * 2)
+        for byte in self {
+            bytes.append(digits[Int(byte >> 4)])
+            bytes.append(digits[Int(byte & 0xf)])
+        }
+        return String(decoding: bytes, as: UTF8.self)
     }
 }

@@ -70,7 +70,8 @@ final class DownloadStore {
         downloads[item.id] = download
         download.onProgress = { [weak item] progress in
             guard let item, item.status.isActive else { return }
-            item.progress = progress.flatMap { $0.isFinite ? min(1, max(0, $0)) : nil }
+            // Engines report every received chunk; 0.5% steps let unchanged values skip UI invalidation.
+            item.progress = progress.flatMap { $0.isFinite ? (min(1, max(0, $0)) * 200).rounded(.down) / 200 : nil }
         }
         download.onDestination = { [weak self] name, completion in
             guard let self else { completion(nil); return }
@@ -269,7 +270,15 @@ final class DownloadStore {
         guard let item = entries.first(where: { $0.id == id }), item.status == .downloading,
               let temporary = temporaryURLs[item.id], let destination = item.destinationURL else { return }
         do {
-            try Self.finalizeDownload(from: temporary, to: destination, replacementApproved: replacementApproved.contains(item.id))
+            do {
+                try Self.finalizeDownload(from: temporary, to: destination, replacementApproved: replacementApproved.contains(item.id))
+            } catch CocoaError.fileWriteFileExists {
+                // Another file took the name during the transfer; keep both rather than discard these bytes.
+                let available = Self.availableURL(for: destination)
+                try FileManager.default.moveItem(at: temporary, to: available)
+                item.destinationURL = available
+                item.name = available.lastPathComponent
+            }
             item.status = .finished
             item.retainsPauseState = false
             item.progress = 1
@@ -285,6 +294,17 @@ final class DownloadStore {
         let directory = try manager.url(for: .itemReplacementDirectory, in: .userDomainMask,
                                         appropriateFor: destination.deletingLastPathComponent(), create: true)
         return directory.appendingPathComponent(destination.lastPathComponent)
+    }
+
+    /// "name 2.ext", "name 3.ext", … like Finder.
+    static func availableURL(for url: URL) -> URL {
+        let folder = url.deletingLastPathComponent(), base = url.deletingPathExtension().lastPathComponent, ext = url.pathExtension
+        var candidate = url, number = 2
+        while FileManager.default.fileExists(atPath: candidate.path) {
+            candidate = folder.appendingPathComponent(ext.isEmpty ? "\(base) \(number)" : "\(base) \(number).\(ext)")
+            number += 1
+        }
+        return candidate
     }
 
     static func finalizeDownload(from temporary: URL, to destination: URL, replacementApproved: Bool) throws {

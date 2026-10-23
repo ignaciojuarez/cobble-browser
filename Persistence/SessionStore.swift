@@ -20,6 +20,9 @@ final class SessionStore: @unchecked Sendable {
     private var loaded = false
     private var canSave = true
     private var lastValidData: Data?
+    /// Value known to be in the primary file; nil after recovering from the backup.
+    /// Compared by value: JSON bytes vary with Set/Dictionary iteration order.
+    private var primarySnapshot: SessionSnapshot?
 
     init(directory: URL? = nil) {
         self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
@@ -30,8 +33,9 @@ final class SessionStore: @unchecked Sendable {
     func load() -> LoadResult { queue.sync { loadLocked() } }
     func flush() { queue.sync {} }
 
-    func save(_ snapshot: SessionSnapshot, completion: @escaping @Sendable (String?) -> Void) {
-        queue.async { [self] in completion(saveLocked(snapshot)) }
+    /// Autosaves skip a snapshot already in the primary file; explicit and final saves always write, surfacing disk failures.
+    func save(_ snapshot: SessionSnapshot, skippingUnchanged: Bool = false, completion: @escaping @Sendable (String?) -> Void) {
+        queue.async { [self] in completion(saveLocked(snapshot, skippingUnchanged: skippingUnchanged)) }
     }
 
     func saveSynchronously(_ snapshot: SessionSnapshot) -> String? { queue.sync { saveLocked(snapshot) } }
@@ -42,15 +46,19 @@ final class SessionStore: @unchecked Sendable {
         }
     }
 
-    private func saveLocked(_ snapshot: SessionSnapshot) -> String? {
+    private func saveLocked(_ snapshot: SessionSnapshot, skippingUnchanged: Bool = false) -> String? {
         if !loaded { _ = loadLocked() }
         guard canSave else { return String(localized: "Session saving is disabled to preserve unreadable or newer session data.") }
         guard snapshot.version == SessionSnapshot.currentVersion else { return String(localized: "Unsupported session version.") }
         do {
-            let data = try JSONEncoder().encode(snapshot.validated())
+            let validated = snapshot.validated()
+            // Unchanged autosaves skip both writes and keep the last distinct backup.
+            if skippingUnchanged, validated == primarySnapshot { return nil }
+            let data = try JSONEncoder().encode(validated)
             if let lastValidData { try PersistenceFile.write(lastValidData, to: backupURL) }
             try PersistenceFile.write(data, to: url)
             lastValidData = data
+            primarySnapshot = validated
             return nil
         } catch {
             return String(format: String(localized: "Could not save the session: %@"), error.localizedDescription)
@@ -64,10 +72,12 @@ final class SessionStore: @unchecked Sendable {
             guard canSave, snapshot.version == SessionSnapshot.currentVersion else { throw CocoaError(.fileWriteNoPermission) }
             let encoder = JSONEncoder()
             try PersistenceFile.save(current.validated(), to: directory.appendingPathComponent("workspace-before-restore.json"))
-            let data = try encoder.encode(snapshot.validated())
+            let validated = snapshot.validated()
+            let data = try encoder.encode(validated)
             if let lastValidData { try PersistenceFile.write(lastValidData, to: backupURL) }
             try PersistenceFile.write(data, to: url)
             lastValidData = data
+            primarySnapshot = validated
         }
     }
 
@@ -102,6 +112,7 @@ final class SessionStore: @unchecked Sendable {
         }
         canSave = true
         lastValidData = nil
+        primarySnapshot = nil
         var recoveredCorruption = false
         do {
             for (result, name) in [(primary, "session"), (backup, "session.backup")] {
@@ -116,6 +127,7 @@ final class SessionStore: @unchecked Sendable {
         }
         if case let .valid(snapshot, data, migrated) = primary {
             lastValidData = data
+            primarySnapshot = snapshot
             let message = migrated ? String(localized: "The previous session was migrated; its original data will be retained as a backup.") :
                 (recoveredCorruption ? String(localized: "A damaged backup was preserved separately.") : nil)
             return LoadResult(snapshot: snapshot, message: message, canSave: true)

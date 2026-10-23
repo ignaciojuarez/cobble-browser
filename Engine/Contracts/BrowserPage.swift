@@ -3,7 +3,6 @@ import Observation
 
 enum PageOperation: Hashable, Sendable { case find, zoom, printPage, muteAudio, reloadFromOrigin, snapshot, localFile, savePage, pageDOM, inspect, openDevTools, detach }
 enum PermissionKind: Hashable, Sendable { case camera, microphone }
-enum PageMediaPlayback: Hashable, Sendable { case none, playing, paused, suspended }
 enum PageConnection: Hashable, Sendable {
     case unknown, empty, secure, mixed, insecure
     static func classify(urlString: String, hasOnlySecureContent: Bool? = nil) -> PageConnection {
@@ -82,7 +81,6 @@ enum PageArchiveFormat: Sendable {
     var grantedMediaKinds: Set<PermissionKind> = []
     var hoveredLink: String?
     var blockedPopup = false
-    var mediaPlayback: PageMediaPlayback = .none
     var isPlayingAudio = false
     var isAudioMuted = false
     var isDisplayCapturing = false

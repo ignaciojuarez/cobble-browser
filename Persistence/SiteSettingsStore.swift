@@ -217,7 +217,7 @@ final class SiteSettingsStore {
 
     private static func syncID(profile: UUID, engine: EngineID, origin: String) -> String {
         let data = Data((profile.uuidString + "\n" + engine.rawValue + "\n" + origin).utf8)
-        return "zoom:" + SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+        return "zoom:" + SHA256.hash(data: data).hexString
     }
 
     func remove(id: UUID) {

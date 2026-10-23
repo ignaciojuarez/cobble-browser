@@ -249,9 +249,15 @@ final class DownloadStoreTests: XCTestCase {
             let original = Data("original".utf8), downloaded = Data("downloaded".utf8)
             try original.write(to: destination)
             try downloaded.write(to: temporary)
-            XCTAssertThrowsError(try DownloadStore.finalizeDownload(from: temporary, to: destination, replacementApproved: false))
+            XCTAssertThrowsError(try DownloadStore.finalizeDownload(from: temporary, to: destination, replacementApproved: false)) {
+                // DownloadStore.finish recovers this specific error by saving under an available name.
+                XCTAssertEqual(($0 as? CocoaError)?.code, .fileWriteFileExists)
+            }
             XCTAssertEqual(try Data(contentsOf: destination), original)
             XCTAssertEqual(try Data(contentsOf: temporary), downloaded)
+            let available = DownloadStore.availableURL(for: destination.appendingPathExtension("zip"))
+            XCTAssertEqual(available.lastPathComponent, "destination.zip")
+            XCTAssertEqual(DownloadStore.availableURL(for: destination).lastPathComponent, "destination 2")
         }
     }
 
