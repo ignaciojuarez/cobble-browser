@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Right-click menus work on images and links. In WebKit, Download Image and
+  Download Linked File now save the file, and “Open … in New Tab” opens a
+  background tab. Chromium pages now show a right-click menu; Copy Image no
+  longer crashes, and items that need Chrome windows or panels are hidden.
 - Engine choice is one per-website setting — Automatic, WebKit or Chromium — from
   the site menu, the tab's engine menu or Settings → General → Web Engine,
   which also holds this Mac's default. Website choices now cover subdomains, so

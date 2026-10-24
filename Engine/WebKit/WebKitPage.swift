@@ -57,6 +57,8 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         let continuation: CheckedContinuation<Void, Error>
     }
     private var pendingLocalFile: PendingLocalFile?
+    private var contextMenuOpen: (intent: ContextMenuOpen, until: ContinuousClock.Instant)?
+    private var contextMenuActions: [ContextMenuAction] = []
     private var inspectable = false
     private let configuration: WKWebViewConfiguration
     private let siteSettings: SiteSettingsStore?
@@ -99,9 +101,16 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     var webView: WKWebView {
         if let storedWebView { return storedWebView }
         if !closed { Self.installFaviconScript(in: configuration.userContentController) }
-        let view = WKWebView(frame: .zero, configuration: configuration)
+        let view = ContextMenuWebView(frame: .zero, configuration: configuration)
         guard !closed else { return view }
         storedWebView = view
+        view.willOpenContextMenu = { [weak self] menu in
+            guard let self else { return }
+            contextMenuOpen = nil
+            contextMenuActions = Self.rewriteContextMenu(menu) { [weak self] in
+                self?.contextMenuOpen = ($0, .now + .seconds(2))
+            }
+        }
         Self.faviconPages.setObject(self, forKey: view)
         view.navigationDelegate = self
         view.uiDelegate = self
@@ -995,27 +1004,39 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
                  for navigationAction: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
         guard !closed else { return nil }
+        // A chosen page-menu item arrives as WebKit's next new-window request.
+        let menuOpen = contextMenuOpen.flatMap { $0.until > .now ? $0.intent : nil }
+        contextMenuOpen = nil
         if let url = Self.externalApplicationURL(from: navigationAction.request, webView: webView) {
             if Self.shouldOfferExternalApplication(for: navigationAction) { offerExternalApplication(url) }
             return nil
         }
-        let sourceURL = securityOriginURL(navigationAction.sourceFrame.securityOrigin)
-        let sourceSetting = popupSetting(for: sourceURL)
-        // WKPreferences applies to the whole page. An Allow grant for its top
-        // frame must not authorize scripts in a different embedded origin.
-        let embeddedWithoutGrant = sourceURL.flatMap(AddressResolver.canonicalOrigin) != webView.url.flatMap(AddressResolver.canonicalOrigin)
-            && sourceSetting != .allow && navigationAction.navigationType != .linkActivated
-        guard !embeddedWithoutGrant,
-              Self.allowsPopup(navigationType: navigationAction.navigationType, popups: sourceSetting,
-                               isPrivate: isPrivate,
-                               automaticWindowsAllowed: webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically) else {
-            state.blockedPopup = true
+        if menuOpen == .download {
+            webView.startDownload(using: navigationAction.request) { [weak self] download in
+                if let self { receive(download) } else { download.cancel { _ in } }
+            }
             return nil
         }
+        if menuOpen == nil {
+            let sourceURL = securityOriginURL(navigationAction.sourceFrame.securityOrigin)
+            let sourceSetting = popupSetting(for: sourceURL)
+            // WKPreferences applies to the whole page. An Allow grant for its top
+            // frame must not authorize scripts in a different embedded origin.
+            let embeddedWithoutGrant = sourceURL.flatMap(AddressResolver.canonicalOrigin) != webView.url.flatMap(AddressResolver.canonicalOrigin)
+                && sourceSetting != .allow && navigationAction.navigationType != .linkActivated
+            guard !embeddedWithoutGrant,
+                  Self.allowsPopup(navigationType: navigationAction.navigationType, popups: sourceSetting,
+                                   isPrivate: isPrivate,
+                                   automaticWindowsAllowed: webView.configuration.preferences.javaScriptCanOpenWindowsAutomatically) else {
+                state.blockedPopup = true
+                return nil
+            }
+        }
         // WebKit loads popup requests itself; nil distinguishes this from Cmd-click.
+        // Menu tabs open in the background, like Cmd-click.
         return createChild(configuration: configuration, request: nil,
-                           activate: Self.activatesNewTab(modifiers: navigationAction.modifierFlags,
-                                                         buttonNumber: navigationAction.buttonNumber))
+                           activate: menuOpen == nil && Self.activatesNewTab(modifiers: navigationAction.modifierFlags,
+                                                                             buttonNumber: navigationAction.buttonNumber))
     }
 
     func webViewDidClose(_ webView: WKWebView) { if !closed { events.onClose?() } }
@@ -1614,5 +1635,80 @@ extension WebKitPage {
         let url = value as? URL ?? (value as? String).flatMap(URL.init(string:))
         guard let url, ["http", "https"].contains(url.scheme?.lowercased()) else { return nil }
         return url.absoluteString
+    }
+}
+
+enum ContextMenuOpen { case tab, download }
+
+/// WebKit's macOS page menu opens windows, and its download items need a private
+/// delegate. Cobble sends both through the item's public new-window request.
+final class ContextMenuWebView: WKWebView {
+    var willOpenContextMenu: ((NSMenu) -> Void)?
+
+    override func willOpenMenu(_ menu: NSMenu, with event: NSEvent) {
+        super.willOpenMenu(menu, with: event)
+        willOpenContextMenu?(menu)
+    }
+}
+
+/// Records the chosen intent, then performs WebKit's open item. WebKit reads the
+/// element from that item, so downloads also forward it as the sender.
+@MainActor
+final class ContextMenuAction: NSObject {
+    let item: NSMenuItem
+    let action: Selector
+    let target: AnyObject?
+    let open: ContextMenuOpen
+    let select: (ContextMenuOpen) -> Void
+
+    init(item: NSMenuItem, action: Selector, target: AnyObject?, open: ContextMenuOpen,
+         select: @escaping (ContextMenuOpen) -> Void) {
+        self.item = item
+        self.action = action
+        self.target = target
+        self.open = open
+        self.select = select
+    }
+
+    @objc func choose(_ sender: Any?) {
+        select(open)
+        NSApp.sendAction(action, to: target, from: item)
+    }
+}
+
+extension WebKitPage {
+    static let contextMenuItems: [(open: String, download: String?, title: String)] = [
+        ("WKMenuItemIdentifierOpenLinkInNewWindow", "WKMenuItemIdentifierDownloadLinkedFile",
+         String(localized: "Open Link in New Tab")),
+        ("WKMenuItemIdentifierOpenImageInNewWindow", "WKMenuItemIdentifierDownloadImage",
+         String(localized: "Open Image in New Tab")),
+        ("WKMenuItemIdentifierOpenMediaInNewWindow", "WKMenuItemIdentifierDownloadMedia",
+         String(localized: "Open Media in New Tab")),
+        ("WKMenuItemIdentifierOpenFrameInNewWindow", nil, String(localized: "Open Frame in New Tab")),
+    ]
+
+    /// Returns the actions the menu items target weakly; keep them while the menu is open.
+    static func rewriteContextMenu(_ menu: NSMenu, select: @escaping (ContextMenuOpen) -> Void) -> [ContextMenuAction] {
+        func item(_ identifier: String?) -> NSMenuItem? {
+            identifier.flatMap { id in menu.items.first { $0.identifier?.rawValue == id } }
+        }
+        var actions: [ContextMenuAction] = []
+        for entry in contextMenuItems {
+            let download = item(entry.download)
+            guard let open = item(entry.open), let action = open.action else {
+                download?.isHidden = true
+                continue
+            }
+            let target = open.target
+            for (menuItem, intent) in [(open, ContextMenuOpen.tab), (download, .download)] {
+                guard let menuItem else { continue }
+                let forward = ContextMenuAction(item: open, action: action, target: target, open: intent, select: select)
+                menuItem.target = forward
+                menuItem.action = #selector(ContextMenuAction.choose(_:))
+                actions.append(forward)
+            }
+            open.title = entry.title
+        }
+        return actions
     }
 }
