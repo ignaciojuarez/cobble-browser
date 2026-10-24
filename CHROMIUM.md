@@ -109,6 +109,18 @@ is an existing open qualification issue, not a passing download/release gate.
 The runtime remains a development artifact; no new signed app update is
 published by this source migration.
 
+## Page menu validation (2026-10-23)
+
+The [matched development runtime](https://github.com/ignaciojuarez/chrome-sdk/releases/tag/sdk-153.0.8010.37-abi18-73ea7c5)
+adds Chrome's native right-click page menu in Cobble windows. Commands for
+Chrome windows, profiles, panels, bubbles, settings, sync, passwords, AI and
+View Source are hidden; Inspect appears only while Cobble's DevTools are open
+for that page. Copy toasts are skipped because they need a Chrome window.
+
+In isolated Full, Open Image/Link in New Tab, Save Image As, Copy Image, Copy
+Image/Link Address, page Save As, Print and Inspect worked. The SDK harness
+passed; SDK Python, Swift and node checks and Cobble adapter tests passed.
+
 ## Media validation (2026-10-17)
 
 The [matched development runtime](https://github.com/ignaciojuarez/chrome-sdk/releases/tag/sdk-153.0.8010.37-abi18-dec9f53)

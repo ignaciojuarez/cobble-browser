@@ -5797,6 +5797,46 @@
         }
       }
     },
+    "Open Frame in New Tab" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir marco en una pestaña nueva"
+          }
+        }
+      }
+    },
+    "Open Image in New Tab" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir imagen en una pestaña nueva"
+          }
+        }
+      }
+    },
+    "Open Link in New Tab" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir enlace en una pestaña nueva"
+          }
+        }
+      }
+    },
+    "Open Media in New Tab" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir contenido multimedia en una pestaña nueva"
+          }
+        }
+      }
+    },
     "Open Location…" : {
       "extractionState" : "stale",
       "localizations" : {

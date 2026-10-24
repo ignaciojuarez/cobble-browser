@@ -917,6 +917,128 @@ final class WebKitPageTests: XCTestCase {
         XCTAssertEqual(page.webView.title, "/parent")
     }
 
+    func testPageMenuOpensBackgroundTabsAndDownloadsImagesAndLinks() async throws {
+        let png = Data(base64Encoded: "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")!
+        let server = try LocalHTTPFixture { request in
+            switch request.path {
+            case "/image.png": .init(headers: ["Content-Type": "image/png"], data: png)
+            case "/target": .init(body: "<title>Target</title>")
+            default: .init(body: "<title>Menu</title><body style='margin:0'><a href='/target'><img src='/image.png' style='display:block;width:200px;height:200px'></a></body>")
+            }
+        }
+        try await server.start()
+        defer { server.stop() }
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePageMenu-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300),
+                              styleMask: [.borderless], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = page.webView
+        window.makeKeyAndOrderFront(nil)
+        var children: [(page: WebKitPage, activate: Bool)] = []
+        var transfers: [any EngineDownload] = []
+        var finished: [URL] = []
+        defer {
+            children.forEach { $0.page.close() }
+            transfers.forEach { $0.detach() }
+            page.close(); window.contentView = nil; window.close()
+        }
+        page.events.onCreatePage = { child, activate in
+            guard let child = child as? WebKitPage else { return false }
+            children.append((child, activate))
+            return true
+        }
+        page.events.onDownload = { download in
+            transfers.append(download)
+            let destination = directory.appendingPathComponent("\(transfers.count).download")
+            download.onDestination = { _, completion in completion(destination) }
+            download.onFinish = { finished.append(destination) }
+            download.start()
+        }
+        page.navigate(to: server.url("/"))
+        try await waitFor { page.webView.title == "Menu" && !page.webView.isLoading }
+        let view = try XCTUnwrap(page.webView as? ContextMenuWebView)
+        let prepare = try XCTUnwrap(view.willOpenContextMenu)
+        var titles: [String: String] = [:]
+        // WebKit ignores a right click until the previous menu has fully closed.
+        func choose(_ identifier: String) async throws {
+            var opened = false
+            view.willOpenContextMenu = { menu in
+                let first = !opened
+                opened = true
+                if first {
+                    prepare(menu)
+                    for item in menu.items { if let id = item.identifier?.rawValue { titles[id] = item.title } }
+                }
+                let item = first ? menu.items.first { $0.identifier?.rawValue == identifier } : nil
+                DispatchQueue.main.async {
+                    menu.cancelTracking()
+                    if let item, let action = item.action { NSApp.sendAction(action, to: item.target, from: item) }
+                }
+            }
+            for _ in 0..<40 where !opened {
+                for type in [NSEvent.EventType.rightMouseDown, .rightMouseUp] {
+                    let event = try XCTUnwrap(NSEvent.mouseEvent(with: type, location: NSPoint(x: 50, y: 250), modifierFlags: [],
+                        timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber,
+                        context: nil, eventNumber: 0, clickCount: 1, pressure: type == .rightMouseDown ? 1 : 0))
+                    type == .rightMouseDown ? view.rightMouseDown(with: event) : view.rightMouseUp(with: event)
+                }
+                try await Task.sleep(for: .milliseconds(250))
+            }
+            XCTAssertTrue(opened, "WebKit did not open its page menu")
+        }
+
+        try await choose("WKMenuItemIdentifierOpenImageInNewWindow")
+        try await waitFor { children.first?.page.webView.url == server.url("/image.png") }
+        XCTAssertEqual(titles["WKMenuItemIdentifierOpenImageInNewWindow"], String(localized: "Open Image in New Tab"))
+        XCTAssertEqual(titles["WKMenuItemIdentifierOpenLinkInNewWindow"], String(localized: "Open Link in New Tab"))
+        try await choose("WKMenuItemIdentifierOpenLinkInNewWindow")
+        try await waitFor { children.count == 2 && children.last?.page.webView.title == "Target" }
+        XCTAssertEqual(children.map(\.activate), [false, false])
+
+        try await choose("WKMenuItemIdentifierDownloadImage")
+        try await waitFor { finished.count == 1 }
+        XCTAssertEqual(try finished.first.map { try Data(contentsOf: $0) }, png)
+        try await choose("WKMenuItemIdentifierDownloadLinkedFile")
+        try await waitFor { finished.count == 2 }
+        XCTAssertEqual(try finished.last.map { try String(contentsOf: $0, encoding: .utf8) }, "<title>Target</title>")
+        XCTAssertEqual(children.count, 2)
+        XCTAssertEqual(page.webView.title, "Menu")
+        XCTAssertFalse(page.state.blockedPopup)
+    }
+
+    func testPageMenuForwardsOpenItemAndHidesUnpairedDownloads() throws {
+        final class Target: NSObject {
+            var senders: [NSMenuItem] = []
+            @objc func forward(_ sender: NSMenuItem) { senders.append(sender) }
+        }
+        let target = Target()
+        let menu = NSMenu()
+        func add(_ identifier: String, target: Target? = nil) -> NSMenuItem {
+            let item = menu.addItem(withTitle: identifier, action: target.map { _ in #selector(Target.forward(_:)) }, keyEquivalent: "")
+            item.identifier = NSUserInterfaceItemIdentifier(identifier)
+            item.target = target
+            return item
+        }
+        let open = add("WKMenuItemIdentifierOpenImageInNewWindow", target: target)
+        let download = add("WKMenuItemIdentifierDownloadImage", target: target)
+        let unpaired = add("WKMenuItemIdentifierDownloadLinkedFile", target: target)
+        let copy = add("WKMenuItemIdentifierCopyImage", target: target)
+        var selected: [ContextMenuOpen] = []
+        let actions = WebKitPage.rewriteContextMenu(menu) { selected.append($0) }
+
+        XCTAssertEqual(actions.count, 2)
+        XCTAssertEqual(open.title, String(localized: "Open Image in New Tab"))
+        XCTAssertTrue(unpaired.isHidden)
+        XCTAssertFalse(download.isHidden)
+        XCTAssertTrue(copy.target === target)
+        for item in [download, open] { NSApp.sendAction(try XCTUnwrap(item.action), to: item.target, from: item) }
+        XCTAssertEqual(selected, [.download, .tab])
+        XCTAssertEqual(target.senders, [open, open])
+    }
+
     func testNewTabActivationPreservesLinkModifiers() {
         for modifiers: NSEvent.ModifierFlags in [[], .command, .shift, [.command, .shift]] {
             XCTAssertEqual(WebKitPage.activatesNewTab(modifiers: modifiers, buttonNumber: 0),
