@@ -10,6 +10,33 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Mon, 26 Oct 2026 17:38:46 -0700</pubDate>
+            <sparkle:version>9</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Right-click menus work on images and links. Download Image and Download Linked File now save the file, and "Open … in New Tab" opens a background tab. Chromium pages now show a right-click menu; Copy Image no longer crashes, and items that need Chrome windows or panels are hidden.
+- Links pasted with line breaks, such as wrapped URLs copied from a terminal, now open instead of failing with "The address contains control characters."
+- Back no longer loops on pages that redirect themselves, such as login, consent and tracking pages.
+- Tab sleeping: when memory is low, Cobble sleeps hidden tabs. Settings → Tabs → "Sleep inactive tabs" can also sleep them on a timer (off by default). Slept WebKit tabs come back with their history and scroll position.
+- Installed extensions load again after relaunch, and default tracker rules now install on new profiles.
+- Typing in the address bar, browsing history and the sidebar are faster.
+- A looping link to another app can no longer lock the window with repeated prompts.
+- A download whose name is taken during transfer is saved as "name 2" instead of being deleted.
+- Recovery notices stay until you dismiss them. Restoring a workspace with iCloud sync on no longer deletes items on other devices.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (73ea7c5) and its matching Chromium runtime.
+
+This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.9/Cobble-v0.1.0-beta.9.zip" length="164423413" type="application/octet-stream" sparkle:edSignature="bN8x5jp8sZh+vWnUqDdtHK7yKHCqOmyHW2ybKe2c7b5l1CRXeKdVb26xqtk1fuXsdgnGitDqnTl9HYZ4kG21AQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Thu, 22 Oct 2026 13:22:28 -0700</pubDate>
             <sparkle:version>8</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -50,31 +77,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.7/Cobble-v0.1.0-beta.7.zip" length="164357609" type="application/octet-stream" sparkle:edSignature="mI0JFP8mnF9vwP4YXgQPgtOFeY6oo7AqR4X0rz825OlbKIHzFAN0aiWQTsg9yIrJu3//U72rIuTFB6OUI1y6CA=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Wed, 14 Oct 2026 16:38:08 -0700</pubDate>
-            <sparkle:version>6</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Space swipes follow gesture distance directly and avoid rebuilding the entire sidebar during movement.
-- Already-open tabs appear as soon as you release a space swipe, preserving their live document and unsaved form state.
-- Cold page creation waits until the sidebar has settled and drawn, keeping engine startup out of the visible slide.
-- The development Run menu preserves the configured remote Mac, signing team and Xcode settings across worktrees.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 17 SDK and its matching Chromium runtime.
-
-This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.6/Cobble-v0.1.0-beta.6.zip" length="163548161" type="application/octet-stream" sparkle:edSignature="ERyH1VNCMqLnrfEcJmXoK6SrayiEwfY/MR9gh5WJJuHlCIHyG2eAM/xZsu1PZxTEvw94r7f4tPIfqfHkG7xTAw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: As/S6ybBoerHrxtVXR51KFcrUGQMUtOLbf9TiudZfN9QPPQg6G2dFPmG//MSOX56KbD1w9RSD9W9hLCvzIMRDw==
-length: 5738
+edSignature: DEuJ1kD+Y7p42YHbW85+5f1oTw2p8I+70GssJ0wyMuXAqf4zuhgO8jlvFC9zJzKOYrFLuNJDEWIdTWzFA+aqAg==
+length: 6549
 -->
