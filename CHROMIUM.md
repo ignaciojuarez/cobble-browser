@@ -57,7 +57,8 @@ for social-site videos. Full builds require the matched rebuilt runtime;
 rebuilding the Swift client alone cannot add codecs.
 
 The SDK's `AUDIT.md` owns the 125-area gap inventory, research, bridge ownership,
-and implementation evidence. General permissions, owned fullscreen/lock UI,
+and implementation evidence. Page fullscreen moves the page view into its own
+native fullscreen window with an origin banner. General permissions, lock UI,
 extension popup/side-panel surfaces, device choosers and the other open feature
 rows remain work; adding the diagnostics does not qualify those surfaces.
 
@@ -108,6 +109,18 @@ both the original private ABI 17 runtime and the rebuilt public runtime. This
 is an existing open qualification issue, not a passing download/release gate.
 The runtime remains a development artifact; no new signed app update is
 published by this source migration.
+
+## Fullscreen validation (2026-10-31)
+
+The [matched development runtime](https://github.com/ignaciojuarez/chrome-sdk/releases/tag/sdk-153.0.8010.37-abi18-371054c)
+lets Chromium pages and videos enter full screen. The page moves into its own
+native full-screen Space with a 3-second origin banner. A crashed page renderer
+no longer crashes the browser; Chrome's sad-tab view needs a Chrome window.
+
+In isolated Full, enter, page exit (original size restored), Escape, navigation
+and tab close worked, and a renderer crash left the browser running where the
+previous runtime crashed. SDK Python, Swift and node checks passed. Real-site
+and macOS-initiated exit qualification remain open.
 
 ## Page menu validation (2026-10-23)
 

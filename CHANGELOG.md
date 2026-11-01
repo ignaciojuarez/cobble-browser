@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Video and page full screen works in Chromium tabs. YouTube and other sites
+  open in their own full-screen Space with a brief “Press Esc to exit” banner;
+  Esc, the site's own button or leaving the Space returns the page to its tab.
+- A crashed Chromium page no longer quits the whole browser.
 - Right-click menus work on images and links. In WebKit, Download Image and
   Download Linked File now save the file, and “Open … in New Tab” opens a
   background tab. Chromium pages now show a right-click menu; Copy Image no
