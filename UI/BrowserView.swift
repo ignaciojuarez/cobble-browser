@@ -1227,9 +1227,24 @@ private struct SidebarWindowControls: NSViewRepresentable {
         required init?(coder: NSCoder) { nil }
         override func viewDidMoveToWindow() {
             super.viewDidMoveToWindow()
-            for kind in kinds { window?.standardWindowButton(kind)?.isHidden = true }
+            NotificationCenter.default.removeObserver(self)
             buttons.forEach { $0.target = window }
             needsLayout = true
+            guard let window else { return }
+            for name in [NSWindow.willEnterFullScreenNotification, NSWindow.didExitFullScreenNotification] {
+                NotificationCenter.default.addObserver(self, selector: #selector(fullScreenChanged), name: name, object: window)
+            }
+            isHidden = window.styleMask.contains(.fullScreen)
+            if !isHidden { Self.hideNativeButtons(in: window) }
+        }
+        // In full screen the window controller shows AppKit's native buttons in the revealed titlebar.
+        @objc private func fullScreenChanged(_ note: Notification) {
+            isHidden = note.name == NSWindow.willEnterFullScreenNotification
+        }
+        static func hideNativeButtons(in window: NSWindow) {
+            for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+                window.standardWindowButton(kind)?.isHidden = true
+            }
         }
         override func layout() {
             super.layout()
@@ -1379,9 +1394,7 @@ private struct SidebarPeekTracker: NSViewRepresentable {
             super.viewDidMoveToWindow()
             stop()
             guard let window else { return }
-            for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
-                window.standardWindowButton(kind)?.isHidden = true
-            }
+            if !window.styleMask.contains(.fullScreen) { SidebarWindowControls.ControlsView.hideNativeButtons(in: window) }
             monitor = NSEvent.addLocalMonitorForEvents(matching: [.mouseMoved, .leftMouseDragged, .leftMouseUp]) { [weak self] event in
                 MainActor.assumeIsolated { self?.track(event) }
                 return event
