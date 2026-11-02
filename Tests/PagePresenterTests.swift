@@ -125,6 +125,7 @@ import XCTest
             var completions = 0
             let content = MediaPermissionContent(origin: "https://meet.example", device: "camera and microphone",
                 symbol: "camera.fill", embeddedIn: nil, canRemember: true) { _, _ in completions += 1 }
+                .background(Color(nsColor: .windowBackgroundColor))
                 .environment(\.colorScheme, scheme)
                 .fixedSize()
             let hosting = NSHostingView(rootView: content)

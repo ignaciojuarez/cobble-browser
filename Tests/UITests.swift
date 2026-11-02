@@ -359,13 +359,13 @@ final class UITests: XCTestCase {
                         panel.layoutSubtreeIfNeeded()
                         panel.displayIfNeeded()
                         connectionTree = accessibilityTree(in: panel).joined(separator: "\n")
-                        if connectionTree.contains("Certificate 1") { break }
+                        if connectionTree.contains("Certificate") { break }
                         try await Task.sleep(for: .milliseconds(25))
                     }
-                    XCTAssertTrue(connectionTree.contains("Certificate 1"))
+                    XCTAssertTrue(connectionTree.contains("Certificate"))
                     XCTAssertFalse(connectionTree.contains("Issued to"))
                     try capture(panel, name: "Site controls collapsed \(isPrivate ? "private" : "normal") \(scheme == .dark ? "dark" : "light")")
-                    let certificateCandidate = await accessibilityButton("Certificate 1", in: panelWindow, hosting: panel)
+                    let certificateCandidate = await accessibilityButton("Certificate", in: panelWindow, hosting: panel)
                     let certificateButton = try XCTUnwrap(certificateCandidate)
                     XCTAssertEqual(certificateButton.accessibilityPerformPress?(), true)
                     try await Task.sleep(for: .milliseconds(200))
@@ -384,9 +384,15 @@ final class UITests: XCTestCase {
                     XCTAssertGreaterThan(height, 180)
                     XCTAssertLessThan(height, 550)
                     try capture(panel, name: "Site controls \(isPrivate ? "private" : "normal") \(scheme == .dark ? "dark" : "light") active camera muted microphone")
+                    // One switch per permission: no separate mute or stop buttons.
+                    XCTAssertTrue(connectionTree.contains("Camera"))
+                    XCTAssertTrue(connectionTree.contains("Microphone"))
+                    for label in ["Mute Camera", "Stop Camera", "Unmute Microphone", "Stop Microphone"] {
+                        let removed = await accessibilityButton(label, in: panelWindow, hosting: panel)
+                        XCTAssertNil(removed, "\(label) should be the permission switch")
+                    }
                     for label in [BrowserCommand.sharePage.title, BrowserCommand.screenshot.title,
-                                  BrowserCommand.copyURL.title,
-                                  "Mute Camera", "Stop Camera", "Unmute Microphone", "Stop Microphone"] {
+                                  BrowserCommand.copyURL.title] {
                         let candidate = await accessibilityButton(label, in: panelWindow, hosting: panel)
                         if candidate == nil {
                             let attachment = XCTAttachment(string: (nativeButtonDescriptions(in: panel) + accessibilityTree(in: panel)).joined(separator: "\n"))
@@ -437,30 +443,42 @@ final class UITests: XCTestCase {
             let tree = accessibilityTree(in: panel).joined(separator: "\n")
             XCTAssertFalse(tree.contains("Camera"))
             XCTAssertFalse(tree.contains("Microphone"))
-            XCTAssertFalse(tree.contains("Popups"))
+            XCTAssertFalse(tree.contains("Pop-ups"))
             XCTAssertFalse(tree.contains("Unavailable"))
             let screenshot = await accessibilityButton(BrowserCommand.screenshot.title, in: panelWindow, hosting: panel)
             XCTAssertNil(screenshot)
         }
     }
 
-    func testCombinedCaptureControlDisclosesRevocationBehavior() async throws {
-        let engine = TestEngine(EngineID(rawValue: "combined-capture-fixture"))
-        engine.capabilities.permissions = [.camera, .microphone]
-        engine.capabilities.captureControls = [.stopAllUserMedia]
-        try await withWindow(isPrivate: false, engine: engine) { model, _, _ in
-            let tab = Tab(urlString: "https://camera-fixture.example.test/", title: "Capture fixture", engineID: engine.id)
-            model.record.tabs = [tab]
-            model.select(tab.id)
-            let page = try XCTUnwrap(model.selectedPage as? TestPage)
-            page.capabilities = engine.capabilities
-            page.state.urlString = tab.urlString
-            page.state.camera = .active
-            page.state.microphone = .active
-            let controls = SiteControlPopover(window: model)
-            XCTAssertTrue(controls.showsCombinedCaptureControl)
-            XCTAssertEqual(controls.combinedCaptureDisclosure,
-                "Permission changes apply to the next request. Stop Camera and Microphone ends the current capture.")
+    func testTurningPermissionOffForgetsGrantAndStopsThisPageCapture() async throws {
+        // WebKit stops one device; Chromium can only stop all user media.
+        for controls: Set<PageCaptureControl> in [[.stop(.camera), .stop(.microphone)], [.stopAllUserMedia]] {
+            let engine = TestEngine(EngineID(rawValue: "permission-switch-fixture"))
+            engine.capabilities.permissions = [.camera, .microphone]
+            engine.capabilities.captureControls = controls
+            try await withWindow(isPrivate: false, engine: engine) { model, _, _ in
+                let tab = Tab(urlString: "https://camera-fixture.example.test/", title: "Capture fixture", engineID: engine.id)
+                model.record.tabs = [tab]
+                model.select(tab.id)
+                let page = try XCTUnwrap(model.selectedPage as? TestPage)
+                page.capabilities = engine.capabilities
+                page.state.urlString = tab.urlString
+                let url = try XCTUnwrap(tab.url)
+                model.setSitePermission(.camera, .allow)
+                XCTAssertEqual(model.app.siteSettings.setting(origin: url, profileID: model.record.profileID,
+                    engineID: engine.id).camera, .allow)
+                page.state.camera = .active
+                model.turnOffSitePermission(.camera)
+                XCTAssertEqual(model.app.siteSettings.setting(origin: url, profileID: model.record.profileID,
+                    engineID: engine.id).camera, .ask)
+                if controls.contains(.stopAllUserMedia) {
+                    XCTAssertEqual(page.stopMediaCaptureCount, 1)
+                } else {
+                    XCTAssertEqual(page.captureRequests.map(\.0), [.camera])
+                    XCTAssertEqual(page.captureRequests.map(\.1), [.none])
+                }
+                XCTAssertNotNil(model.selectedPage, "A stoppable page stays loaded")
+            }
         }
     }
 

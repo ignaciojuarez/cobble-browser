@@ -1901,8 +1901,6 @@ import SQLite3
             page.state.isDisplayCapturing = true
             let controls = SiteControlPopover(window: window)
             XCTAssertTrue(controls.showsDisplayCapture)
-            XCTAssertEqual(controls.displayCaptureDisclosure,
-                "Cobble can show that this page is sharing your screen, but cannot stop or change it here.")
             XCTAssertTrue(page.capabilities.permissions.isEmpty)
             XCTAssertTrue(page.capabilities.captureControls.isEmpty)
         }
