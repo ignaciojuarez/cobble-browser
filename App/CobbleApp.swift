@@ -810,6 +810,14 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         onClose(model.id)
     }
     func windowDidResignKey(_ notification: Notification) { model.endRecentTabCycle() }
+    // The sidebar draws its own window buttons; full screen's titlebar needs the native ones.
+    func windowWillEnterFullScreen(_ notification: Notification) { showNativeWindowButtons(true) }
+    func windowDidExitFullScreen(_ notification: Notification) { showNativeWindowButtons(false) }
+    private func showNativeWindowButtons(_ show: Bool) {
+        for kind: NSWindow.ButtonType in [.closeButton, .miniaturizeButton, .zoomButton] {
+            window?.standardWindowButton(kind)?.isHidden = !show
+        }
+    }
     func windowDidMove(_ notification: Notification) { recordFrame() }
     // Live resize records once at the end; each `record` write invalidates the chrome and schedules a save.
     func windowDidResize(_ notification: Notification) { if window?.inLiveResize != true { recordFrame() } }
