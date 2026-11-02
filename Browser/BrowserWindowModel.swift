@@ -1770,12 +1770,23 @@ final class BrowserWindowModel: Identifiable {
         for window in app.windows where !window.isClosed && !window.isPrivate && window.record.profileID == record.profileID {
             for host in Array(window.pages.values) where host.state.grantedMediaKinds.contains(kind)
                 || (kind == .camera ? host.state.camera : host.state.microphone) != .none {
-                if host.capabilities.captureControls.contains(.stop(kind)) { host.setCapture(kind, .none) }
-                else if !host.capabilities.captureControls.contains(.stopAllUserMedia) || !host.stopMediaCapture() {
-                    window.retireHost(host.tabID, leavingUnloaded: true)
-                    window.addressError = String(localized: "A page was unloaded because camera or microphone capture could not be stopped safely. Unsaved page content may be lost.")
-                }
+                window.stopCapture(kind, in: host)
             }
+        }
+    }
+
+    /// The site menu switch: off forgets the saved grant and stops this page's capture.
+    func turnOffSitePermission(_ kind: PermissionKind) {
+        guard !isClosed, let host = selectedPage else { return }
+        if !isPrivate { setSitePermission(kind, .ask) }
+        if (kind == .camera ? host.state.camera : host.state.microphone) != .none { stopCapture(kind, in: host) }
+    }
+
+    private func stopCapture(_ kind: PermissionKind, in host: any BrowserPage) {
+        if host.capabilities.captureControls.contains(.stop(kind)) { host.setCapture(kind, .none) }
+        else if !host.capabilities.captureControls.contains(.stopAllUserMedia) || !host.stopMediaCapture() {
+            retireHost(host.tabID, leavingUnloaded: true)
+            addressError = String(localized: "A page was unloaded because camera or microphone capture could not be stopped safely. Unsaved page content may be lost.")
         }
     }
 

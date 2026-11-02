@@ -6,10 +6,12 @@ struct SiteActionButtonStyle: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
-            .frame(maxWidth: .infinity).padding(.vertical, 9).padding(.horizontal, 12)
-            .background(.primary.opacity(configuration.isPressed ? 0.2 : (prominent ? 0.14 : 0.06)), in: RoundedRectangle(cornerRadius: 9))
-            .overlay(RoundedRectangle(cornerRadius: 9).strokeBorder(.primary.opacity(prominent ? 0.16 : 0.04)))
-            .contentShape(RoundedRectangle(cornerRadius: 9))
+            .foregroundStyle(prominent ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .frame(maxWidth: .infinity)
+            .padding(.vertical, 8).padding(.horizontal, 12)
+            .background(prominent ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary.opacity(0.08)), in: Capsule())
+            .opacity(configuration.isPressed ? 0.75 : 1)
+            .contentShape(Capsule())
     }
 }
 
@@ -65,6 +67,7 @@ struct SiteControlAnchor: NSViewRepresentable {
     }
 }
 
+/// Allowing is remembered for the site whenever the request can be remembered.
 struct MediaPermissionContent: View {
     let origin: String
     let device: String
@@ -72,28 +75,29 @@ struct MediaPermissionContent: View {
     let embeddedIn: String?
     let canRemember: Bool
     let finish: (Bool, Bool) -> Void
-    @State private var remember = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 16) {
+        VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
-                Image(systemName: symbol).font(.system(size: 19))
-                    .frame(width: 40, height: 40).background(.primary.opacity(0.06), in: Circle())
+                Image(systemName: symbol).font(.system(size: 16, weight: .medium)).foregroundStyle(.tint)
+                    .frame(width: 34, height: 34).background(.tint.opacity(0.15), in: Circle())
                     .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(String(format: String(localized: "Allow %@ to access your %@?"), URL(string: origin)?.host ?? origin, device))
-                        .font(.system(size: 15, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(String(format: String(localized: "Allow %@ to use your %@?"), URL(string: origin)?.host ?? origin, device))
+                        .font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     Text(origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
                     if let embeddedIn {
-                        Text(String(format: String(localized: "Embedded in %@. This request only."), embeddedIn)).font(.caption).foregroundStyle(.secondary)
+                        Text(String(format: String(localized: "Embedded in %@. This request only."), embeddedIn))
+                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    } else if !canRemember {
+                        Text("This request only.").font(.caption).foregroundStyle(.secondary)
                     }
                 }
             }
-            if canRemember { Toggle("Remember for this site", isOn: $remember).toggleStyle(.checkbox).font(.callout) }
-            HStack(spacing: 10) {
+            HStack(spacing: 8) {
                 Button("Not Now") { finish(false, false) }.buttonStyle(SiteActionButtonStyle()).keyboardShortcut(.cancelAction)
-                Button("Allow") { finish(true, remember) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+                Button("Allow") { finish(true, canRemember) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
             }
-        }.padding(18).frame(width: 330).background(.regularMaterial)
+        }.padding(16).frame(width: 300)
     }
 }
 

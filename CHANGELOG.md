@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- The site menu is simpler: connection status at the top (click it for the
+  certificate), then on/off switches for Camera, Microphone, Sound and
+  Pop-ups. Allowing camera or microphone now always remembers the site, so
+  the switch stays on until you turn it off. Turning it off also stops the
+  camera or microphone on that page. Works in WebKit and Chromium tabs.
 - Video and page full screen works in Chromium tabs. YouTube and other sites
   open in their own full-screen Space with a brief “Press Esc to exit” banner;
   Esc, the site's own button or leaving the Space returns the page to its tab.

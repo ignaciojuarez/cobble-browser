@@ -714,144 +714,86 @@ struct SiteControlPopover: View {
     private var capabilities: EngineCapabilities {
         window.selectedPageCapabilities
     }
-    var showsCombinedCaptureControl: Bool {
-        capabilities.captureControls.contains(.stopAllUserMedia)
-            && window.selectedPage.map { $0.state.camera != .none || $0.state.microphone != .none } == true
-    }
-    var combinedCaptureDisclosure: String? {
-        guard showsCombinedCaptureControl, !window.isPrivate else { return nil }
-        return String(localized: "Permission changes apply to the next request. Stop Camera and Microphone ends the current capture.")
-    }
     var showsDisplayCapture: Bool { window.selectedPage?.state.isDisplayCapturing == true }
-    var displayCaptureDisclosure: String? {
-        showsDisplayCapture
-            ? String(localized: "Cobble can show that this page is sharing your screen, but cannot stop or change it here.")
-            : nil
-    }
     private var target: (UUID?, String?, EngineID?) { (window.selectedTab?.id, origin, engine?.id) }
+    private var hasCertificate: Bool {
+        connectionDetails.map { $0.certificate != nil || !$0.certificateChain.isEmpty } == true
+    }
+    private var popupBlocked: Bool { window.selectedPage?.state.blockedPopup == true }
+    private var showsPopups: Bool { setting != nil && capabilities.supportsPopupPolicy }
+    private var showsSound: Bool { window.selectedTab.map { window.canMute($0.id) } == true }
+    private var engineSite: (tab: Tab, host: String)? {
+        guard let tab = window.selectedTab, let url = tab.url,
+              let host = window.app.preferences.governingEngineRule(for: url)?.host ?? EngineRule.siteHost(for: url),
+              window.engineChoices(for: tab).count > 2 else { return nil }
+        return (tab, host)
+    }
+    private var hasControls: Bool {
+        !capabilities.permissions.isEmpty || showsDisplayCapture || showsSound || showsPopups
+            || popupBlocked || engineSite != nil
+    }
+
     var body: some View {
-        let displayedTarget = target
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                SiteShareButton(isEnabled: window.canPerform(.sharePage)) { button in
-                    guard target == displayedTarget else { return }
-                    let event = NSApp.currentEvent
-                    let mouseDown = event?.type == .leftMouseDown && event?.window === button.window
-                        && button.bounds.contains(button.convert(event?.locationInWindow ?? .zero, from: nil))
-                    window.sharePage(from: mouseDown ? button : nil)
-                }
-                .frame(maxWidth: .infinity).frame(height: 32)
-                if capabilities.pageOperations.contains(.snapshot) {
-                    action(.screenshot, symbol: "camera")
-                }
-                action(.copyURL, symbol: "link")
+        VStack(alignment: .leading, spacing: 0) {
+            connectionHeader
+            if hasControls {
+                Divider()
+                controls.padding(6)
             }
-            if window.selectedPage?.state.blockedPopup == true {
-                Label("A popup was blocked.", systemImage: "macwindow.badge.plus")
-                    .font(.callout).foregroundStyle(.orange)
+            Divider()
+            footer
+        }
+        .buttonStyle(.plain)
+        .frame(width: 300, alignment: .leading)
+        .task(id: window.selectedPage?.state.connectionDetailsRevision) {
+            await loadConnectionDetails()
+        }
+    }
+
+    // MARK: Connection
+
+    @ViewBuilder private var connectionHeader: some View {
+        let header = HStack(spacing: 10) {
+            Image(systemName: connectionSymbol).font(.system(size: 15, weight: .medium)).frame(width: 22)
+                .accessibilityHidden(true)
+            Text(connectionTitle).font(.system(size: 13, weight: .semibold))
+            Spacer(minLength: 0)
+            if hasCertificate {
+                Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(Color.secondary)
+                    .rotationEffect(.degrees(certificateExpanded ? 90 : 0))
+                    .accessibilityHidden(true)
             }
-            if !capabilities.permissions.isEmpty || (setting != nil && capabilities.supportsPopupPolicy) || showsDisplayCapture {
-                VStack(spacing: 8) {
-                    if capabilities.permissions.contains(.camera) {
-                        permissionRow(String(localized: "Camera"), symbol: "video.fill", kind: .camera,
-                            capture: window.selectedPage?.state.camera ?? .none, value: setting?.camera ?? .ask)
-                    }
-                    if capabilities.permissions.contains(.microphone) {
-                        permissionRow(String(localized: "Microphone"), symbol: "mic.fill", kind: .microphone,
-                            capture: window.selectedPage?.state.microphone ?? .none, value: setting?.microphone ?? .ask)
-                    }
-                    if showsDisplayCapture {
-                        settingsRow(String(localized: "Screen sharing"), detail: String(localized: "In use"),
-                                    symbol: "rectangle.on.rectangle", editable: false)
-                        Text(displayCaptureDisclosure ?? "")
-                            .font(.caption).foregroundStyle(.secondary)
-                    }
-                    if showsCombinedCaptureControl {
-                        if let combinedCaptureDisclosure {
-                            Text(combinedCaptureDisclosure).font(.caption).foregroundStyle(.secondary)
-                        }
-                        Button(String(localized: "Stop Camera and Microphone")) {
-                            guard target == displayedTarget else { return }
-                            window.selectedPage?.stopMediaCapture()
-                        }
-                        .buttonStyle(SiteActionButtonStyle())
-                    }
-                    if let setting, capabilities.supportsPopupPolicy {
-                        settingsRow(String(localized: "Popups"), detail: permissionName(setting.popups), symbol: "macwindow.on.rectangle")
-                            .overlay {
-                                permissionMenu(String(localized: "Popups"), value: setting.popups) { permission in
-                                    guard target == displayedTarget else { return }
-                                    window.setPopups(permission)
-                                }
-                            }
-                            .help(String(localized: "Ask uses a click. Allow lets this site open windows on its own. Deny keeps only clicked links."))
-                    }
-                }
+        }
+        .foregroundStyle(connectionColor)
+        .padding(.horizontal, 14)
+        .frame(height: 46)
+        .contentShape(Rectangle())
+        VStack(alignment: .leading, spacing: 0) {
+            if hasCertificate {
+                Button {
+                    withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { certificateExpanded.toggle() }
+                } label: { header }
+                .help(String(localized: "Show certificate"))
+                .accessibilityLabel(String(localized: "Certificate"))
+                .accessibilityValue(certificateExpanded ? String(localized: "Expanded") : String(localized: "Collapsed"))
+            } else {
+                header.help(connectionText).accessibilityElement(children: .combine)
             }
-            if let tab = window.selectedTab, let url = tab.url,
-               let host = window.app.preferences.governingEngineRule(for: url)?.host ?? EngineRule.siteHost(for: url) {
-                engineRow(tab, host: host)
-            }
-            if window.isPrivate {
-                Label("Private window · Permissions aren’t saved", systemImage: "hand.raised")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            if let error = window.app.siteSettings.lastError {
-                Text(error).font(.caption).foregroundStyle(.red)
-            }
-            ChromeDivider()
             if let details = connectionDetails {
                 ForEach(connectionIssues(details), id: \.self) { issue in
                     Label(issue, systemImage: "exclamationmark.triangle")
                         .font(.caption).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                        .padding(.horizontal, 14).padding(.bottom, 6)
                 }
-            }
-            HStack(spacing: 6) {
-                Label(connectionTitle, systemImage: connectionSymbol)
-                    .font(.callout.weight(.medium))
-                    .foregroundStyle([.mixed, .insecure].contains(window.pageConnection) ? Color.orange : Color.secondary)
-                    .padding(.horizontal, 8)
-                    .frame(height: 28)
-                    .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    .help(connectionText)
-                    .accessibilityLabel(connectionText)
-                if let details = connectionDetails, details.certificate != nil || !details.certificateChain.isEmpty {
-                    Button {
-                        withAnimation(reduceMotion ? nil : .easeOut(duration: 0.15)) { certificateExpanded.toggle() }
-                    } label: {
-                        HStack(spacing: 4) {
-                            Image(systemName: "checkmark.seal")
-                            Text(String(format: String(localized: "Certificate %@"),
-                                String(max(details.certificateChain.count, details.certificate == nil ? 0 : 1))))
-                            Image(systemName: "chevron.down").font(.system(size: 9, weight: .semibold))
-                                .rotationEffect(.degrees(certificateExpanded ? 180 : 0))
-                        }
-                        .font(.callout.weight(.medium)).padding(.horizontal, 8).frame(height: 28)
-                        .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                    }
-                    .accessibilityValue(certificateExpanded ? String(localized: "Expanded") : String(localized: "Collapsed"))
+                if certificateExpanded {
+                    connectionDetailsView(details).padding([.horizontal, .bottom], 10)
                 }
-                Spacer(minLength: 0)
-                Menu { pageActions } label: {
-                    Image(systemName: "ellipsis").font(.system(size: 15, weight: .medium))
-                }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                .frame(width: 28, height: 28)
-                .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
-                .help(String(localized: "Page Actions")).accessibilityLabel(String(localized: "Page Actions"))
-            }
-            if certificateExpanded, let details = connectionDetails {
-                connectionDetailsView(details)
             }
             if let connectionDetailsError {
                 Text(connectionDetailsError).font(.caption).foregroundStyle(.red)
+                    .padding(.horizontal, 14).padding(.bottom, 8)
             }
-        }
-        .buttonStyle(.plain)
-        .frame(width: 280, alignment: .leading)
-        .padding(14)
-        .task(id: window.selectedPage?.state.connectionDetailsRevision) {
-            await loadConnectionDetails()
         }
     }
 
@@ -865,6 +807,7 @@ struct SiteControlPopover: View {
                 }
         }
         .frame(height: min(connectionDetailsHeight, 140))
+        .background(.primary.opacity(0.05), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
     }
 
     @ViewBuilder private func connectionDetailsContent(_ details: PageConnectionDetails) -> some View {
@@ -891,6 +834,7 @@ struct SiteControlPopover: View {
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
     }
 
     private func loadConnectionDetails() async {
@@ -930,13 +874,187 @@ struct SiteControlPopover: View {
         return issues
     }
 
+    private var connectionTitle: String {
+        switch window.pageConnection {
+        case .secure: String(localized: "Connection is secure")
+        case .mixed: String(localized: "Connection is not fully secure")
+        case .insecure: String(localized: "Connection is not secure")
+        case .unknown: String(localized: "Connection not verified")
+        case .empty: String(localized: "Local page")
+        }
+    }
+    private var connectionSymbol: String {
+        switch window.pageConnection {
+        case .secure: "lock"
+        case .mixed, .insecure: "exclamationmark.triangle"
+        case .unknown: "questionmark.circle"
+        case .empty: "doc"
+        }
+    }
+    private var connectionColor: Color {
+        switch window.pageConnection {
+        case .secure: .green
+        case .mixed, .insecure: .orange
+        case .unknown, .empty: .secondary
+        }
+    }
+    private var connectionText: String {
+        switch window.pageConnection {
+        case .secure: String(localized: "Connection is secure")
+        case .mixed: String(localized: "Not fully secure — this page mixed HTTPS with insecure content")
+        case .insecure: String(localized: "Not secure")
+        case .unknown: String(localized: "This page’s connection has not been verified")
+        case .empty: String(localized: "No web page")
+        }
+    }
+
+    // MARK: Permissions
+
+    @ViewBuilder private var controls: some View {
+        let displayedTarget = target
+        VStack(alignment: .leading, spacing: 2) {
+            if capabilities.permissions.contains(.camera) {
+                permissionRow(String(localized: "Camera"), symbol: "video", kind: .camera,
+                    capture: window.selectedPage?.state.camera ?? .none, value: setting?.camera ?? .ask)
+            }
+            if capabilities.permissions.contains(.microphone) {
+                permissionRow(String(localized: "Microphone"), symbol: "mic", kind: .microphone,
+                    capture: window.selectedPage?.state.microphone ?? .none, value: setting?.microphone ?? .ask)
+            }
+            if showsDisplayCapture {
+                SiteRow(title: String(localized: "Screen sharing"), detail: String(localized: "In use"),
+                        detailColor: .orange, icon: Image(systemName: "display"))
+            }
+            if showsSound, let tabID = window.selectedTab?.id {
+                let muted = window.selectedPage?.state.isAudioMuted == true
+                SiteRow(title: String(localized: "Sound"), icon: Image(systemName: muted ? "speaker.slash" : "speaker.wave.2")) {
+                    switchControl(String(localized: "Sound"), isOn: !muted) { on in
+                        guard window.selectedTab?.id == tabID, on == muted else { return }
+                        window.perform(.muteTab)
+                    }
+                    .disabled(!window.canPerform(.muteTab))
+                }
+            }
+            if let setting, showsPopups {
+                SiteRow(title: String(localized: "Pop-ups"),
+                        detail: popupBlocked ? String(localized: "A pop-up was blocked") : nil, detailColor: .orange,
+                        icon: Image(systemName: "macwindow.on.rectangle")) {
+                    switchControl(String(localized: "Pop-ups"), isOn: setting.popups == .allow) { on in
+                        guard target == displayedTarget else { return }
+                        window.setPopups(on ? .allow : .ask)
+                    }
+                }
+                .help(String(localized: "On lets this site open windows by itself. Off allows them only after a click."))
+            } else if popupBlocked {
+                SiteRow(title: String(localized: "Pop-ups"), detail: String(localized: "A pop-up was blocked"),
+                        detailColor: .orange, icon: Image(systemName: "macwindow.on.rectangle"))
+            }
+            if let engineSite { engineRow(engineSite.tab, host: engineSite.host) }
+        }
+    }
+
+    /// The switch is the permission: on is allowed and remembered; off forgets it and stops capture.
+    private func permissionRow(_ title: String, symbol: String, kind: PermissionKind,
+                               capture: PageCapture, value: SitePermission) -> some View {
+        let displayedTarget = target
+        let inUse = capture != .none
+        let detail: String? = inUse ? String(localized: "In use")
+            : window.isPrivate ? String(localized: "Ask Each Time")
+            : value == .deny ? String(localized: "Blocked") : nil
+        return SiteRow(title: title, detail: detail, detailColor: inUse ? .orange : .secondary,
+                       icon: Image(systemName: symbol)) {
+            switchControl(title, isOn: inUse || (!window.isPrivate && value == .allow)) { on in
+                guard target == displayedTarget else { return }
+                if on { window.setSitePermission(kind, .allow) } else { window.turnOffSitePermission(kind) }
+            }
+            // Private windows never save a grant, so the switch can only turn capture off.
+            .disabled(window.isPrivate && !inUse)
+        }
+    }
+
+    private func switchControl(_ title: String, isOn: Bool, set: @escaping (Bool) -> Void) -> some View {
+        Toggle(title, isOn: Binding(get: { isOn }, set: set))
+            .toggleStyle(.switch).labelsHidden()
+    }
+
+    /// One choice per website: Automatic follows this Mac's default engine.
+    private func engineRow(_ tab: Tab, host: String) -> some View {
+        let choices = window.engineChoices(for: tab)
+        let current = window.engineChoice(for: tab)
+        let title = String(localized: "Engine")
+        let detail = choices.first { $0.id == current }?.title ?? choices[0].title
+        return SiteRow(title: title, icon: TabEngineIcon.image(for: window.app.engines.effectiveID(tab.engineID))
+            .resizable().scaledToFit().frame(width: 16, height: 16)) {
+            HStack(spacing: 4) {
+                Text(detail).font(.system(size: 13)).foregroundStyle(.secondary)
+                Image(systemName: "chevron.up.chevron.down").font(.caption2).foregroundStyle(.tertiary)
+            }
+        }
+        .overlay {
+            SiteMenuAnchor(label: "\(title), \(detail)", entries: choices.map { choice in
+                (choice.title, choice.id == current, { chooseEngine(choice.id, for: tab.id) })
+            })
+        }
+        .help(window.isPrivate ? String(localized: "Applies to this private tab only.")
+            : String(format: String(localized: "Cobble remembers this for %@ and its subdomains on this Mac. Automatic uses the default engine from Settings."), host))
+    }
+
+    private func chooseEngine(_ engineID: EngineID?, for tabID: UUID) {
+        dismiss()
+        // Let the popover close before a reload confirmation appears.
+        Task { @MainActor in
+            await Task.yield()
+            guard window.selectedTab?.id == tabID else { return }
+            window.setSiteEngine(engineID, for: tabID)
+        }
+    }
+
+    // MARK: Actions
+
+    private var footer: some View {
+        let displayedTarget = target
+        return VStack(alignment: .leading, spacing: 6) {
+            if window.isPrivate {
+                Label("Private window · Permissions aren’t saved", systemImage: "hand.raised")
+                    .font(.caption).foregroundStyle(.secondary).padding(.horizontal, 8).padding(.top, 4)
+            }
+            if let error = window.app.siteSettings.lastError {
+                Text(error).font(.caption).foregroundStyle(.red).padding(.horizontal, 8)
+            }
+            HStack(spacing: 2) {
+                SiteShareButton(isEnabled: window.canPerform(.sharePage)) { button in
+                    guard target == displayedTarget else { return }
+                    let event = NSApp.currentEvent
+                    let mouseDown = event?.type == .leftMouseDown && event?.window === button.window
+                        && button.bounds.contains(button.convert(event?.locationInWindow ?? .zero, from: nil))
+                    window.sharePage(from: mouseDown ? button : nil)
+                }
+                .frame(maxWidth: .infinity).frame(height: 32)
+                .modifier(SiteHoverBackground())
+                if capabilities.pageOperations.contains(.snapshot) {
+                    action(.screenshot, symbol: "camera")
+                }
+                action(.copyURL, symbol: "link")
+                Menu { pageActions } label: {
+                    Image(systemName: "ellipsis").font(.system(size: 14, weight: .medium))
+                }
+                .menuStyle(.borderlessButton).menuIndicator(.hidden)
+                .frame(maxWidth: .infinity).frame(height: 32)
+                .modifier(SiteHoverBackground())
+                .help(String(localized: "Page Actions")).accessibilityLabel(String(localized: "Page Actions"))
+            }
+        }
+        .padding(6)
+    }
+
     private func action(_ command: BrowserCommand, symbol: String) -> some View {
         Button { run(command) } label: {
-            Image(systemName: symbol).font(.system(size: 15, weight: .medium))
+            Image(systemName: symbol).font(.system(size: 14, weight: .medium))
                 .frame(maxWidth: .infinity).frame(height: 32)
-                .background(.primary.opacity(0.06), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                .contentShape(Rectangle())
         }
         .buttonStyle(.plain)
+        .modifier(SiteHoverBackground())
         .disabled(!window.canPerform(command))
         .help(command == .screenshot ? String(localized: "Save the visible page as a screenshot") : command.title)
         .accessibilityLabel(command.title)
@@ -964,9 +1082,6 @@ struct SiteControlPopover: View {
         Button(BrowserCommand.reloadFromOrigin.title) { run(.reloadFromOrigin) }.disabled(!window.canPerform(.reloadFromOrigin))
             .help(BrowserCommand.reloadFromOrigin.explanation!)
         Divider()
-        Button(window.selectedPage?.state.isAudioMuted == true ? String(localized: "Unmute Tab") : String(localized: "Mute Tab")) {
-            window.perform(.muteTab)
-        }.disabled(!window.canPerform(.muteTab))
         Button("Allow This Site Through Content Blocker") {
             if target == displayedTarget, let url = window.selectedTab?.url {
                 let host = window.selectedPage
@@ -984,131 +1099,45 @@ struct SiteControlPopover: View {
         Button("Unload Tab") { run(.unload) }.disabled(!window.canPerform(.unload))
             .help(BrowserCommand.unload.explanation!)
     }
+}
 
-    private var connectionTitle: String {
-        switch window.pageConnection {
-        case .secure: String(localized: "Secure")
-        case .mixed: String(localized: "Mixed content")
-        case .insecure: String(localized: "Not secure")
-        case .unknown: String(localized: "Unknown")
-        case .empty: String(localized: "Local page")
-        }
-    }
-    private var connectionSymbol: String {
-        switch window.pageConnection {
-        case .secure: "lock.fill"
-        case .mixed, .insecure: "exclamationmark.triangle"
-        case .unknown: "questionmark.circle"
-        case .empty: "doc"
-        }
-    }
-    private var connectionText: String {
-        switch window.pageConnection {
-        case .secure: String(localized: "Connection is secure")
-        case .mixed: String(localized: "Not fully secure — this page mixed HTTPS with insecure content")
-        case .insecure: String(localized: "Not secure")
-        case .unknown: String(localized: "This page’s connection has not been verified")
-        case .empty: String(localized: "No web page")
-        }
-    }
-
-    private func permissionName(_ value: SitePermission) -> String {
-        switch value {
-        case .allow: String(localized: "Allowed")
-        case .deny: String(localized: "Blocked")
-        case .ask: String(localized: "Ask Each Time")
-        }
-    }
-    /// One choice per website: Automatic follows this Mac's default engine.
-    @ViewBuilder private func engineRow(_ tab: Tab, host: String) -> some View {
-        let choices = window.engineChoices(for: tab)
-        if choices.count > 2 {
-            let current = window.engineChoice(for: tab)
-            let title = String(localized: "Engine")
-            let detail = choices.first { $0.id == current }?.title ?? choices[0].title
-            settingsRow(title, detail: detail, symbol: "", icon: TabEngineIcon.image(for: window.app.engines.effectiveID(tab.engineID)))
-                .overlay {
-                    SiteMenuAnchor(label: "\(title), \(detail)", entries: choices.map { choice in
-                        (choice.title, choice.id == current, { chooseEngine(choice.id, for: tab.id) })
-                    })
-                }
-                .help(window.isPrivate ? String(localized: "Applies to this private tab only.")
-                    : String(format: String(localized: "Cobble remembers this for %@ and its subdomains on this Mac. Automatic uses the default engine from Settings."), host))
-        }
-    }
-
-    private func chooseEngine(_ engineID: EngineID?, for tabID: UUID) {
-        dismiss()
-        // Let the popover close before a reload confirmation appears.
-        Task { @MainActor in
-            await Task.yield()
-            guard window.selectedTab?.id == tabID else { return }
-            window.setSiteEngine(engineID, for: tabID)
-        }
-    }
-
-    private func settingsRow(_ title: String, detail: String, symbol: String, icon: Image? = nil, editable: Bool = true) -> some View {
+/// One site control row: icon, title, optional status line and a trailing control.
+private struct SiteRow<Icon: View, Trailing: View>: View {
+    var title: String
+    var detail: String? = nil
+    var detailColor: Color = .secondary
+    var icon: Icon
+    @ViewBuilder var trailing: Trailing
+    var body: some View {
         HStack(spacing: 10) {
-            Group {
-                if let icon { icon.resizable().scaledToFit().frame(width: 18, height: 18) }
-                else { Image(systemName: symbol).font(.system(size: 16, weight: .medium)) }
+            icon.font(.system(size: 15)).foregroundStyle(.secondary).frame(width: 22, height: 22)
+                .accessibilityHidden(true)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(title).font(.system(size: 13, weight: .medium))
+                if let detail { Text(detail).font(.caption).foregroundStyle(detailColor) }
             }
-            .frame(width: 34, height: 34)
-            .background(.primary.opacity(0.08), in: Circle())
-            .accessibilityHidden(true)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(title).font(.system(size: 14, weight: .semibold))
-                Text(detail).font(.callout).foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-            if editable { Image(systemName: "chevron.up.chevron.down").font(.caption2).foregroundStyle(.tertiary) }
+            Spacer(minLength: 8)
+            trailing
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 8)
+        .frame(minHeight: 38)
         .contentShape(Rectangle())
+        .modifier(SiteHoverBackground())
     }
-    private func permissionMenu(_ title: String, value: SitePermission, choose: @escaping (SitePermission) -> Void) -> some View {
-        SiteMenuAnchor(label: "\(title), \(permissionName(value))", entries: SitePermission.allCases.map { permission in
-            (permissionName(permission), value == permission, { choose(permission) })
-        })
+}
+
+extension SiteRow where Trailing == EmptyView {
+    init(title: String, detail: String? = nil, detailColor: Color = .secondary, icon: Icon) {
+        self.init(title: title, detail: detail, detailColor: detailColor, icon: icon) { EmptyView() }
     }
-    private func permissionRow(_ title: String, symbol: String, kind: PermissionKind, capture: PageCapture, value: SitePermission) -> some View {
-        let displayedTarget = target
-        let detail = window.isPrivate ? String(localized: "Ask Each Time") : permissionName(value)
-        return VStack(alignment: .leading, spacing: 7) {
-            if !window.isPrivate {
-                settingsRow(title, detail: detail, symbol: symbol)
-                    .overlay {
-                        permissionMenu(title, value: value) { permission in
-                            guard target == displayedTarget else { return }
-                            window.setSitePermission(kind, permission)
-                        }
-                    }
-            } else {
-                settingsRow(title, detail: detail, symbol: symbol, editable: false)
-            }
-            if capture != .none {
-                HStack(spacing: 8) {
-                    Text(capture == .active ? String(localized: "In use") : String(localized: "Muted"))
-                        .font(.caption.weight(.medium)).foregroundStyle(capture == .active ? Color.orange : Color.secondary)
-                    Spacer()
-                    if capabilities.captureControls.contains(.mute(kind)) {
-                        Button(capture == .active ? String(localized: "Mute") : String(localized: "Unmute")) {
-                            guard target == displayedTarget else { return }
-                            window.selectedPage?.setCapture(kind, capture == .active ? .muted : .active)
-                        }.accessibilityLabel(String(format: String(localized: "%@ %@"), capture == .active ? String(localized: "Mute") : String(localized: "Unmute"), title))
-                    }
-                    if capabilities.captureControls.contains(.stop(kind)) {
-                        Button(String(localized: "Stop")) {
-                            guard target == displayedTarget else { return }
-                            window.selectedPage?.setCapture(kind, .none)
-                        }
-                            .accessibilityLabel(String(format: String(localized: "Stop %@"), title))
-                    }
-                }
-                .buttonStyle(SiteActionButtonStyle())
-                .padding(.leading, 44)
-            }
-        }
+}
+
+private struct SiteHoverBackground: ViewModifier {
+    @State private var hovering = false
+    func body(content: Content) -> some View {
+        content
+            .background(.primary.opacity(hovering ? 0.07 : 0), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+            .onHover { hovering = $0 }
     }
 }
 
@@ -1182,7 +1211,7 @@ private struct SiteShareButton: NSViewRepresentable {
             let label = String(localized: "Share Page…")
             title = label
             image = NSImage(systemSymbolName: "square.and.arrow.up", accessibilityDescription: label)?
-                .withSymbolConfiguration(.init(pointSize: 15, weight: .medium))
+                .withSymbolConfiguration(.init(pointSize: 14, weight: .medium))
             imagePosition = .imageOnly
             contentTintColor = .labelColor
             isBordered = false
@@ -1198,8 +1227,10 @@ private struct SiteShareButton: NSViewRepresentable {
         override var alignmentRectInsets: NSEdgeInsets { NSEdgeInsetsZero }
         @objc private func showSharing() { share?(self) }
         override func draw(_ dirtyRect: NSRect) {
-            NSColor.labelColor.withAlphaComponent(isHighlighted ? 0.2 : 0.06).setFill()
-            NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+            if isHighlighted {
+                NSColor.labelColor.withAlphaComponent(0.12).setFill()
+                NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).fill()
+            }
             super.draw(dirtyRect)
         }
     }

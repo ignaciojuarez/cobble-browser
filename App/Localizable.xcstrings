@@ -1,6 +1,42 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Allow %@ to use your %@?" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "¿Permitir que %@ use tu %@?"}}}
+    },
+    "This request only." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Solo para esta solicitud."}}}
+    },
+    "Show certificate" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Mostrar certificado"}}}
+    },
+    "Connection is not fully secure" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "La conexión no es completamente segura"}}}
+    },
+    "Connection is not secure" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "La conexión no es segura"}}}
+    },
+    "Connection not verified" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Conexión no verificada"}}}
+    },
+    "Sound" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Sonido"}}}
+    },
+    "Pop-ups" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ventanas emergentes"}}}
+    },
+    "A pop-up was blocked" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Se bloqueó una ventana emergente"}}}
+    },
+    "On lets this site open windows by itself. Off allows them only after a click." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Activado permite que este sitio abra ventanas por sí solo. Desactivado solo las permite tras un clic."}}}
+    },
+    "Expanded" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Expandido"}}}
+    },
+    "Collapsed" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Contraído"}}}
+    },
     "Sleep inactive tabs" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Suspender pestañas inactivas"}}}
     },
@@ -920,16 +956,6 @@
         }
       }
     },
-    "%@ %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "%@ %@"
-          }
-        }
-      }
-    },
     "%@ cannot delete its profile data yet. No profile data was removed." : {
       "localizations" : {
         "es" : {
@@ -1122,16 +1148,6 @@
         }
       }
     },
-    "A popup was blocked." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Se bloqueó una ventana emergente."
-          }
-        }
-      }
-    },
     "A profile is being deleted. Try again when cleanup finishes." : {
       "localizations" : {
         "es" : {
@@ -1284,16 +1300,6 @@
         }
       }
     },
-    "Allow %@ to access your %@?" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "¿Permitir que %@ acceda a %@?"
-          }
-        }
-      }
-    },
     "Allow in Private Browsing" : {
       "localizations" : {
         "es" : {
@@ -1320,16 +1326,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Permitir sitio web"
-          }
-        }
-      }
-    },
-    "Allowed" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Permitido"
           }
         }
       }
@@ -1390,16 +1386,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Preguntar cada vez"
-          }
-        }
-      }
-    },
-    "Ask uses a click. Allow lets this site open windows on its own. Deny keeps only clicked links." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Preguntar usa un clic. Permitir deja que este sitio abra ventanas por sí solo. Denegar conserva solo los enlaces pulsados."
           }
         }
       }
@@ -2616,16 +2602,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Cobble solo puede leer el archivo que elijas. No se concede acceso a los recursos locales enlazados."
-          }
-        }
-      }
-    },
-    "Cobble can show that this page is sharing your screen, but cannot stop or change it here." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Cobble puede mostrar que esta página está compartiendo tu pantalla, pero no puede detenerlo ni cambiarlo aquí."
           }
         }
       }
@@ -5080,16 +5056,6 @@
         }
       }
     },
-    "Mixed content" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Contenido mixto"
-          }
-        }
-      }
-    },
     "Monospaced" : {
       "localizations" : {
         "es" : {
@@ -5205,16 +5171,6 @@
         }
       }
     },
-    "Mute" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Silenciar"
-          }
-        }
-      }
-    },
     "Mute %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5242,16 +5198,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Silenciar pestaña: el audio se calla mientras continúa la reproducción"
-          }
-        }
-      }
-    },
-    "Muted" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Silenciado"
           }
         }
       }
@@ -6039,16 +5985,6 @@
         }
       }
     },
-    "Permission changes apply to the next request. Stop Camera and Microphone ends the current capture." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Los cambios de permisos se aplican a la siguiente solicitud. Detener cámara y micrófono finaliza la captura actual."
-          }
-        }
-      }
-    },
     "Permissions" : {
       "localizations" : {
         "es" : {
@@ -6117,16 +6053,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Reproduciendo audio"
-          }
-        }
-      }
-    },
-    "Popups" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ventanas emergentes"
           }
         }
       }
@@ -6626,16 +6552,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Al recargar este contenido, se volverán a enviar los datos del formulario."
-          }
-        }
-      }
-    },
-    "Remember for this site" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Recordar para este sitio"
           }
         }
       }
@@ -7373,16 +7289,6 @@
         }
       }
     },
-    "Secure" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Segura"
-          }
-        }
-      }
-    },
     "Select All" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -7916,26 +7822,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Detener"
-          }
-        }
-      }
-    },
-    "Stop %@" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detener %@"
-          }
-        }
-      }
-    },
-    "Stop Camera and Microphone" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Detener cámara y micrófono"
           }
         }
       }
@@ -9000,16 +8886,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Al descartar se eliminan los formularios no guardados. La pestaña permanece; ábrela de nuevo para recargarla."
-          }
-        }
-      }
-    },
-    "Unmute" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Activar sonido"
           }
         }
       }
