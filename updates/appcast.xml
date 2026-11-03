@@ -10,6 +10,26 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Tue, 03 Nov 2026 14:21:33 -0800</pubDate>
+            <sparkle:version>12</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- New Keyboard Privacy setting (Settings → Browsing, off by default). When on, websites no longer see ⌘ or ⌃ keys in WebKit and Chromium tabs or in page full screen, not even when held while typing other keys, moving the pointer or scrolling. Clicks still report them so ⌘-click and ⌃-click work. Cobble shortcuts, copy/paste and text editing keys such as ⌘← or ⌃A keep working; site shortcuts such as ⌘K stop, and Monaco code editors in Chromium tabs lose ⌘-arrow and ⌘⌫.
+- Clicking Cobble in the Dock brings back your window, even when it's minimized or still opening, instead of adding a second one. New windows open only from New Window: ⌘N, the File menu, or the Dock icon's menu. ⌘T from Settings opens the tab in your existing window.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (371054c) and its matching Chromium runtime.
+
+This is an early beta. Real-site camera and microphone behavior, interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.12/Cobble-v0.1.0-beta.12.zip" length="164439119" type="application/octet-stream" sparkle:edSignature="MxMaNqBnR1E2WZN0Ubp1od4ZRStIoM+9D2Z29IfTYlnfSI5nSceH4YpHLFhLoinPSNxo73x4SjdNndPpfFcADw=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Mon, 02 Nov 2026 16:55:18 -0800</pubDate>
             <sparkle:version>11</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -48,36 +68,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.10/Cobble-v0.1.0-beta.10.zip" length="164425211" type="application/octet-stream" sparkle:edSignature="i5qifuNhE2K2lwvON0wXoTu2XLsJN7ChDOzzAbp+LFcc1p6h020aBFrkedx3TPrz/pDh+5+dumd5Bv37/jZWBg=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Mon, 26 Oct 2026 17:38:46 -0700</pubDate>
-            <sparkle:version>9</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Right-click menus work on images and links. Download Image and Download Linked File now save the file, and "Open … in New Tab" opens a background tab. Chromium pages now show a right-click menu; Copy Image no longer crashes, and items that need Chrome windows or panels are hidden.
-- Links pasted with line breaks, such as wrapped URLs copied from a terminal, now open instead of failing with "The address contains control characters."
-- Back no longer loops on pages that redirect themselves, such as login, consent and tracking pages.
-- Tab sleeping: when memory is low, Cobble sleeps hidden tabs. Settings → Tabs → "Sleep inactive tabs" can also sleep them on a timer (off by default). Slept WebKit tabs come back with their history and scroll position.
-- Installed extensions load again after relaunch, and default tracker rules now install on new profiles.
-- Typing in the address bar, browsing history and the sidebar are faster.
-- A looping link to another app can no longer lock the window with repeated prompts.
-- A download whose name is taken during transfer is saved as "name 2" instead of being deleted.
-- Recovery notices stay until you dismiss them. Restoring a workspace with iCloud sync on no longer deletes items on other devices.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (73ea7c5) and its matching Chromium runtime.
-
-This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.9/Cobble-v0.1.0-beta.9.zip" length="164423413" type="application/octet-stream" sparkle:edSignature="bN8x5jp8sZh+vWnUqDdtHK7yKHCqOmyHW2ybKe2c7b5l1CRXeKdVb26xqtk1fuXsdgnGitDqnTl9HYZ4kG21AQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: Kl2Ftg1AmrwV1mkoUuIJzwXZJ3LPAwgaRgMT66Eruk17yCYvYddobViu1453+tpOxWcKRYBwtPl+uaouoM0rDw==
-length: 6602
+edSignature: 226BGbBq5HQlCmpi14etY5k81NbY5PQwqKeLvWqS6ijq6E4NlHHbVRtBbVZz471Ur22UNtCstuHqrQumVcGpAQ==
+length: 6160
 -->
