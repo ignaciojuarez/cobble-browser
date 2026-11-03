@@ -52,6 +52,7 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
     #endif
     private var settingsWindow: NSWindow?
     private var terminating = false
+    private var launched = false
     private var replacingWindows = false
     private var testing: Bool { ProcessInfo.processInfo.environment["COBBLE_TESTING"] == "1" }
     private var spacesMenu: NSMenu?
@@ -83,11 +84,7 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
                     directory: Self.dataDirectory)]
                 client.applicationDidFinishLaunching(Notification(name: NSApplication.didFinishLaunchingNotification))
             }
-            runtime.onReopen = { [weak client] in
-                guard let client else { return }
-                _ = client.applicationShouldHandleReopen(NSApp,
-                    hasVisibleWindows: client.controllers.values.contains { $0.window?.isVisible == true })
-            }
+            runtime.onReopen = { [weak client] in _ = client?.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false) }
             runtime.onOpenURLs = { [weak client] urls in client?.application(NSApp, open: urls) }
             runtime.onQuitRequested = { [weak client] _ in client?.quitChromiumClient() }
             runtime.hostWindow = { [weak client] windowID, _ in
@@ -170,9 +167,11 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         }
         if model.windows.isEmpty { model.newWindow() }
         else { model.windows.forEach(show) }
+        launched = true
         #if COBBLE_CHROMIUM_CLIENT
         // Chromium's launcher may have already installed its own dock icon.
         NSApp.applicationIconImage = nil
+        replaceChromiumDockMenu()
         #endif
         NSApp.activate(ignoringOtherApps: true)
         #if DEBUG && COBBLE_AUTH_FIXTURE
@@ -223,10 +222,46 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
     }
 
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { false }
+    /// Clicking the Dock icon never adds a window while one exists, even minimized,
+    /// hidden, or still restoring at launch. Only an explicit New Window does.
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
-        if !testing && !terminating && !flag { model.newWindow() }
-        return true
+        if launched && !terminating { showExistingWindow() }
+        return false
     }
+    func showExistingWindow() {
+        let windows = model.windows.filter { !$0.isPrivate } + model.windows.filter(\.isPrivate)
+        guard let first = windows.first else { model.newWindow(); return }
+        let onScreen = windows.contains { controllers[$0.id]?.window.map { $0.isVisible && !$0.isMiniaturized } == true }
+        if !onScreen { showExisting(first) }
+    }
+    private func showExisting(_ window: BrowserWindowModel) {
+        guard let native = controllers[window.id]?.window else { return }
+        if native.isMiniaturized { native.deminiaturize(nil) }
+        native.makeKeyAndOrderFront(nil)
+    }
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        let menu = NSMenu()
+        for command in [BrowserCommand.newWindow, .newPrivateWindow] {
+            let item = NSMenuItem(title: command.title, action: #selector(performDockCommand(_:)), keyEquivalent: "")
+            item.target = self; item.tag = command.rawValue + 1
+            menu.addItem(item)
+        }
+        return menu
+    }
+    @objc private func performDockCommand(_ sender: NSMenuItem) {
+        NSApp.activate()
+        performBrowserCommand(sender)
+    }
+    #if COBBLE_CHROMIUM_CLIENT
+    /// Chromium's AppController is NSApp's delegate; its Dock items open hidden Chromium browsers.
+    private func replaceChromiumDockMenu() {
+        guard let delegate = NSApp.delegate, let type = object_getClass(delegate) else { return }
+        let dockMenu: @MainActor @convention(block) (AnyObject, NSApplication) -> NSMenu? = { [weak self] _, sender in
+            self?.applicationDockMenu(sender)
+        }
+        class_replaceMethod(type, #selector(applicationDockMenu(_:)), imp_implementationWithBlock(dockMenu), "@@:@")
+    }
+    #endif
     func application(_ application: NSApplication, open urls: [URL]) {
         guard !testing else { return }
         handleIncomingURLs(urls)
@@ -576,7 +611,12 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         case .history: showSettings(section: .history)
         case .newWindow: model.newWindow(profileID: activeWindow?.record.profileID ?? Profile.defaultID)
         case .newPrivateWindow: model.newWindow(isPrivate: true, profileID: activeWindow?.record.profileID ?? Profile.defaultID)
-        case .newTab: model.newWindow(profileID: activeWindow?.record.profileID ?? Profile.defaultID)?.openCommandBar()
+        case .newTab:
+            // ⌘T from Settings or DevTools reuses the browser window instead of adding one.
+            if activeWindow == nil, let window = incomingNormalWindow(), window.canPerform(.newTab) {
+                showExisting(window)
+                window.openCommandBar()
+            } else { model.newWindow(profileID: activeWindow?.record.profileID ?? Profile.defaultID)?.openCommandBar() }
         case .closeWindow: NSApp.keyWindow?.performClose(nil)
         case .closeTab where activeWindow == nil: NSApp.keyWindow?.performClose(nil)
         default: return false

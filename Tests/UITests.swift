@@ -482,6 +482,36 @@ final class UITests: XCTestCase {
         }
     }
 
+    func testDockReopenShowsTheExistingWindowInsteadOfAddingOne() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleDockReopen-\(UUID())")
+        addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
+        let app = AppModel(store: SessionStore(directory: directory), websiteDataStoreOverride: .nonPersistent())
+        let delegate = CobbleApp(model: app)
+        var nativeWindow: NSWindow?
+        defer {
+            nativeWindow?.contentView = nil
+            nativeWindow?.close()
+            app.windows.forEach { $0.closePages() }
+            app.flush()
+            app.library.close()
+            withExtendedLifetime(delegate) {}
+        }
+        let window = try XCTUnwrap(app.windows.first)
+        delegate.show(window)
+        let native = try XCTUnwrap(NSApp.windows.first { ($0.windowController as? BrowserWindowController)?.model === window })
+        nativeWindow = native
+        native.orderOut(nil)
+        // Before launch finishes, saved windows are still restoring: never add one.
+        XCTAssertFalse(delegate.applicationShouldHandleReopen(NSApp, hasVisibleWindows: false))
+        XCTAssertFalse(native.isVisible)
+        delegate.showExistingWindow()
+        XCTAssertTrue(native.isVisible)
+        XCTAssertEqual(app.windows.count, 1)
+        let dock = try XCTUnwrap(delegate.applicationDockMenu(NSApp))
+        XCTAssertEqual(dock.items.map(\.title), [BrowserCommand.newWindow.title, BrowserCommand.newPrivateWindow.title])
+        XCTAssertTrue(dock.items.allSatisfy { delegate.validateMenuItem($0) })
+    }
+
     func testNativeMenusFollowKeyWindowSuppressSheetsAndDistinguishTabClosure() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleCommandWindows-\(UUID())")
         addTeardownBlock { try? FileManager.default.removeItem(at: directory) }
