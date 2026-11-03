@@ -1,6 +1,15 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "Keyboard Privacy" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Privacidad del teclado"}}}
+    },
+    "Hide Command and Control keys from websites" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ocultar las teclas Comando y Control a los sitios web"}}}
+    },
+    "Pages only receive typing. ⌘ and ⌃ shortcuts still work in Cobble and in text fields, but websites can't see or block them, so site shortcuts such as ⌘K or ⌘Enter stop working." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las páginas solo reciben lo que escribes. Los atajos con ⌘ y ⌃ siguen funcionando en Cobble y en los campos de texto, pero los sitios web no pueden verlos ni bloquearlos, así que atajos de sitios como ⌘K o ⌘Intro dejan de funcionar."}}}
+    },
     "Allow %@ to use your %@?" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "¿Permitir que %@ use tu %@?"}}}
     },

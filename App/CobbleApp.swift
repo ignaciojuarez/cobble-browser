@@ -731,7 +731,11 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private let onClose: (UUID) -> Void
     private var allowingClose = false
     private var requestingClose = false
-    private var recentCycleMonitor: Any?
+    private var eventMonitor: Any?
+    /// Keys whose press keyboard privacy hid from the page; their release stays hidden too.
+    private var hiddenKeyCodes: Set<UInt16> = []
+    /// Keys the page saw pressed and not yet released.
+    private var pressedKeys: [UInt16: NSEvent] = [:]
     init(model: BrowserWindowModel, onClose: @escaping (UUID) -> Void) {
         self.model = model; self.onClose = onClose
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
@@ -750,28 +754,11 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         window.contentView = NSHostingView(rootView: BrowserView(window: model))
         // Keep AppKit's initial key-view selection out of the address field.
         window.initialFirstResponder = window.contentView
-        recentCycleMonitor = NSEvent.addLocalMonitorForEvents(matching: [.flagsChanged, .keyDown]) { [weak self] event in
-            let handled = MainActor.assumeIsolated {
-                guard let self, event.window === self.window || (event.window == nil && self.window?.isKeyWindow == true) else { return false }
-                if self.performChromiumBrowserShortcut(event) { return true }
-                if self.performChromiumEditShortcut(event) { return true }
-                let commands: [BrowserCommand] = [.recentTab, .previousRecentTab]
-                if event.type == .flagsChanged {
-                    let flags = event.modifierFlags.intersection([.command, .control, .option])
-                    let held = commands.contains { command in
-                        let required = self.model.app.preferences.shortcut(for: command).flags.intersection([.command, .control, .option])
-                        return !required.isEmpty && flags.isSuperset(of: required)
-                    }
-                    if !held { self.model.endRecentTabCycle() }
-                } else {
-                    let shortcut = BrowserShortcut(event.charactersIgnoringModifiers ?? "", event.modifierFlags)
-                    if !commands.contains(where: { self.model.app.preferences.shortcut(for: $0) == shortcut }) {
-                        self.model.endRecentTabCycle()
-                    }
-                }
-                return false
-            }
-            return handled ? nil : event
+        eventMonitor = NSEvent.addLocalMonitorForEvents(matching: Self.monitoredEvents) { [weak self] event in
+            // Monitors run on the main thread; NSEvent itself is not Sendable.
+            nonisolated(unsafe) var routed: NSEvent? = event
+            MainActor.assumeIsolated { if let self { routed = self.route(event) } }
+            return routed
         }
         if let saved = model.record.frame,
            let frame = Self.restoredFrame(saved, visibleFrames: NSScreen.screens.map(\.visibleFrame)) {
@@ -822,11 +809,169 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func chromiumPageFirstResponder() -> NSView? {
-        guard model.selectedPage?.contextID.engineID.rawValue == "chromium",
-              let pageView = model.selectedPage?.nativeView,
+        guard model.selectedPage?.contextID.engineID.rawValue == "chromium" else { return nil }
+        return pageFirstResponder()
+    }
+
+    private func pageFirstResponder() -> NSView? {
+        guard let pageView = model.selectedPage?.nativeView,
               let firstResponder = window?.firstResponder as? NSView,
               firstResponder === pageView || firstResponder.isDescendant(of: pageView) else { return nil }
         return firstResponder
+    }
+
+    private static let keyEvents: [NSEvent.EventType] = [.keyDown, .keyUp, .flagsChanged]
+    /// Pointer events that reach the focused page view even when the pointer is outside it.
+    private static let focusedPointerEvents: [NSEvent.EventType] = [.mouseMoved, .leftMouseDragged, .rightMouseDragged, .otherMouseDragged]
+    private static let hoverEvents: [NSEvent.EventType] = [.mouseEntered, .mouseExited]
+    private static let monitoredEvents: NSEvent.EventTypeMask = [.keyDown, .keyUp, .flagsChanged, .mouseMoved,
+        .leftMouseDragged, .rightMouseDragged, .otherMouseDragged, .scrollWheel, .mouseEntered, .mouseExited]
+
+    private func route(_ event: NSEvent) -> NSEvent? {
+        guard event.window === window || (event.window == nil && window?.isKeyWindow == true) else {
+            guard let pageView = fullScreenPageView(in: event.window) else { return event }
+            return hideCommandKeys(event, handled: false, pageView: pageView)
+        }
+        let pageView = model.selectedPage?.nativeView
+        guard Self.keyEvents.contains(event.type) else { return hideCommandKeys(event, handled: false, pageView: pageView) }
+        let handled = performChromiumBrowserShortcut(event) || performChromiumEditShortcut(event)
+        if !handled { updateRecentTabCycle(event) }
+        return hideCommandKeys(event, handled: handled, pageView: pageView)
+    }
+
+    /// Page full screen hosts the page in another window. WebKit moves the page view itself;
+    /// the Chromium SDK moves the web contents inside it into its own full-screen window.
+    private func fullScreenPageView(in eventWindow: NSWindow?) -> NSView? {
+        guard let eventWindow, let page = model.selectedPage else { return nil }
+        if page.nativeView.window === eventWindow { return page.nativeView }
+        guard page.contextID.engineID.rawValue == "chromium",
+              NSStringFromClass(type(of: eventWindow)) == "CobbleContentFullscreenWindow" else { return nil }
+        return eventWindow.contentView
+    }
+
+    private func updateRecentTabCycle(_ event: NSEvent) {
+        let commands: [BrowserCommand] = [.recentTab, .previousRecentTab]
+        if event.type == .flagsChanged {
+            let flags = event.modifierFlags.intersection([.command, .control, .option])
+            let held = commands.contains { command in
+                let required = model.app.preferences.shortcut(for: command).flags.intersection([.command, .control, .option])
+                return !required.isEmpty && flags.isSuperset(of: required)
+            }
+            if !held { model.endRecentTabCycle() }
+        } else if event.type == .keyDown {
+            let shortcut = BrowserShortcut(event.charactersIgnoringModifiers ?? "", event.modifierFlags)
+            if !commands.contains(where: { model.app.preferences.shortcut(for: $0) == shortcut }) {
+                model.endRecentTabCycle()
+            }
+        }
+    }
+
+    /// Keyboard privacy: the page never sees ⌘ or ⌃ — not as keys, key releases, held with
+    /// other modifiers, or held while the pointer moves or scrolls. Clicks keep them so ⌘-click
+    /// and ⌃-click still work. Cobble's menu and text editing still run natively.
+    private func hideCommandKeys(_ event: NSEvent, handled: Bool, pageView: NSView?) -> NSEvent? {
+        let passed = handled ? nil : event
+        if event.type == .keyUp {
+            if hiddenKeyCodes.remove(event.keyCode) != nil { return nil }
+            pressedKeys[event.keyCode] = nil
+        }
+        let isKey = Self.keyEvents.contains(event.type)
+        guard isKey || Self.holdsCommandKey(event), model.app.preferences.hidesCommandKeysFromPages,
+              let pageView, let pageWindow = pageView.window,
+              event.window == nil || event.window === pageWindow else { return passed }
+        func inPage(_ view: NSView?) -> Bool { view.map { $0 === pageView || $0.isDescendant(of: pageView) } ?? false }
+        let responder = pageWindow.firstResponder as? NSView
+        let pointerTarget = Self.hoverEvents.contains(event.type) ? event.trackingArea?.owner as? NSView
+            : pageWindow.contentView?.hitTest(event.locationInWindow)
+        guard isKey ? inPage(responder)
+                : inPage(pointerTarget) || Self.focusedPointerEvents.contains(event.type) && inPage(responder) else { return passed }
+        if event.type == .keyDown, handled || Self.isCommandKey(event) {
+            hiddenKeyCodes.insert(event.keyCode)
+            if !handled, let responder { performNatively(event, in: responder) }
+            return nil
+        }
+        if event.type == .flagsChanged, Self.isCommandKey(event) {
+            // Chromium forwards releases made while ⌘ is held straight to the window, past this
+            // filter. So when ⌘ or ⌃ goes down, release keys the page saw pressed and hide the real release.
+            if Self.holdsCommandKey(event) {
+                for (code, press) in pressedKeys {
+                    if let release = NSEvent.keyEvent(with: .keyUp, location: press.locationInWindow,
+                        modifierFlags: Self.withoutCommandBits(event.modifierFlags), timestamp: event.timestamp,
+                        windowNumber: pageWindow.windowNumber, context: nil, characters: press.characters ?? "",
+                        charactersIgnoringModifiers: press.charactersIgnoringModifiers ?? "", isARepeat: false, keyCode: code) {
+                        pageWindow.sendEvent(release)
+                    }
+                    hiddenKeyCodes.insert(code)
+                }
+                pressedKeys.removeAll()
+            }
+            return nil
+        }
+        if event.type == .keyDown, !handled {
+            hiddenKeyCodes.remove(event.keyCode)
+            pressedKeys[event.keyCode] = event
+        }
+        return passed.map(Self.withoutCommandKeys)
+    }
+
+    private func performNatively(_ event: NSEvent, in responder: NSView) {
+        guard NSApp.mainMenu?.performKeyEquivalent(with: event) != true else { return }
+        if let action = Self.editAction(for: event) {
+            responder.tryToPerform(action, with: event)
+        } else if event.charactersIgnoringModifiers == "`", event.modifierFlags.contains(.command) {
+            Self.cycleWindows(backward: event.modifierFlags.contains(.shift))
+        } else if let command = KeyBindingLookup.command(for: event) {
+            // Text commands such as ⌘← or ⌘⌫ run as editing commands, not key events.
+            responder.doCommand(by: command)
+        }
+    }
+
+    /// ⌘ and ⌃, including their left/right device bits.
+    private static let commandKeyBits = NSEvent.ModifierFlags([.command, .control]).rawValue | 0x2019
+
+    static func holdsCommandKey(_ event: NSEvent) -> Bool { event.modifierFlags.rawValue & commandKeyBits != 0 }
+    private static func withoutCommandBits(_ flags: NSEvent.ModifierFlags) -> NSEvent.ModifierFlags {
+        NSEvent.ModifierFlags(rawValue: flags.rawValue & ~commandKeyBits)
+    }
+
+    /// The same event with ⌘ and ⌃ released.
+    static func withoutCommandKeys(_ event: NSEvent) -> NSEvent {
+        guard holdsCommandKey(event) else { return event }
+        if keyEvents.contains(event.type) {
+            let isFlags = event.type == .flagsChanged
+            let characters = isFlags ? "" : (event.modifierFlags.contains(.control)
+                ? event.charactersIgnoringModifiers : event.characters) ?? ""
+            return NSEvent.keyEvent(with: event.type, location: event.locationInWindow,
+                modifierFlags: withoutCommandBits(event.modifierFlags), timestamp: event.timestamp,
+                windowNumber: event.windowNumber, context: nil, characters: characters,
+                charactersIgnoringModifiers: isFlags ? "" : event.charactersIgnoringModifiers ?? "",
+                isARepeat: isFlags ? false : event.isARepeat, keyCode: event.keyCode) ?? event
+        }
+        if hoverEvents.contains(event.type) {
+            return NSEvent.enterExitEvent(with: event.type, location: event.locationInWindow,
+                modifierFlags: withoutCommandBits(event.modifierFlags), timestamp: event.timestamp,
+                windowNumber: event.windowNumber, context: nil, eventNumber: event.eventNumber,
+                trackingNumber: event.trackingNumber, userData: event.userData) ?? event
+        }
+        guard let copy = event.cgEvent?.copy() else { return event }
+        copy.flags = CGEventFlags(rawValue: copy.flags.rawValue & ~UInt64(commandKeyBits))
+        return NSEvent(cgEvent: copy) ?? event
+    }
+
+    private static func cycleWindows(backward: Bool) {
+        let windows = NSApp.orderedWindows.filter { $0.isVisible && $0.canBecomeKey && !$0.isMiniaturized }
+        guard windows.count > 1, let next = backward ? windows.last : windows.dropFirst().first else { return }
+        if !backward { windows[0].orderBack(nil) }
+        next.makeKeyAndOrderFront(nil)
+    }
+
+    static func isCommandKey(_ event: NSEvent) -> Bool {
+        switch event.type {
+        case .keyDown, .keyUp: !event.modifierFlags.isDisjoint(with: [.command, .control])
+        // Left/right Command and Control themselves.
+        case .flagsChanged: [54, 55, 59, 62].contains(event.keyCode)
+        default: false
+        }
     }
 
     required init?(coder: NSCoder) { nil }
@@ -845,8 +990,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         return false
     }
     func windowWillClose(_ notification: Notification) {
-        if let recentCycleMonitor { NSEvent.removeMonitor(recentCycleMonitor) }
-        recentCycleMonitor = nil
+        if let eventMonitor { NSEvent.removeMonitor(eventMonitor) }
+        eventMonitor = nil
         onClose(model.id)
     }
     func windowDidResignKey(_ notification: Notification) { model.endRecentTabCycle() }
@@ -1013,5 +1158,18 @@ final class DevToolsWindowController: NSWindowController, NSWindowDelegate {
     private func finishWindowClose() {
         allowingWindowClose = true
         window?.close()
+    }
+}
+
+/// Resolves a key to the system text command (e.g. ⌘← → moveToLeftEndOfLine:) without delivering it.
+private final class KeyBindingLookup: NSResponder {
+    private var command: Selector?
+    override func doCommand(by selector: Selector) { command = selector }
+    override func insertText(_ insertString: Any) {}
+
+    static func command(for event: NSEvent) -> Selector? {
+        let lookup = KeyBindingLookup()
+        lookup.interpretKeyEvents([event])
+        return lookup.command.flatMap { $0 == Selector(("noop:")) ? nil : $0 }
     }
 }
