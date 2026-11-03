@@ -10,6 +10,26 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Mon, 02 Nov 2026 16:55:18 -0800</pubDate>
+            <sparkle:version>11</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- The site menu is simpler: connection status at the top (click it for the certificate), then on/off switches for Camera, Microphone, Sound and Pop-ups. Allowing camera or microphone now always remembers the site, so the switch stays on until you turn it off. Turning it off also stops the camera or microphone on that page. Works in WebKit and Chromium tabs.
+- Native window buttons appear when a window enters full screen.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (371054c) and its matching Chromium runtime.
+
+This is an early beta. Real-site camera and microphone behavior, interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.11/Cobble-v0.1.0-beta.11.zip" length="164425543" type="application/octet-stream" sparkle:edSignature="tMklGsCBDSIkTYMsKR340UpmcYLcE6YsFW8/TGjxwRkIHa3XaW96PdgXDPBHxya/ffByAABhcvPSYV4pkmCrBQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Sun, 01 Nov 2026 11:23:55 -0800</pubDate>
             <sparkle:version>10</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -55,31 +75,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.9/Cobble-v0.1.0-beta.9.zip" length="164423413" type="application/octet-stream" sparkle:edSignature="bN8x5jp8sZh+vWnUqDdtHK7yKHCqOmyHW2ybKe2c7b5l1CRXeKdVb26xqtk1fuXsdgnGitDqnTl9HYZ4kG21AQ=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Thu, 22 Oct 2026 13:22:28 -0700</pubDate>
-            <sparkle:version>8</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Engine choice is now one setting per website: Automatic, WebKit or Chromium. Change it from the site menu in the address bar, the tab's engine menu, or Settings → General → Web Engine, which also holds this Mac's default engine.
-- Website engine choices now cover subdomains, so a choice for figma.com also applies to www.figma.com. The most specific website choice wins.
-- Declining the reload when switching engines keeps the website's previous choice.
-- Private windows keep engine choices on the tab and never save the websites you visit.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK and its matching Chromium runtime.
-
-This is an early beta. Interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.8/Cobble-v0.1.0-beta.8.zip" length="164374996" type="application/octet-stream" sparkle:edSignature="ygkGljlNAV+nhAdwSQrB90ViihvGbdq0iMs+0JZLbROk0jaJiLSYcTLnlfH5vyzBsgSIDHauai6kBqMJfd08CQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: ZfzOnVDwVCS8RUOQ46o5Acd0LsgiCoNqD/3Kq6y0WbxOzuo+k2TOndZxQAurxa/8k4u5M5WHzFDGd0XjteYHBw==
-length: 6671
+edSignature: Kl2Ftg1AmrwV1mkoUuIJzwXZJ3LPAwgaRgMT66Eruk17yCYvYddobViu1453+tpOxWcKRYBwtPl+uaouoM0rDw==
+length: 6602
 -->
