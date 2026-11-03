@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Clicking Cobble in the Dock brings back your window — even when it's
+  minimized or still opening — instead of adding a second one. New windows
+  open only from New Window: ⌘N, the File menu, or the Dock icon's menu
+  (right-click). ⌘T from Settings opens the tab in your existing window.
 - The site menu is simpler: connection status at the top (click it for the
   certificate), then on/off switches for Camera, Microphone, Sound and
   Pop-ups. Allowing camera or microphone now always remembers the site, so
