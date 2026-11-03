@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- New Keyboard Privacy setting (Settings → Browsing): websites no longer see
+  ⌘ or ⌃ keys, in WebKit and Chromium tabs and in page full screen — not even
+  held while typing other keys, moving the pointer or scrolling. Clicks still
+  report them so ⌘-click and ⌃-click work. Cobble shortcuts, copy/paste and
+  text editing keys such as ⌘← or ⌃A keep working; site shortcuts such as ⌘K
+  stop. Off by default.
 - Clicking Cobble in the Dock brings back your window — even when it's
   minimized or still opening — instead of adding a second one. New windows
   open only from New Window: ⌘N, the File menu, or the Dock icon's menu

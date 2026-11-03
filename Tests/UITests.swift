@@ -1182,6 +1182,160 @@ final class UITests: XCTestCase {
         XCTAssertFalse(BrowserWindowController.isQuitShortcut(try event(.command, "q", type: .keyUp)))
     }
 
+    func testKeyboardPrivacyKeepsCommandAndControlKeysFromPages() async throws {
+        try await withWindow(isPrivate: false) { model, nativeWindow, _ in
+            let tab = Tab(title: "Keys")
+            model.record.tabs = [tab]
+            model.select(tab.id)
+            let page = try XCTUnwrap(model.selectedPage as? WebKitPage)
+            page.webView.loadHTMLString("""
+                <title>Keyboard privacy fixture</title><input id="field" value="hello world">
+                <script>
+                window.seen = [];
+                for (const type of ['keydown', 'keyup', 'keypress']) addEventListener(type, event =>
+                    seen.push(`${type}:${event.key}${event.metaKey ? '+meta' : ''}${event.ctrlKey ? '+ctrl' : ''}`), true);
+                </script>
+                """, baseURL: nil)
+            for _ in 0..<100 where page.webView.title != "Keyboard privacy fixture" || page.webView.isLoading {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            XCTAssertTrue(nativeWindow.makeFirstResponder(page.webView))
+            _ = try await page.webView.evaluateJavaScript("field.focus(); field.setSelectionRange(11, 11); seen = []")
+
+            func key(_ type: NSEvent.EventType, _ characters: String, ignoring: String? = nil,
+                     flags: NSEvent.ModifierFlags = [], code: UInt16, in window: NSWindow? = nil) throws -> NSEvent {
+                try XCTUnwrap(NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags,
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: (window ?? nativeWindow).windowNumber,
+                    context: nil, characters: type == .flagsChanged ? "" : characters,
+                    charactersIgnoringModifiers: type == .flagsChanged ? "" : ignoring ?? characters,
+                    isARepeat: false, keyCode: code))
+            }
+            @MainActor func state() async throws -> [String] {
+                let value = try await page.webView.evaluateJavaScript(
+                    "[seen.join(' '), field.value, `${field.selectionStart}-${field.selectionEnd}`]")
+                return try XCTUnwrap(value as? [String])
+            }
+            var pointerX = 20.0
+            // Same path as real input, including Cobble's local key monitors.
+            @MainActor func press(_ events: NSEvent...) async throws {
+                for event in events {
+                    NSApp.postEvent(event, atStart: true)
+                    guard let delivered = NSApp.nextEvent(matching: [.keyDown, .keyUp, .flagsChanged, .mouseMoved],
+                                                          until: Date(timeIntervalSinceNow: 0.2), inMode: .default, dequeue: true) else { continue }
+                    NSApp.sendEvent(delivered)
+                }
+                try await Task.sleep(for: .milliseconds(150))
+            }
+            // WebKit ignores synthetic moves in a background test app; a view inside the page records what it gets.
+            let recorder = PointerRecorder(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+            page.webView.addSubview(recorder)
+            nativeWindow.acceptsMouseMovedEvents = true
+            @MainActor func pointerFlags(_ flags: NSEvent.ModifierFlags) async throws -> NSEvent.ModifierFlags? {
+                pointerX += 7
+                recorder.flags = nil
+                XCTAssertTrue(nativeWindow.makeFirstResponder(recorder))
+                defer { nativeWindow.makeFirstResponder(page.webView) }
+                try await press(try XCTUnwrap(NSEvent.mouseEvent(with: .mouseMoved,
+                    location: recorder.convert(NSPoint(x: pointerX, y: 40), to: nil), modifierFlags: flags,
+                    timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: nativeWindow.windowNumber,
+                    context: nil, eventNumber: 0, clickCount: 0, pressure: 0)))
+                return recorder.flags
+            }
+            let left = String(UnicodeScalar(NSLeftArrowFunctionKey)!), right = String(UnicodeScalar(NSRightArrowFunctionKey)!)
+            let arrow: NSEvent.ModifierFlags = [.function, .numericPad]
+
+            XCTAssertTrue(model.app.preferences.setHidesCommandKeysFromPages(true))
+            try await press(try key(.flagsChanged, "", flags: .command, code: 55), try key(.flagsChanged, "", code: 55),
+                            try key(.keyDown, "k", flags: .command, code: 40), try key(.keyUp, "k", flags: .command, code: 40))
+            var current = try await state()
+            XCTAssertEqual(current[0], "", "⌘ alone and ⌘K never reach the page")
+            try await press(try key(.keyDown, "\u{1}", ignoring: "a", flags: .control, code: 0))
+            current = try await state()
+            XCTAssertEqual(current[2], "0-0", "⌃A still moves the caret as an editing command")
+            try await press(try key(.keyDown, right, flags: arrow.union(.command), code: 124))
+            current = try await state()
+            XCTAssertEqual(current[2], "11-11", "⌘→ still moves the caret")
+            try await press(try key(.keyDown, "a", flags: .command, code: 0))
+            current = try await state()
+            XCTAssertEqual(current[2], "0-11", "⌘A still selects the field")
+            try await press(try key(.keyDown, right, flags: arrow, code: 124), try key(.keyUp, right, flags: arrow, code: 124),
+                            try key(.keyDown, "!", code: 18), try key(.keyUp, "!", code: 18))
+            current = try await state()
+            XCTAssertEqual(current[1], "hello world!", "Typing still reaches the page")
+            XCTAssertEqual(current[0], "keydown:ArrowRight keyup:ArrowRight keydown:! keypress:! keyup:!")
+            try await press(try key(.keyDown, "\u{7f}", flags: .command, code: 51), try key(.keyDown, left, flags: arrow.union(.control), code: 123))
+            current = try await state()
+            XCTAssertEqual(current[1], "", "⌘⌫ still deletes to the start of the line")
+            XCTAssertFalse(current[0].contains("meta") || current[0].contains("ctrl") || current[0].contains("Meta") || current[0].contains("Control"),
+                           current[0])
+
+            // Releasing ⌘ before K, ⇧ while ⌘ is held, J pressed before ⌘, and moving the pointer with ⌘ held.
+            _ = try await page.webView.evaluateJavaScript("seen = []")
+            try await press(try key(.flagsChanged, "", flags: .command, code: 55), try key(.keyDown, "k", flags: .command, code: 40),
+                            try key(.flagsChanged, "", code: 55), try key(.keyUp, "k", code: 40))
+            try await press(try key(.flagsChanged, "", flags: .command, code: 55), try key(.flagsChanged, "", flags: [.command, .shift], code: 56),
+                            try key(.flagsChanged, "", flags: .command, code: 56), try key(.flagsChanged, "", code: 55))
+            try await press(try key(.keyDown, "j", code: 38), try key(.flagsChanged, "", flags: .command, code: 55),
+                            try key(.keyUp, "j", flags: .command, code: 38), try key(.flagsChanged, "", code: 55))
+            let hiddenPointer = try await pointerFlags([.command, .control])
+            current = try await state()
+            XCTAssertEqual(current[0], "keydown:Shift keyup:Shift keydown:j keypress:j keyup:j",
+                           "No release or modifier event reveals ⌘")
+            XCTAssertEqual(hiddenPointer, [], "Pointer movement no longer carries ⌘ or ⌃")
+
+            XCTAssertTrue(model.app.preferences.setHidesCommandKeysFromPages(false))
+            _ = try await page.webView.evaluateJavaScript("seen = []")
+            try await press(try key(.flagsChanged, "", flags: .command, code: 55),
+                            try key(.keyDown, "k", flags: .command, code: 40), try key(.flagsChanged, "", code: 55))
+            let visiblePointer = try await pointerFlags(.command)
+            current = try await state()
+            XCTAssertTrue(current[0].contains("keydown:Meta+meta") && current[0].contains("keydown:k+meta"),
+                          "With the setting off, pages see ⌘: \(current[0])")
+            XCTAssertEqual(visiblePointer, .command)
+
+            // Page full screen hosts the page view in its own window.
+            XCTAssertTrue(model.app.preferences.setHidesCommandKeysFromPages(true))
+            let fullScreen = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 500, height: 400),
+                                      styleMask: [.titled], backing: .buffered, defer: false)
+            fullScreen.isReleasedWhenClosed = false
+            let host = page.webView.superview
+            page.webView.removeFromSuperview()
+            fullScreen.contentView?.addSubview(page.webView)
+            fullScreen.makeKeyAndOrderFront(nil)
+            defer { page.webView.removeFromSuperview(); host?.addSubview(page.webView); fullScreen.close() }
+            XCTAssertTrue(fullScreen.makeFirstResponder(page.webView))
+            _ = try await page.webView.evaluateJavaScript("seen = []")
+            try await press(try key(.flagsChanged, "", flags: .command, code: 55, in: fullScreen),
+                            try key(.keyDown, "k", flags: .command, code: 40, in: fullScreen),
+                            try key(.flagsChanged, "", code: 55, in: fullScreen), try key(.keyDown, "q", code: 12, in: fullScreen))
+            current = try await state()
+            XCTAssertEqual(current[0], "keydown:q keypress:q", "Full screen hides ⌘ too, and typing still arrives")
+        }
+    }
+
+    func testKeyboardPrivacyClassifiesOnlyCommandAndControlKeys() throws {
+        func event(_ type: NSEvent.EventType, _ flags: NSEvent.ModifierFlags, code: UInt16, _ key: String = "k") throws -> NSEvent {
+            try XCTUnwrap(NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: 0,
+                windowNumber: 0, context: nil, characters: type == .flagsChanged ? "" : key,
+                charactersIgnoringModifiers: type == .flagsChanged ? "" : key, isARepeat: false, keyCode: code))
+        }
+        for (type, flags, code) in [(NSEvent.EventType.keyDown, NSEvent.ModifierFlags.command, UInt16(40)), (.keyUp, .control, 40),
+                                    (.keyDown, [.command, .shift], 40), (.flagsChanged, .command, 55), (.flagsChanged, [], 54),
+                                    (.flagsChanged, .control, 59), (.flagsChanged, [], 62)] {
+            XCTAssertTrue(BrowserWindowController.isCommandKey(try event(type, flags, code: code)), "\(type) \(flags) \(code)")
+        }
+        for (type, flags, code) in [(NSEvent.EventType.keyDown, NSEvent.ModifierFlags(), UInt16(40)), (.keyDown, .shift, 40),
+                                    (.keyDown, .option, 40), (.flagsChanged, .shift, 56), (.flagsChanged, .option, 58)] {
+            XCTAssertFalse(BrowserWindowController.isCommandKey(try event(type, flags, code: code)), "\(type) \(flags) \(code)")
+        }
+        // Left ⌘ (0x08) and left ⇧ (0x02) device bits: ⌘ goes, ⇧ stays.
+        let held = NSEvent.ModifierFlags(rawValue: NSEvent.ModifierFlags([.command, .shift]).rawValue | 0x08 | 0x02)
+        let stripped = BrowserWindowController.withoutCommandKeys(try event(.keyUp, held, code: 40))
+        XCTAssertEqual(stripped.modifierFlags.intersection(.deviceIndependentFlagsMask), .shift)
+        XCTAssertEqual(stripped.modifierFlags.rawValue & 0xffff, 0x02)
+        XCTAssertEqual(stripped.charactersIgnoringModifiers, "k")
+    }
+
     func testSettingsRenderWithoutNetwork() async throws {
         try await withWindow { model, _, _ in
             let settingsRenders = URL(fileURLWithPath: ProcessInfo.processInfo.environment["COBBLE_RENDER_OUTPUT"]
@@ -2111,4 +2265,10 @@ final class UITests: XCTestCase {
     func start() {}
     func cancel(completion: @escaping () -> Void) { completion() }
     func detach() {}
+}
+
+private final class PointerRecorder: NSView {
+    var flags: NSEvent.ModifierFlags?
+    override var acceptsFirstResponder: Bool { true }
+    override func mouseMoved(with event: NSEvent) { flags = event.modifierFlags.intersection([.command, .control]) }
 }

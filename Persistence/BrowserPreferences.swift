@@ -47,6 +47,7 @@ final class BrowserPreferences {
         var windowStyle: BrowserWindowStyle?
         /// Minutes before hidden tabs sleep; nil never sleeps them on a timer. This Mac only.
         var tabSleepMinutes: Int?
+        var hidesCommandKeysFromPages: Bool?
 
         init() {}
 
@@ -71,6 +72,7 @@ final class BrowserPreferences {
             themeAccentHex = try container.decodeIfPresent(String.self, forKey: .themeAccentHex)
             windowStyle = try container.decodeIfPresent(BrowserWindowStyle.self, forKey: .windowStyle)
             tabSleepMinutes = try container.decodeIfPresent(Int.self, forKey: .tabSleepMinutes)
+            hidesCommandKeysFromPages = try container.decodeIfPresent(Bool.self, forKey: .hidesCommandKeysFromPages)
         }
     }
     private static let maximumDownloadFolderBookmarkSize = 1_048_576
@@ -200,6 +202,8 @@ final class BrowserPreferences {
     static let tabSleepChoices = [15, 30, 60, 120]
     var tabSleepMinutes: Int? { record.tabSleepMinutes }
     var webInspectorEnabled: Bool { record.webInspectorEnabled ?? false }
+    /// Keeps ⌘ and ⌃ keys away from focused pages; typing keys still reach them.
+    var hidesCommandKeysFromPages: Bool { record.hidesCommandKeysFromPages ?? false }
     var tabLoadingIndicator: TabLoadingIndicatorStyle { record.tabLoadingIndicator ?? themeTemplate.loadingIndicator }
     var browserChromeFont: BrowserChromeFont { record.browserChromeFont ?? themeTemplate.defaultFont }
     var theme: BrowserThemePreset { record.theme ?? .native }
@@ -221,6 +225,9 @@ final class BrowserPreferences {
     }
     @discardableResult func setWebInspectorEnabled(_ enabled: Bool) -> Bool {
         var next = record; next.webInspectorEnabled = enabled; return save(next)
+    }
+    @discardableResult func setHidesCommandKeysFromPages(_ enabled: Bool) -> Bool {
+        var next = record; next.hidesCommandKeysFromPages = enabled; return save(next)
     }
     @discardableResult func setTabLoadingIndicator(_ style: TabLoadingIndicatorStyle) -> Bool {
         guard style != tabLoadingIndicator else { return true }

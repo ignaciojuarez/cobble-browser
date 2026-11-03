@@ -136,6 +136,15 @@ struct SettingsView: View {
                         })
                 }
             }
+            SettingsGroup("Keyboard Privacy") {
+                SettingsRow("Hide Command and Control keys from websites", detail: "Pages only receive typing. ⌘ and ⌃ shortcuts still work in Cobble and in text fields, but websites can't see or block them, so site shortcuts such as ⌘K or ⌘Enter stop working.") {
+                    Toggle("Hide Command and Control keys from websites", isOn: Binding(
+                        get: { app.preferences.hidesCommandKeysFromPages },
+                        set: { app.preferences.setHidesCommandKeysFromPages($0) }
+                    )).labelsHidden().toggleStyle(.switch)
+                        .disabled(app.preferences.readError != nil)
+                }
+            }
             SettingsGroup("Browser Identity") {
                 SiteIdentityRulesView(app: app)
             }
