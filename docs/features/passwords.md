@@ -1,13 +1,13 @@
 # Passwords and authentication
 
-Cobble has no password vault. WebKit uses system AutoFill and passkeys when Apple grants the required entitlements. Chromium Apple Passwords integration is unbuilt. The approval paths are in [Apple browser approval](apple-browser.md); release gates remain in [ROADMAP.md](../../ROADMAP.md).
+Cobble has no password vault. WebKit uses system passkeys when Apple grants the passkey entitlement. Apple documents no macOS AutoFill grant for WebKit pages in third-party browsers, so Apple Passwords is planned through Chromium's official helper, which is unbuilt. The approval paths are in [Apple browser approval](apple-browser.md); release gates remain in [ROADMAP.md](../../ROADMAP.md).
 
 | Path | Current state | Remaining evidence |
 | --- | --- | --- |
-| WebKit passwords / third-party AutoFill | `BrowserEntitlements` checks `com.apple.developer.web-browser`; current builds lack the grant. | Add the granted key to the signed build; verify fill and save on real sites with Apple Passwords and third-party providers. P8e. |
-| WebKit passkeys | `ApplePasskeys.prepareIfNeeded()` calls `ASAuthorizationWebBrowserPublicKeyCredentialManager` only when `com.apple.developer.web-browser.public-key-credential` is present. | Grant, signed build, real registration and assertion. P8e. |
+| WebKit passwords / third-party AutoFill | Unavailable. `com.apple.developer.web-browser` is iOS/iPadOS only; Apple documents no macOS equivalent. | Ask Apple DTS whether an entitled macOS browser can get WKWebView password AutoFill. P8e. |
+| WebKit passkeys | `ApplePasskeys.prepareIfNeeded()` calls `ASAuthorizationWebBrowserPublicKeyCredentialManager` only when `com.apple.developer.web-browser.public-key-credential` is present. `ApplePasskeys.status` drives Settings: unentitled, not asked, denied (System Settings link), no provider (`isDeviceConfiguredForPasskeys`, macOS 26.2+) or ready. | Grant, signed build, real registration, assertion, conditional UI and third-party providers. P8e. |
 | Chromium Apple Passwords / OTP | No client; general extension native messaging is unsupported. | Apple must allow the actual Full helper parent through its signed-browser list or passkeys entitlement. Then integrate and qualify the official extension/helper, pairing, fill, OTP, and profile isolation. C21/P8e. |
-| Chromium WebAuthn / passkeys | A Debug Chromium Views sheet can abort in `AuthenticatorRequestDialogViewControllerViews`. | Host and qualify the native SDK dialog, including register, assert, cancel, and Touch ID. The Apple helper list does not fix this. C22/C34. |
+| Chromium WebAuthn / passkeys | A Debug Chromium Views sheet can abort in `AuthenticatorRequestDialogViewControllerViews`. Chromium's iCloud Keychain authenticator needs only the passkey entitlement; Google Password Manager passkeys need Google services and are out of scope. | Host and qualify the native SDK dialog, including register, assert, cancel, and Touch ID. The Apple helper list does not fix this. C22/C34. |
 | Sign in with Apple | WebKit uses its system flow. Chromium opens `appleid.apple.com/auth/authorize` in a nonmodal WKWebView window and returns URL callbacks; isolated cancellation and ownership tests pass. | Real-account/site qualification. Chromium POST callbacks remain unsupported. C22/P8e. |
 | HTTP / proxy authentication | Owned, nonpersistent prompts and cancellation; focused Full HTTP/proxy checks passed. | Current matched Full and real-site qualification. P4/C22/C34. |
 | TLS client certificates | WebKit chooser has focused tests. Chromium ABI 12 owns chooser requests and adapter-local credentials. | Matched Full TLS selection, cancellation, and failure checks. C34. |
@@ -21,11 +21,33 @@ The extension's six-digit code is a **helper-session pairing PIN**, not Apple ID
 
 WebKit has no public API for a custom picker over the live Apple vault; entitled WebKit uses the system picker. A custom Chromium picker would require an approved helper path and SDK-owned field filling. Cobble excludes JS/clipboard password fill, a copied vault, a spoofed extension ID, and a background sidecar. Password integration does not copy cookies.
 
+### Browser-list entry
+
+Filed as [apple/password-manager-resources#1888](https://github.com/apple/password-manager-resources/pull/1888) (open). The Full browser process is the main executable; notarized beta 12 signs it as below. The extensions path is omitted because Cobble profiles use separate folders.
+
+```json
+{
+  "long_name": "Cobble",
+  "short_name": "Cobble",
+  "supported_platforms": ["Mac"],
+  "platform_specific_information": {
+    "Mac": {
+      "bundle_identifier": "com.ignacio.cobble",
+      "code_signing_identifier": "com.ignacio.cobble",
+      "code_signing_team_identifier": "KNMMQQRY56"
+    }
+  },
+  "supported_store_identifiers": [1]
+}
+```
+
+Store identifier 1 is the Chrome Web Store, whose Cobble entry is still hidden. A listing alone does nothing: Full also needs native messaging for Apple's helper only, and the official extension installed.
+
 ## Implementation
 
 | Code | Purpose |
 | --- | --- |
-| `App/BrowserEntitlements.swift`, `App/ApplePasskeys.swift` | Runtime entitlement probe and passkey preparation |
+| `App/BrowserEntitlements.swift`, `App/ApplePasskeys.swift` | Passkey entitlement probe, access request and Settings status |
 | `Domain/AppleSignIn.swift`, `Engine/WebKit/AppleSignInSession.swift` | Sign in with Apple URL rules and WKWebView window |
 | `Engine/WebKit/WebKitPage.swift`, `Engine/Chromium/ChromiumPage.swift` | Engine authentication and sign-in handoff |
 | `Tests/AppleWebAuthTests.swift`, `Tests/BrowserEntitlementsTests.swift` | Isolated sign-in ownership and unsigned entitlement behavior |

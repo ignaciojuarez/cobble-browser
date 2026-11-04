@@ -2,10 +2,8 @@ import Foundation
 import Security
 
 enum BrowserEntitlements {
-    static let webBrowser = "com.apple.developer.web-browser"
     static let passkeys = "com.apple.developer.web-browser.public-key-credential"
 
-    static var hasWebBrowser: Bool { has(webBrowser) }
     static var hasPasskeys: Bool { has(passkeys) }
 
     /// Restricted Apple entitlements are false until a signed, approved profile

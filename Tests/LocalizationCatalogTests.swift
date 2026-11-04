@@ -50,8 +50,8 @@ final class LocalizationCatalogTests: XCTestCase {
         XCTAssertEqual(value("Choose an HTTPS update source first.", in: catalog),
                        "Elige primero una fuente de actualización HTTPS.")
         XCTAssertEqual(
-            value("Apple Passwords AutoFill for arbitrary sites needs Apple’s web-browser entitlement on a signed Cobble after Account Holder approval. This build does not include it. Cobble does not store passwords.", in: catalog),
-            "El Autocompletar de Contraseñas de Apple para sitios arbitrarios necesita el permiso de navegador web de Apple en un Cobble firmado tras la aprobación del Account Holder. Esta compilación no lo incluye. Cobble no guarda contraseñas."
+            value("Apple Passwords AutoFill is not available on WebKit pages in third-party macOS browsers. Cobble does not store passwords.", in: catalog),
+            "El Autocompletar de Contraseñas de Apple no está disponible en páginas WebKit de navegadores de terceros en macOS. Cobble no guarda contraseñas."
         )
         XCTAssertEqual(
             value("Chromium Sign in with Apple uses the system WebKit sheet. Chromium password AutoFill still needs an SDK path. Cobble does not store passwords.", in: catalog),

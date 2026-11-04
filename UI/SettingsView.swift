@@ -1156,14 +1156,15 @@ private struct SitePermissionsView: View {
             }
             Text("Saved decisions apply to normal windows. Private windows ask separately. The address-bar site control can mute or stop capture on the current page without unloading it. Changing a remembered decision here unloads normal pages to stop capture; unsaved page content may be lost.")
                 .font(.callout).foregroundStyle(.secondary)
-            Text(BrowserEntitlements.hasWebBrowser
-                 ? "This signed Cobble can offer system Apple Passwords and credential-provider AutoFill in WebKit fields. Cobble does not store passwords."
-                 : "Apple Passwords AutoFill for arbitrary sites needs Apple’s web-browser entitlement on a signed Cobble after Account Holder approval. This build does not include it. Cobble does not store passwords.")
+            Text("Apple Passwords AutoFill is not available on WebKit pages in third-party macOS browsers. Cobble does not store passwords.")
                 .font(.callout).foregroundStyle(.secondary)
-            Text(BrowserEntitlements.hasPasskeys
-                 ? "This signed Cobble can use iCloud Keychain passkeys on WebKit pages."
-                 : "Passkeys for arbitrary websites need Apple’s macOS browser passkey entitlement on a signed Cobble. This build cannot use iCloud Keychain passkeys.")
+            let passkeys = ApplePasskeys.status
+            Text(passkeyStatusText(passkeys))
                 .font(.callout).foregroundStyle(.secondary)
+            if passkeys == .denied {
+                Link("Open Passkey Access Settings", destination: ApplePasskeys.settingsURL)
+                    .font(.callout)
+            }
             Text("Chromium Sign in with Apple uses the system WebKit sheet. Chromium password AutoFill still needs an SDK path. Cobble does not store passwords.")
                 .font(.callout).foregroundStyle(.secondary)
             let entries = app.siteSettings.summaries(profileID: profileID, engines: app.engines.engines)
@@ -1202,6 +1203,15 @@ private struct SitePermissionsView: View {
         return alert.runModal() == .alertFirstButtonReturn
     }
     private func unloadPages() { app.windows.filter { !$0.isPrivate && $0.record.profileID == profileID }.forEach { $0.unloadPages() } }
+    private func passkeyStatusText(_ status: ApplePasskeys.Status) -> LocalizedStringKey {
+        switch status {
+        case .unentitled: "Passkeys for arbitrary websites need Apple’s macOS browser passkey entitlement on a signed Cobble. This build cannot use iCloud Keychain passkeys."
+        case .notDetermined: "macOS asks whether Cobble may use passkeys when the first page opens."
+        case .denied: "Passkey access is off for Cobble. Turn it on in System Settings to use iCloud Keychain passkeys."
+        case .notConfigured: "This Mac has no passkey provider. Turn on iCloud Keychain or another provider in System Settings → General → AutoFill & Passwords."
+        case .ready: "This signed Cobble can use iCloud Keychain passkeys on WebKit pages."
+        }
+    }
     private func permissionTitle(_ value: SitePermission) -> String {
         switch value {
         case .ask: String(localized: "Ask")
