@@ -12,6 +12,10 @@
   it off in the site menu or Settings.
 - A Chromium page that leaves full screen right after entering no longer leaves
   its window stuck in full screen.
+- Settings → Permissions now shows whether passkeys can work: not yet
+  allowed, turned off (with a button to open System Settings), no passkey
+  provider on this Mac, or ready. It also no longer suggests that a future
+  Apple approval will bring Apple Passwords AutoFill to WebKit pages.
 - New Keyboard Privacy setting (Settings → Browsing): websites no longer see
   ⌘ or ⌃ keys, in WebKit and Chromium tabs and in page full screen — not even
   held while typing other keys, moving the pointer or scrolling. Clicks still

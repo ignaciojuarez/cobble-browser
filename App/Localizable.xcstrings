@@ -1386,12 +1386,52 @@
         }
       }
     },
-    "Apple Passwords AutoFill for arbitrary sites needs Apple’s web-browser entitlement on a signed Cobble after Account Holder approval. This build does not include it. Cobble does not store passwords." : {
+    "Apple Passwords AutoFill is not available on WebKit pages in third-party macOS browsers. Cobble does not store passwords." : {
       "localizations" : {
         "es" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "El Autocompletar de Contraseñas de Apple para sitios arbitrarios necesita el permiso de navegador web de Apple en un Cobble firmado tras la aprobación del Account Holder. Esta compilación no lo incluye. Cobble no guarda contraseñas."
+            "value" : "El Autocompletar de Contraseñas de Apple no está disponible en páginas WebKit de navegadores de terceros en macOS. Cobble no guarda contraseñas."
+          }
+        }
+      }
+    },
+    "macOS asks whether Cobble may use passkeys when the first page opens." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS pregunta si Cobble puede usar llaves de acceso cuando se abre la primera página."
+          }
+        }
+      }
+    },
+    "Passkey access is off for Cobble. Turn it on in System Settings to use iCloud Keychain passkeys." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "El acceso a llaves de acceso está desactivado para Cobble. Actívalo en Ajustes del Sistema para usar llaves de acceso de iCloud Keychain."
+          }
+        }
+      }
+    },
+    "This Mac has no passkey provider. Turn on iCloud Keychain or another provider in System Settings → General → AutoFill & Passwords." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Este Mac no tiene un proveedor de llaves de acceso. Activa iCloud Keychain u otro proveedor en Ajustes del Sistema → General → Autorrelleno y contraseñas."
+          }
+        }
+      }
+    },
+    "Open Passkey Access Settings" : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Abrir ajustes de acceso a llaves de acceso"
           }
         }
       }
@@ -8635,16 +8675,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Esta sesión usa la versión %@, que requiere una versión más reciente de Cobble. Se conservaron los archivos existentes."
-          }
-        }
-      }
-    },
-    "This signed Cobble can offer system Apple Passwords and credential-provider AutoFill in WebKit fields. Cobble does not store passwords." : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Este Cobble firmado puede ofrecer Autocompletar de Contraseñas de Apple y de proveedores de credenciales en campos WebKit. Cobble no guarda contraseñas."
           }
         }
       }
