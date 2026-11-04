@@ -714,7 +714,10 @@ struct SiteControlPopover: View {
     private var capabilities: EngineCapabilities {
         window.selectedPageCapabilities
     }
-    var showsDisplayCapture: Bool { window.selectedPage?.state.isDisplayCapturing == true }
+    var showsDisplayCapture: Bool {
+        window.selectedPage?.state.isDisplayCapturing == true
+            || (!window.isPrivate && capabilities.permissions.contains(.screenSharing))
+    }
     private var target: (UUID?, String?, EngineID?) { (window.selectedTab?.id, origin, engine?.id) }
     private var hasCertificate: Bool {
         connectionDetails.map { $0.certificate != nil || !$0.certificateChain.isEmpty } == true
@@ -921,10 +924,11 @@ struct SiteControlPopover: View {
                 permissionRow(String(localized: "Microphone"), symbol: "mic", kind: .microphone,
                     capture: window.selectedPage?.state.microphone ?? .none, value: setting?.microphone ?? .ask)
             }
-            if showsDisplayCapture {
-                SiteRow(title: String(localized: "Screen sharing"), detail: String(localized: "In use"),
-                        detailColor: .orange, icon: Image(systemName: "display"))
+            if capabilities.permissions.contains(.windowManagement) {
+                permissionRow(String(localized: "Window management"), symbol: "display.2", kind: .windowManagement,
+                    capture: .none, value: setting?.windowManagement ?? .ask)
             }
+            if showsDisplayCapture { displayCaptureRow }
             if showsSound, let tabID = window.selectedTab?.id {
                 let muted = window.selectedPage?.state.isAudioMuted == true
                 SiteRow(title: String(localized: "Sound"), icon: Image(systemName: muted ? "speaker.slash" : "speaker.wave.2")) {
@@ -950,6 +954,35 @@ struct SiteControlPopover: View {
                         detailColor: .orange, icon: Image(systemName: "macwindow.on.rectangle"))
             }
             if let engineSite { engineRow(engineSite.tab, host: engineSite.host) }
+        }
+    }
+
+    /// Grants are never remembered, so the switch only lets the site ask or blocks it. Stop ends sharing
+    /// without blocking.
+    @ViewBuilder private var displayCaptureRow: some View {
+        let displayedTarget = target
+        let title = String(localized: "Screen sharing")
+        let sharing = window.selectedPage?.state.isDisplayCapturing == true
+        let blocked = !window.isPrivate && setting?.screenSharing == .deny
+        SiteRow(title: title, detail: sharing ? String(localized: "In use") : blocked ? String(localized: "Blocked") : nil,
+                detailColor: sharing ? .orange : .secondary, icon: Image(systemName: "display")) {
+            HStack(spacing: 8) {
+                if sharing && capabilities.captureControls.contains(.stopDisplay) {
+                    Button(String(localized: "Stop")) {
+                        guard target == displayedTarget else { return }
+                        window.stopDisplayCapture()
+                    }
+                    .controlSize(.small)
+                    .help(String(localized: "Stop sharing"))
+                }
+                if !window.isPrivate && capabilities.permissions.contains(.screenSharing) {
+                    switchControl(title, isOn: !blocked) { on in
+                        guard target == displayedTarget else { return }
+                        window.setSitePermission(.screenSharing, on ? .ask : .deny)
+                    }
+                    .help(String(localized: "Off blocks this site from asking to share your screen."))
+                }
+            }
         }
     }
 

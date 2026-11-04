@@ -77,6 +77,10 @@ import Foundation
         }
         closingContexts[operation] = (id, task)
     }
+    /// Revokes engine-held grants in every open context of the profile, private ones included.
+    func resetPermission(_ kind: PermissionKind, origin: String, profileID: UUID) {
+        for (id, context) in contexts where id.profileID == profileID { context.resetPermission(kind, origin: origin) }
+    }
     func releasePrivateWindow(_ windowID: UUID) {
         for id in Array(contexts.keys) where id.privateWindowID == windowID { retireContext(id) }
     }

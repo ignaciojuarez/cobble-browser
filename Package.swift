@@ -2,7 +2,7 @@
 import PackageDescription
 import Foundation
 
-// Pin the SDK matched to the packaged ABI 18 runtime with H.264/AAC support.
+// Pin the SDK matched to the packaged ABI 19 runtime with H.264/AAC and screen sharing.
 // An explicit local checkout remains available for SDK development and legacy checks.
 let localSDKPath = ProcessInfo.processInfo.environment["COBBLE_CHROMIUM_SDK_PATH"]
     .flatMap { $0.isEmpty ? nil : $0 }
@@ -18,13 +18,13 @@ let localSDKABI: Int = localSDKPath.map { path in
         preconditionFailure("Development SDK has no valid CCS_ABI_VERSION header")
     }
     return value
-} ?? 18
-precondition(localSDKABI == 18,
-             "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 18")
+} ?? 19
+precondition(localSDKABI == 19,
+             "Unsupported development Chromium SDK ABI \(localSDKABI); this client supports ABI 19")
 let chromiumSDK: Package.Dependency = localSDKPath.map {
     .package(name: "chrome-sdk", path: $0)
 } ?? .package(url: "https://github.com/ignaciojuarez/chrome-sdk.git",
-              revision: "371054c7b720218783fe1bbedc7ddb1bc0de8faf")
+              revision: "f0a128ea173e1ff38e883083144722f4efbc09c3")
 let clientSettings: [SwiftSetting] = [.define("COBBLE_CHROMIUM_CLIENT")]
     + (ProcessInfo.processInfo.environment["COBBLE_AUTH_FIXTURE"] == "1" ? [.define("COBBLE_AUTH_FIXTURE", .when(configuration: .debug))] : [])
 

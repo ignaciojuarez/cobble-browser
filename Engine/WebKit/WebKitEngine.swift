@@ -6,9 +6,15 @@ import WebKit
     static var supported: EngineCapabilities {
         var operations: Set<PageOperation> = [.find, .zoom, .printPage, .reloadFromOrigin, .snapshot, .localFile, .savePage, .pageDOM, .inspect, .detach]
         if WebKitAudioMute.isAvailable { operations.insert(.muteAudio) }
+        var controls: Set<PageCaptureControl> = [.mute(.camera), .stop(.camera), .mute(.microphone), .stop(.microphone)]
+        var permissions: Set<PermissionKind> = [.camera, .microphone]
+        if WebKitDisplayCapture.support == .full && WebKitAudioMute.isAvailable {
+            controls.insert(.stopDisplay)
+            permissions.insert(.screenSharing)
+        }
         return EngineCapabilities(pageOperations: operations,
-            permissions: [.camera, .microphone],
-            captureControls: [.mute(.camera), .stop(.camera), .mute(.microphone), .stop(.microphone)],
+            permissions: permissions,
+            captureControls: controls,
             websiteDataRemoval: WebKitContext.dataRemovalCapabilities,
             supportsPopupPolicy: true, supportsProfileDeletion: true, supportsCookieTransfer: true,
             supportsBrowserIdentity: true)

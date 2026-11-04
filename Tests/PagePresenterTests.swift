@@ -123,7 +123,7 @@ import XCTest
     func testMediaPermissionContentRendersInLightAndDarkWithoutForegroundHost() throws {
         for (name, scheme) in [("Light", ColorScheme.light), ("Dark", ColorScheme.dark)] {
             var completions = 0
-            let content = MediaPermissionContent(origin: "https://meet.example", device: "camera and microphone",
+            let content = MediaPermissionContent(origin: "https://meet.example", title: "Allow meet.example to use your camera and microphone?",
                 symbol: "camera.fill", embeddedIn: nil, canRemember: true) { _, _ in completions += 1 }
                 .background(Color(nsColor: .windowBackgroundColor))
                 .environment(\.colorScheme, scheme)
@@ -143,6 +143,88 @@ import XCTest
             add(attachment)
             XCTAssertEqual(completions, 0)
         }
+    }
+
+    func testDisplayCaptureContentRendersInLightAndDark() throws {
+        for (name, scheme) in [("Light", ColorScheme.light), ("Dark", ColorScheme.dark)] {
+            var choices: [PageDisplaySurface?] = []
+            let content = DisplayCaptureContent(origin: "https://meet.example", embeddedIn: nil,
+                                                notice: PagePresenter.displayNotice(count: 2)) { choices.append($0) }
+                .background(Color(nsColor: .windowBackgroundColor))
+                .environment(\.colorScheme, scheme)
+                .fixedSize()
+            let hosting = NSHostingView(rootView: content)
+            hosting.appearance = NSAppearance(named: scheme == .dark ? .darkAqua : .aqua)
+            hosting.setFrameSize(hosting.fittingSize)
+            hosting.layoutSubtreeIfNeeded()
+            let bitmap = try XCTUnwrap(hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds))
+            hosting.cacheDisplay(in: hosting.bounds, to: bitmap)
+            XCTAssertGreaterThan(bitmap.pixelsWide, 0)
+            let png = try XCTUnwrap(bitmap.representation(using: .png, properties: [:]))
+            let attachment = XCTAttachment(data: png, uniformTypeIdentifier: "public.png")
+            attachment.name = "Screen Sharing Prompt — \(name) (render only)"
+            attachment.lifetime = .keepAlways
+            add(attachment)
+            XCTAssertTrue(choices.isEmpty)
+        }
+    }
+
+    func testDisplayCaptureWithoutForegroundPresentationDeniesOnce() {
+        let presenter = PagePresenter(window: { nil })
+        var choices: [PageDisplaySurface?] = []
+        presenter.requestDisplayCapture(origin: URL(string: "https://meet.example")!,
+            topLevelOrigin: "https://meet.example", sameOrigin: true, tabID: UUID(),
+            contextID: .init(engineID: .webKit, profileID: Profile.defaultID, privateWindowID: nil), store: nil,
+            isCurrent: { true }) { choices.append($0) }
+        presenter.cancelAll()
+        XCTAssertEqual(choices, [nil])
+    }
+
+    func testBlockedScreenSharingDeniesBeforeAnyPrompt() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePermissionPresenter-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SiteSettingsStore(directory: directory)
+        let origin = URL(string: "https://meet.example")!
+        var setting = SiteSetting(profileID: Profile.defaultID, origin: origin.absoluteString)
+        setting.screenSharing = .allow
+        XCTAssertEqual(setting.screenSharing, .ask, "Screen sharing grants are never saved")
+        setting.screenSharing = .deny
+        XCTAssertTrue(store.update(setting))
+        for (privateWindowID, asks) in [(nil as UUID?, false), (UUID(), true)] {
+            var windowLookups = 0
+            var choices: [PageDisplaySurface?] = []
+            let presenter = PagePresenter(window: { windowLookups += 1; return nil })
+            presenter.requestDisplayCapture(origin: origin, topLevelOrigin: origin.absoluteString, sameOrigin: true,
+                tabID: UUID(), contextID: .init(engineID: .webKit, profileID: Profile.defaultID, privateWindowID: privateWindowID),
+                store: store, isCurrent: { true }) { choices.append($0) }
+            XCTAssertEqual(choices, [nil])
+            XCTAssertEqual(windowLookups > 0, asks, "Private windows ignore saved blocks and ask separately")
+        }
+    }
+
+    func testDisplayNoticeComesFromTheDisplayCountOnly() {
+        XCTAssertNil(PagePresenter.displayNotice(count: 1))
+        XCTAssertEqual(PagePresenter.displayNotice(count: 3), String(format: String(localized: "%lld displays are connected."), 3))
+    }
+
+    func testWindowManagementUsesRememberedDecisions() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePermissionPresenter-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SiteSettingsStore(directory: directory)
+        let origin = URL(string: "https://screens.example")!
+        let context = BrowsingContextID(engineID: EngineID(rawValue: "chromium"), profileID: Profile.defaultID, privateWindowID: nil)
+        for (saved, expected) in [(SitePermission.allow, SitePermission.allow), (.deny, .deny)] {
+            var setting = store.setting(origin: origin, profileID: Profile.defaultID, engineID: context.engineID)
+            setting.windowManagement = saved
+            XCTAssertTrue(store.update(setting))
+            var decisions: [SitePermission] = []
+            PagePresenter(window: { nil }).requestMedia(kinds: [.windowManagement], origin: origin,
+                topLevelOrigin: origin.absoluteString, sameOrigin: true, tabID: UUID(), contextID: context,
+                store: store, isCurrent: { true }) { decisions.append($0) }
+            XCTAssertEqual(decisions, [expected])
+        }
+        XCTAssertTrue(PagePresenter.resolveMediaPermission(allowed: false, remember: true, canRemember: true,
+            kinds: [.windowManagement], origin: origin, contextID: context, sameOrigin: true, store: store) == .deny)
     }
 
     func testRememberedGrantDoesNotRequireForegroundPresentation() throws {
@@ -208,7 +290,7 @@ import XCTest
         anchor.tabID = id; anchor.contextID = context; anchor.isEnabled = true; anchor.isCurrent = { _, _ in true }
         var decisions: [(Bool, Bool)] = []
         let popover = MediaPermissionPopover(anchor: anchor, tabID: id, contextID: context,
-            origin: "https://camera.example", device: "camera", symbol: "camera.fill", embeddedIn: nil,
+            origin: "https://camera.example", title: "Camera", symbol: "camera.fill", embeddedIn: nil,
             canRemember: true, isCurrent: { true }) { decisions.append(($0, $1)) }
         popover.finish(allowed: true, remember: true)
         popover.finish(allowed: false, remember: false)
@@ -223,7 +305,7 @@ import XCTest
         let context = BrowsingContextID(engineID: .webKit, profileID: Profile.defaultID, privateWindowID: UUID())
         var completions = 0
         let popover = MediaPermissionPopover(anchor: anchor, tabID: UUID(), contextID: context,
-            origin: "https://microphone.example", device: "microphone", symbol: "mic.fill", embeddedIn: "https://top.example",
+            origin: "https://microphone.example", title: "Microphone", symbol: "mic.fill", embeddedIn: "https://top.example",
             canRemember: false, isCurrent: { false }) { allowed, remember in
                 XCTAssertFalse(allowed); XCTAssertFalse(remember); completions += 1
             }

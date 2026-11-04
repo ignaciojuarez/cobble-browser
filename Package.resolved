@@ -1,12 +1,12 @@
 {
-  "originHash": "1aa5b8a54a54a62622c452bad561b49f54386a02d1f7a2dba0e107d1976bcc20",
+  "originHash": "e88cb8c63d89ad5100736aa76a178461daad3cb8a5f34ecc313b38194826b952",
   "pins": [
     {
       "identity": "chrome-sdk",
       "kind": "remoteSourceControl",
       "location": "https://github.com/ignaciojuarez/chrome-sdk.git",
       "state": {
-        "revision": "371054c7b720218783fe1bbedc7ddb1bc0de8faf"
+        "revision": "f0a128ea173e1ff38e883083144722f4efbc09c3"
       }
     },
     {

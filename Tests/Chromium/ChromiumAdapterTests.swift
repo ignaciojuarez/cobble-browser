@@ -110,6 +110,22 @@ import CobbleChromium
                        [.standard, .androidPhone, .androidTablet, .iPhone, .iPad])
     }
 
+    func testScreenSharingIsOfferedOnlyWithItsStopControl() {
+        for isPrivate in [false, true] {
+            XCTAssertTrue(ChromiumContext.capabilities(isPrivate: isPrivate).captureControls.contains(.stopDisplay))
+        }
+        XCTAssertFalse(ChromiumMediaPermissionKinds.display.contains(.camera))
+        XCTAssertFalse(ChromiumMediaPermissionKinds.display.contains(.microphone))
+    }
+
+    func testWindowManagementIsASavedChromiumPermission() {
+        for isPrivate in [false, true] {
+            let permissions = ChromiumContext.capabilities(isPrivate: isPrivate).permissions
+            XCTAssertTrue(permissions.isSuperset(of: [.windowManagement, .screenSharing]))
+        }
+        XCTAssertTrue(ChromiumMediaPermissionKinds.windowManagement.isDisjoint(with: [.camera, .microphone, .display]))
+    }
+
     func testCacheCutoffIsAdvertisedOnlyForNormalContextsWhenSupported() {
         let normal = ChromiumContext.capabilities(isPrivate: false)
         let privateContext = ChromiumContext.capabilities(isPrivate: true)

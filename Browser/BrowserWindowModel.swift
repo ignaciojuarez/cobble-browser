@@ -463,6 +463,10 @@ final class BrowserWindowModel: Identifiable {
             guard let self, let host else { request.resolve(.deny); return }
             self.presentMediaPermission(request, from: host, generation: generation)
         }
+        host.events.onDisplayCaptureRequest = { [weak self, weak host] request in
+            guard let self, let host else { request.resolve(nil); return }
+            self.presentDisplayCapture(request, from: host, generation: generation)
+        }
         host.events.onJavaScriptDialog = { [weak self, weak host] request in
             guard let self, let host else { request.resolve(.cancel); return }
             self.presentJavaScriptDialog(request, from: host, generation: generation)
@@ -518,6 +522,30 @@ final class BrowserWindowModel: Identifiable {
             }) { [weak self] decision in
                 self?.promptPresenters.removeValue(forKey: request.id)
                 request.resolve(decision)
+            }
+    }
+
+    private func presentDisplayCapture(_ request: PageDisplayCaptureRequest, from host: any BrowserPage,
+                                       generation: UUID) {
+        let identity = request.identity
+        guard request.isPending, promptIsCurrent(identity, host: host, generation: generation),
+              host.capabilities.captureControls.contains(.stopDisplay),
+              let topLevelOrigin = identity.topLevelOrigin.flatMap(AddressResolver.canonicalOrigin),
+              promptPresenters[request.id] == nil else { request.resolve(nil); return }
+        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
+            host?.setAppPromptPending(pending)
+        }
+        promptPresenters[request.id] = (host.tabID, presenter)
+        presenter.requestDisplayCapture(id: request.id, origin: identity.requestingOrigin,
+            topLevelOrigin: topLevelOrigin,
+            sameOrigin: AddressResolver.canonicalOrigin(identity.requestingOrigin) == topLevelOrigin,
+            tabID: host.tabID, contextID: host.contextID, store: app.siteSettings,
+            isCurrent: { [weak self, weak host] in
+                guard let self, let host else { return false }
+                return self.promptIsCurrent(identity, host: host, generation: generation)
+            }) { [weak self] surface in
+                self?.promptPresenters.removeValue(forKey: request.id)
+                request.resolve(surface)
             }
     }
 
@@ -1762,14 +1790,15 @@ final class BrowserWindowModel: Identifiable {
 
     func setSitePermission(_ kind: PermissionKind, _ value: SitePermission) {
         guard !isClosed, !isPrivate, selectedPageCapabilities.permissions.contains(kind),
-              let url = selectedTab?.url else { return }
-        guard app.siteSettings.update(origin: url.absoluteString, profileID: record.profileID,
-            camera: kind == .camera ? value : nil, microphone: kind == .microphone ? value : nil,
-            engines: app.engines.engines), value == .deny else { return }
+              let url = selectedTab?.url,
+              app.siteSettings.update(origin: url.absoluteString, profileID: record.profileID, kind, value,
+                                      engines: app.engines.engines) else { return }
+        if value != .allow { revokeEngineGrant(kind, for: url) }
+        guard value == .deny else { return }
         // ponytail: Capture state has no frame origin; stop this device across the profile until engines expose it.
         for window in app.windows where !window.isClosed && !window.isPrivate && window.record.profileID == record.profileID {
             for host in Array(window.pages.values) where host.state.grantedMediaKinds.contains(kind)
-                || (kind == .camera ? host.state.camera : host.state.microphone) != .none {
+                || host.state.isCapturing(kind) {
                 window.stopCapture(kind, in: host)
             }
         }
@@ -1779,15 +1808,37 @@ final class BrowserWindowModel: Identifiable {
     func turnOffSitePermission(_ kind: PermissionKind) {
         guard !isClosed, let host = selectedPage else { return }
         if !isPrivate { setSitePermission(kind, .ask) }
-        if (kind == .camera ? host.state.camera : host.state.microphone) != .none { stopCapture(kind, in: host) }
+        else if let url = selectedTab?.url { revokeEngineGrant(kind, for: url) }
+        if host.state.isCapturing(kind) { stopCapture(kind, in: host) }
+    }
+
+    /// Chromium keeps its own session grant for window management; Cobble's setting stays authoritative.
+    private func revokeEngineGrant(_ kind: PermissionKind, for url: URL) {
+        guard kind == .windowManagement, let origin = AddressResolver.canonicalOrigin(url) else { return }
+        app.engines.resetPermission(kind, origin: origin, profileID: record.profileID)
     }
 
     private func stopCapture(_ kind: PermissionKind, in host: any BrowserPage) {
+        if kind == .windowManagement { return }
+        if kind == .screenSharing { stopDisplayCapture(in: host); return }
         if host.capabilities.captureControls.contains(.stop(kind)) { host.setCapture(kind, .none) }
         else if !host.capabilities.captureControls.contains(.stopAllUserMedia) || !host.stopMediaCapture() {
             retireHost(host.tabID, leavingUnloaded: true)
             addressError = String(localized: "A page was unloaded because camera or microphone capture could not be stopped safely. Unsaved page content may be lost.")
         }
+    }
+
+    /// Ends the selected page's window or screen sharing.
+    func stopDisplayCapture() {
+        if let host = selectedPage { stopDisplayCapture(in: host) }
+    }
+
+    private func stopDisplayCapture(in host: any BrowserPage) {
+        guard !isClosed, host.state.isDisplayCapturing,
+              host.capabilities.captureControls.contains(.stopDisplay) else { return }
+        guard !host.stopDisplayCapture() else { return }
+        retireHost(host.tabID, leavingUnloaded: true)
+        addressError = String(localized: "A page was unloaded because screen sharing could not be stopped safely. Unsaved page content may be lost.")
     }
 
     func setPopups(_ value: SitePermission) {

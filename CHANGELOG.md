@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Screen sharing works in WebKit and Chromium tabs. When a site asks, Cobble
+  shows which site wants to see your screen; choose Window… or Screen…, then
+  pick it in the macOS sharing picker. Cobble asks every time and notes when
+  more than one display is connected. The site menu can stop sharing or block
+  a site from asking. Chromium tabs share video only.
+- Chromium tabs can ask to see your displays and place windows on them. Cobble
+  asks with the site's name and remembers your answer like camera access; turn
+  it off in the site menu or Settings.
+- A Chromium page that leaves full screen right after entering no longer leaves
+  its window stuck in full screen.
 - New Keyboard Privacy setting (Settings → Browsing): websites no longer see
   ⌘ or ⌃ keys, in WebKit and Chromium tabs and in page full screen — not even
   held while typing other keys, moving the pointer or scrolling. Clicks still

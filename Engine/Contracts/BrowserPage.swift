@@ -2,7 +2,8 @@ import AppKit
 import Observation
 
 enum PageOperation: Hashable, Sendable { case find, zoom, printPage, muteAudio, reloadFromOrigin, snapshot, localFile, savePage, pageDOM, inspect, openDevTools, detach }
-enum PermissionKind: Hashable, Sendable { case camera, microphone }
+/// Site permissions Cobble asks for and saves per origin. Screen sharing saves only a block.
+enum PermissionKind: Hashable, Sendable { case camera, microphone, windowManagement, screenSharing }
 enum PageConnection: Hashable, Sendable {
     case unknown, empty, secure, mixed, insecure
     static func classify(urlString: String, hasOnlySecureContent: Bool? = nil) -> PageConnection {
@@ -51,7 +52,10 @@ struct PageConnectionDetails: Equatable, Sendable {
 }
 enum PageCapture: Hashable, Sendable { case none, active, muted }
 enum PageCaptureControl: Hashable, Sendable {
+    /// `stopAllUserMedia` ends camera, microphone, window and screen streams together.
     case mute(PermissionKind), stop(PermissionKind), stopAllUserMedia
+    /// Ends every window/screen stream the page obtained from getDisplayMedia.
+    case stopDisplay
 }
 enum PageArchiveFormat: Sendable {
     case webArchive, mhtml
@@ -85,6 +89,14 @@ enum PageArchiveFormat: Sendable {
     var isAudioMuted = false
     var isDisplayCapturing = false
     var audioMuteBlocked = false
+    func isCapturing(_ kind: PermissionKind) -> Bool {
+        switch kind {
+        case .camera: camera != .none
+        case .microphone: microphone != .none
+        case .screenSharing: isDisplayCapturing
+        case .windowManagement: false
+        }
+    }
     /// Native dialogs and permission popovers that would be cancelled by retirement.
     var hasPendingPrompt = false
     var findQuery = ""
@@ -105,6 +117,7 @@ enum PageArchiveFormat: Sendable {
     var onExternalURL: ((URL) -> Void)?
     var onKeyEvent: ((NSEvent) -> Bool)?
     var onMediaPermissionRequest: ((PageMediaPermissionRequest) -> Void)?
+    var onDisplayCaptureRequest: ((PageDisplayCaptureRequest) -> Void)?
     var onJavaScriptDialog: ((PageJavaScriptDialogRequest) -> Void)?
     var onHTTPAuthRequest: ((PageHTTPAuthRequest) -> Void)?
     var onFileChooserRequest: ((PageFileChooserRequest) -> Void)?
@@ -114,7 +127,7 @@ enum PageArchiveFormat: Sendable {
     func clear() {
         onChange = nil; onVisit = nil; onFavicon = nil; onCreatePage = nil; onCreatePageForRequest = nil
         onDownload = nil; onClose = nil; onActivate = nil; onExternalURL = nil; onKeyEvent = nil
-        onMediaPermissionRequest = nil; onJavaScriptDialog = nil; onHTTPAuthRequest = nil
+        onMediaPermissionRequest = nil; onDisplayCaptureRequest = nil; onJavaScriptDialog = nil; onHTTPAuthRequest = nil
         onFileChooserRequest = nil; onExternalProtocolRequest = nil; onClientCertificateRequest = nil
         onPromptCancelled = nil
     }
@@ -156,6 +169,8 @@ enum PageArchiveFormat: Sendable {
     func openDevTools(hostWindowID: UUID) throws -> any PageDevToolsSession
     func setCapture(_ kind: PermissionKind, _ capture: PageCapture)
     @discardableResult func stopMediaCapture() -> Bool
+    /// Ends this page's window/screen sharing. False means nothing was stopped.
+    @discardableResult func stopDisplayCapture() -> Bool
     func setAudioMuted(_ muted: Bool) throws
     func focus()
     /// Reports the tab selected by the browser so engine integrations can publish native lifecycle events.
@@ -208,6 +223,7 @@ extension BrowserPage {
     func moveToWindow(_: UUID) throws { throw EngineError.unsupported(String(localized: "moving live tabs between windows")) }
     func setCapture(_ kind: PermissionKind, _ capture: PageCapture) {}
     @discardableResult func stopMediaCapture() -> Bool { false }
+    @discardableResult func stopDisplayCapture() -> Bool { false }
     func setAudioMuted(_ muted: Bool) throws { throw EngineError.unsupported(String(localized: "tab audio muting")) }
     func applySiteSettings() {}
     var restorableState: Data? { nil }

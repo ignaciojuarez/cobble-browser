@@ -102,9 +102,13 @@ struct WebsiteDataRecord: Identifiable, Hashable {
     /// Returns rejected writes. Implementations validate the whole batch first.
     func replaceCookies(_ cookies: [EngineCookie], for url: URL) async throws -> Int
     func close() async
+    /// Forgets a grant the engine keeps itself for an origin such as `https://example.com`.
+    /// Cobble's site settings stay the only saved decision.
+    func resetPermission(_ kind: PermissionKind, origin: String)
 }
 
 extension EngineContext {
+    func resetPermission(_ kind: PermissionKind, origin: String) {}
     func exportCookies(for url: URL) async throws -> CookieTransferSnapshot {
         throw EngineError.unsupported("cross-engine login sharing")
     }

@@ -16,8 +16,8 @@ private let chromiumDataRemoval: Set<WebsiteDataRemovalCapability> = [
     .init(categories: [.cache], scope: .profileSince),
 ]
 
-let chromiumPermissions: Set<PermissionKind> = [.camera, .microphone]
-let chromiumCaptureControls: Set<PageCaptureControl> = [.stopAllUserMedia]
+let chromiumPermissions: Set<PermissionKind> = [.camera, .microphone, .windowManagement, .screenSharing]
+let chromiumCaptureControls: Set<PageCaptureControl> = [.stopAllUserMedia, .stopDisplay]
 let chromiumSupportsPopupPolicy = true
 private let chromiumSupportsProfileDeletion = true
 
@@ -309,9 +309,17 @@ extension SiteBrowserIdentity {
             request.deny()
             return
         }
+        if request.kinds == .display {
+            receiveDisplayCapture(request, host: host)
+            return
+        }
+        // Window management arrives alone; camera and microphone may arrive together.
         var kinds: Set<PermissionKind> = []
-        if request.kinds.contains(.camera) { kinds.insert(.camera) }
-        if request.kinds.contains(.microphone) { kinds.insert(.microphone) }
+        if request.kinds == .windowManagement { kinds = [.windowManagement] }
+        else if request.kinds.isSubset(of: [.camera, .microphone]) {
+            if request.kinds.contains(.camera) { kinds.insert(.camera) }
+            if request.kinds.contains(.microphone) { kinds.insert(.microphone) }
+        }
         guard !kinds.isEmpty, host.capabilities.permissions.isSuperset(of: kinds),
               let publish = host.events.onMediaPermissionRequest else {
             request.deny()
@@ -328,7 +336,7 @@ extension SiteBrowserIdentity {
                 guard let request, request.isPending else { return }
                 if decision == .allow {
                     guard let host, !host.closing else { request.deny(); return }
-                    host.state.grantedMediaKinds.formUnion(kinds)
+                    host.state.grantedMediaKinds.formUnion(kinds.intersection([.camera, .microphone]))
                     request.allow()
                 } else { request.deny() }
             }
@@ -337,6 +345,36 @@ extension SiteBrowserIdentity {
                   self.mediaRequestIDs.removeValue(forKey: nativeID) == id else { return }
             host?.events.onPromptCancelled?(id)
             shared.resolve(.deny)
+        }
+        publish(shared)
+    }
+
+    /// getDisplayMedia: the host chooses window or screen; the SDK then opens the macOS picker.
+    private func receiveDisplayCapture(_ request: ChromiumMediaPermissionRequest, host: ChromiumPage) {
+        guard let identity = promptIdentity(host: host,
+                  requestingOrigin: request.requestingOrigin.absoluteString,
+                  topLevelOrigin: request.embeddingOrigin.absoluteString,
+                  documentID: request.frameToken,
+                  frameID: "\(request.frameProcessID):\(request.frameRoutingID)"),
+              let publish = host.events.onDisplayCaptureRequest else {
+            request.deny()
+            return
+        }
+        let id = UUID()
+        let nativeID = request.id
+        mediaRequestIDs[nativeID] = id
+        let shared = PageDisplayCaptureRequest(id: id, identity: identity, prompt: ()) {
+            [weak self, weak host, weak request] surface in
+            guard let self, self.mediaRequestIDs.removeValue(forKey: nativeID) == id,
+                  let request, request.isPending else { return }
+            guard let surface, let host, !host.closing else { request.deny(); return }
+            request.allow(display: surface == .screen ? .screen : .window)
+        }
+        request.onCancel = { [weak self, weak host, weak request] in
+            guard let self, request != nil,
+                  self.mediaRequestIDs.removeValue(forKey: nativeID) == id else { return }
+            host?.events.onPromptCancelled?(id)
+            shared.resolve(nil)
         }
         publish(shared)
     }
@@ -783,6 +821,12 @@ extension SiteBrowserIdentity {
         }
     }
 
+    /// Chromium keeps a window-management grant for the browsing session; nothing else.
+    func resetPermission(_ kind: PermissionKind, origin: String) {
+        guard kind == .windowManagement else { return }
+        context?.resetPermission(.windowManagement, origin: origin)
+    }
+
     func close() async {
         guard !closed, !closing else { return }
         closing = true
@@ -847,6 +891,18 @@ extension SiteBrowserIdentity {
                 opened.identityResolver = { [weak self] url in
                     guard let self, let siteSettings = self.siteSettings else { return .standard }
                     return siteSettings.browserIdentity(for: url, profileID: self.id.profileID).chromiumIdentity
+                }
+                // Saved decisions answer Chromium's quiet window-management checks; private windows ask.
+                opened.permissionResolver = { [weak self] kind, requesting, embedding in
+                    guard let self, !self.isPrivate, kind == .windowManagement, let siteSettings = self.siteSettings,
+                          let url = URL(string: requesting) else { return .ask }
+                    let setting = siteSettings.setting(origin: url, profileID: self.id.profileID, engineID: self.id.engineID)
+                    switch SiteSettingsStore.mediaDecision(kinds: [.windowManagement], setting: setting,
+                                                           isPrivate: false, sameOrigin: requesting == embedding) {
+                    case .allow: return .allow
+                    case .deny: return .deny
+                    case .ask: return .ask
+                    }
                 }
                 self.context = opened
                 self.engine.contextOpened(self, native: opened)
