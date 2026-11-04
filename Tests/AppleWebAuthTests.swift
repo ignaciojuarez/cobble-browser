@@ -138,6 +138,6 @@ final class AppleWebAuthTests: XCTestCase {
     @MainActor func testPasskeyPrepareIsNoOpWithoutEntitlement() {
         ApplePasskeys.prepareIfNeeded()
         XCTAssertFalse(BrowserEntitlements.hasPasskeys)
-        XCTAssertFalse(BrowserEntitlements.hasWebBrowser)
+        XCTAssertEqual(ApplePasskeys.status, .unentitled)
     }
 }
