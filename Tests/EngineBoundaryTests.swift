@@ -1883,7 +1883,7 @@ import SQLite3
                                      camera: .allow, engineID: .webKit))
             XCTAssertEqual(store.setting(origin: self.destination, profileID: Profile.defaultID, engineID: self.secondID).camera, .ask)
             XCTAssertNil(store.summaries(profileID: Profile.defaultID, engines: engines).first?.camera)
-            store.update(origin: self.destination.absoluteString, profileID: Profile.defaultID, camera: .deny, engines: engines)
+            store.update(origin: self.destination.absoluteString, profileID: Profile.defaultID, .camera, .deny, engines: engines)
             XCTAssertEqual(store.summaries(profileID: Profile.defaultID, engines: engines).first?.camera, .deny)
             let setting = store.setting(origin: self.destination, profileID: Profile.defaultID)
             XCTAssertEqual(SiteSettingsStore.mediaDecision(kinds: [.camera], setting: setting, isPrivate: true, sameOrigin: true), .ask)
@@ -1903,6 +1903,96 @@ import SQLite3
             XCTAssertTrue(controls.showsDisplayCapture)
             XCTAssertTrue(page.capabilities.permissions.isEmpty)
             XCTAssertTrue(page.capabilities.captureControls.isEmpty)
+        }
+    }
+
+    func testDisplayCaptureSwitchStopsSharingOrUnloadsThePage() async throws {
+        try await withApp { app, _ in
+            let window = try XCTUnwrap(app.windows.first)
+            window.addTab(url: self.destination)
+            let page = try XCTUnwrap(window.selectedPage as? TestPage)
+            page.capabilities.captureControls = [.stopDisplay]
+            window.stopDisplayCapture()
+            XCTAssertEqual(page.stopDisplayCaptureCount, 0, "Nothing to stop")
+            page.state.isDisplayCapturing = true
+            window.stopDisplayCapture()
+            XCTAssertEqual(page.stopDisplayCaptureCount, 1)
+            XCTAssertTrue(window.selectedPage === page, "A stoppable page stays loaded")
+            XCTAssertNil(window.addressError)
+            page.stopDisplayCaptureSucceeds = false
+            window.stopDisplayCapture()
+            XCTAssertEqual(page.stopDisplayCaptureCount, 2)
+            XCTAssertNil(window.selectedPage, "A page that cannot stop sharing is unloaded")
+            XCTAssertNotNil(window.addressError)
+        }
+    }
+
+    func testScreenSharingSwitchBlocksTheSiteAndStopsSharing() async throws {
+        try await withApp { app, engines in
+            engines[0].capabilities.permissions = [.camera, .microphone, .screenSharing]
+            engines[0].capabilities.captureControls = [.stopDisplay]
+            let window = try XCTUnwrap(app.windows.first)
+            window.addTab(url: self.destination)
+            let page = try XCTUnwrap(window.selectedPage as? TestPage)
+            page.capabilities = engines[0].capabilities
+            page.state.isDisplayCapturing = true
+            window.setSitePermission(.screenSharing, .deny)
+            XCTAssertEqual(page.stopDisplayCaptureCount, 1, "Blocking ends the current share")
+            XCTAssertEqual(app.siteSettings.setting(origin: self.destination, profileID: Profile.defaultID).screenSharing, .deny)
+            window.setSitePermission(.screenSharing, .allow)
+            XCTAssertEqual(app.siteSettings.setting(origin: self.destination, profileID: Profile.defaultID).screenSharing, .ask,
+                           "A screen sharing grant is never saved")
+            XCTAssertTrue(engines[0].contexts.allSatisfy { $0.permissionResets.isEmpty }, "Only window management is engine-held")
+        }
+    }
+
+    func testWindowManagementRevocationResetsTheEngineGrant() async throws {
+        try await withApp { app, engines in
+            engines[0].capabilities.permissions = [.camera, .microphone, .windowManagement]
+            let window = try XCTUnwrap(app.windows.first)
+            window.addTab(url: self.destination)
+            let page = try XCTUnwrap(window.selectedPage as? TestPage)
+            page.capabilities = engines[0].capabilities
+            let origin = try XCTUnwrap(AddressResolver.canonicalOrigin(self.destination))
+            window.setSitePermission(.windowManagement, .allow)
+            XCTAssertEqual(app.siteSettings.setting(origin: self.destination, profileID: Profile.defaultID).windowManagement, .allow)
+            let context = try XCTUnwrap(engines[0].contexts.first)
+            XCTAssertTrue(context.permissionResets.isEmpty)
+            window.turnOffSitePermission(.windowManagement)
+            XCTAssertEqual(app.siteSettings.setting(origin: self.destination, profileID: Profile.defaultID).windowManagement, .ask)
+            XCTAssertEqual(context.permissionResets.map(\.1), [origin])
+            XCTAssertEqual(context.permissionResets.map(\.0), [.windowManagement])
+            window.setSitePermission(.windowManagement, .deny)
+            XCTAssertEqual(context.permissionResets.count, 2)
+        }
+    }
+
+    func testDisplayCaptureRequestNeedsCurrentPromptStopControlAndForegroundAnchor() async throws {
+        try await withApp { app, _ in
+            let window = try XCTUnwrap(app.windows.first)
+            window.addTab(url: self.destination)
+            let page = try XCTUnwrap(window.selectedPage as? TestPage)
+            @MainActor func identity(windowID: UUID, topLevel: URL) -> PagePromptIdentity {
+                PagePromptIdentity(tabID: page.tabID, contextID: page.contextID, windowID: windowID,
+                    documentID: "document", frameID: "frame",
+                    requestingOrigin: self.destination, topLevelOrigin: topLevel)
+            }
+            var decisions: [PageDisplaySurface?] = []
+            @MainActor func publish(_ identity: PagePromptIdentity) {
+                let request = PageDisplayCaptureRequest(identity: identity, prompt: ()) { decisions.append($0) }
+                page.events.onDisplayCaptureRequest?(request)
+                request.resolve(.screen)
+            }
+            // No stop control: a page must not start sharing that the user cannot end.
+            publish(identity(windowID: window.id, topLevel: self.destination))
+            page.capabilities.captureControls = [.stopDisplay]
+            publish(identity(windowID: UUID(), topLevel: self.destination))
+            publish(identity(windowID: window.id, topLevel: URL(string: "https://embedded.example")!))
+            // Current request, but no key window or site-control anchor to show the origin.
+            publish(identity(windowID: window.id, topLevel: self.destination))
+            XCTAssertEqual(decisions.count, 4)
+            XCTAssertTrue(decisions.allSatisfy { $0 == nil })
+            XCTAssertFalse(page.hasPendingPrompt)
         }
     }
 
@@ -2089,6 +2179,8 @@ import SQLite3
     var cookieExports = 0
     var cookieReplacements: [[EngineCookie]] = []
     var cookieRejections = 0
+    var permissionResets: [(PermissionKind, String)] = []
+    func resetPermission(_ kind: PermissionKind, origin: String) { permissionResets.append((kind, origin)) }
     var onCookieExport: (() async -> Void)?
     var onCookieReplace: (() -> Void)?
     let data = WebsiteDataRecord(id: UUID(), displayName: "figma.com")
@@ -2156,6 +2248,8 @@ import SQLite3
     var captureRequests: [(PermissionKind, PageCapture)] = []
     var stopMediaCaptureCount = 0
     var stopMediaCaptureSucceeds = true
+    var stopDisplayCaptureCount = 0
+    var stopDisplayCaptureSucceeds = true
     var devToolsSession: (any PageDevToolsSession)?
     var devToolsHostWindowIDs: [UUID] = []
     var connectionDetailsValue: PageConnectionDetails?
@@ -2203,6 +2297,10 @@ import SQLite3
     @discardableResult func stopMediaCapture() -> Bool {
         stopMediaCaptureCount += 1
         return stopMediaCaptureSucceeds
+    }
+    @discardableResult func stopDisplayCapture() -> Bool {
+        stopDisplayCaptureCount += 1
+        return stopDisplayCaptureSucceeds
     }
     func openDevTools(hostWindowID: UUID) throws -> any PageDevToolsSession {
         devToolsHostWindowIDs.append(hostWindowID)

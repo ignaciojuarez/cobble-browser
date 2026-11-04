@@ -7,8 +7,9 @@ struct SiteActionButtonStyle: ButtonStyle {
         configuration.label
             .font(.system(size: 13, weight: .semibold))
             .foregroundStyle(prominent ? AnyShapeStyle(.white) : AnyShapeStyle(.primary))
+            .lineLimit(1)
             .frame(maxWidth: .infinity)
-            .padding(.vertical, 8).padding(.horizontal, 12)
+            .padding(.vertical, 8).padding(.horizontal, 8)
             .background(prominent ? AnyShapeStyle(Color.accentColor) : AnyShapeStyle(.primary.opacity(0.08)), in: Capsule())
             .opacity(configuration.isPressed ? 0.75 : 1)
             .contentShape(Capsule())
@@ -67,14 +68,14 @@ struct SiteControlAnchor: NSViewRepresentable {
     }
 }
 
-/// Allowing is remembered for the site whenever the request can be remembered.
-struct MediaPermissionContent: View {
-    let origin: String
-    let device: String
+/// Shared layout for origin-anchored permission prompts.
+private struct PermissionPrompt<Actions: View>: View {
     let symbol: String
-    let embeddedIn: String?
-    let canRemember: Bool
-    let finish: (Bool, Bool) -> Void
+    let title: String
+    let origin: String
+    let note: String?
+    var notice: String?
+    @ViewBuilder let actions: Actions
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack(alignment: .top, spacing: 12) {
@@ -82,22 +83,57 @@ struct MediaPermissionContent: View {
                     .frame(width: 34, height: 34).background(.tint.opacity(0.15), in: Circle())
                     .accessibilityHidden(true)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(String(format: String(localized: "Allow %@ to use your %@?"), URL(string: origin)?.host ?? origin, device))
-                        .font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
+                    Text(title).font(.system(size: 13, weight: .semibold)).fixedSize(horizontal: false, vertical: true)
                     Text(origin).font(.caption).foregroundStyle(.secondary).textSelection(.enabled)
-                    if let embeddedIn {
-                        Text(String(format: String(localized: "Embedded in %@. This request only."), embeddedIn))
-                            .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-                    } else if !canRemember {
-                        Text("This request only.").font(.caption).foregroundStyle(.secondary)
+                    if let note {
+                        Text(note).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    }
+                    if let notice {
+                        Label(notice, systemImage: "display.2").font(.caption).foregroundStyle(.secondary)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
                 }
             }
-            HStack(spacing: 8) {
-                Button("Not Now") { finish(false, false) }.buttonStyle(SiteActionButtonStyle()).keyboardShortcut(.cancelAction)
-                Button("Allow") { finish(true, canRemember) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
-            }
+            HStack(spacing: 8) { actions }
         }.padding(16).frame(width: 300)
+    }
+}
+
+/// Allowing is remembered for the site whenever the request can be remembered.
+struct MediaPermissionContent: View {
+    let origin: String
+    let title: String
+    let symbol: String
+    let embeddedIn: String?
+    let canRemember: Bool
+    var notice: String?
+    let finish: (Bool, Bool) -> Void
+    var body: some View {
+        PermissionPrompt(symbol: symbol, title: title, origin: origin,
+            note: embeddedIn.map { String(format: String(localized: "Embedded in %@. This request only."), $0) }
+                ?? (canRemember ? nil : String(localized: "This request only.")), notice: notice) {
+            Button("Not Now") { finish(false, false) }.buttonStyle(SiteActionButtonStyle()).keyboardShortcut(.cancelAction)
+            Button("Allow") { finish(true, canRemember) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+        }
+    }
+}
+
+/// Screen sharing grants are never remembered. The macOS picker then selects the exact window or display.
+struct DisplayCaptureContent: View {
+    let origin: String
+    let embeddedIn: String?
+    var notice: String?
+    let finish: (PageDisplaySurface?) -> Void
+    var body: some View {
+        PermissionPrompt(symbol: "rectangle.inset.filled.on.rectangle",
+            title: String(format: String(localized: "Allow %@ to see a window or your screen?"), URL(string: origin)?.host ?? origin),
+            origin: origin,
+            note: embeddedIn.map { String(format: String(localized: "Embedded in %@. This request only."), $0) }
+                ?? String(localized: "This request only."), notice: notice) {
+            Button("Not Now") { finish(nil) }.buttonStyle(SiteActionButtonStyle()).keyboardShortcut(.cancelAction)
+            Button("Window…") { finish(.window) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+            Button("Screen…") { finish(.screen) }.buttonStyle(SiteActionButtonStyle())
+        }
     }
 }
 
@@ -110,18 +146,26 @@ struct MediaPermissionContent: View {
     private let isCurrent: () -> Bool
     private var completion: ((Bool, Bool) -> Void)?
     private var observers: [NSObjectProtocol] = []
-    init(anchor: SiteControlAnchorView, tabID: UUID, contextID: BrowsingContextID,
-         origin: String, device: String, symbol: String, embeddedIn: String?, canRemember: Bool,
-         isCurrent: @escaping () -> Bool, completion: @escaping (Bool, Bool) -> Void) {
+    convenience init(anchor: SiteControlAnchorView, tabID: UUID, contextID: BrowsingContextID,
+                     origin: String, title: String, symbol: String, embeddedIn: String?, canRemember: Bool,
+                     notice: String? = nil, isCurrent: @escaping () -> Bool, completion: @escaping (Bool, Bool) -> Void) {
+        self.init(anchor: anchor, tabID: tabID, contextID: contextID, isCurrent: isCurrent, completion: completion) { finish in
+            MediaPermissionContent(origin: origin, title: title, symbol: symbol,
+                                   embeddedIn: embeddedIn, canRemember: canRemember, notice: notice, finish: finish)
+        }
+    }
+    /// `content` receives the popover's `finish(allowed:remember:)`; a grant still needs a live, eligible anchor.
+    init<Content: View>(anchor: SiteControlAnchorView, tabID: UUID, contextID: BrowsingContextID,
+                        isCurrent: @escaping () -> Bool, completion: @escaping (Bool, Bool) -> Void,
+                        content: (@escaping (Bool, Bool) -> Void) -> Content) {
         self.anchor = anchor; owner = anchor.window; self.tabID = tabID; self.contextID = contextID
         self.isCurrent = isCurrent; self.completion = completion
         super.init()
         popover.behavior = .transient
         popover.delegate = self
-        let hosting = NSHostingController(rootView: MediaPermissionContent(origin: origin,
-            device: device, symbol: symbol, embeddedIn: embeddedIn, canRemember: canRemember) { [weak self] allowed, remember in
-                self?.finish(allowed: allowed, remember: remember)
-            })
+        let hosting = NSHostingController(rootView: content { [weak self] allowed, remember in
+            self?.finish(allowed: allowed, remember: remember)
+        })
         hosting.sizingOptions = .preferredContentSize
         popover.contentViewController = hosting
     }

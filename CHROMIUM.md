@@ -36,18 +36,41 @@ both Chromium and WebKit.
 | Chromium | `153.0.8010.37` (`b75a5a95ea1a1b55bdbfd6d9f42d47be7507fb8b`) |
 | depot_tools | `81577f19a8497ba7e41afac322e8f03553a863ec` |
 | Cobble SDK | Exact public revision in `Package.swift` and `Package.resolved` |
-| Cobble ABI | 18 |
+| Cobble ABI | 19 |
 
 `Package.swift` is the build's authoritative SDK revision. Its explicit
 `COBBLE_CHROMIUM_SDK_PATH` override selects an absolute development checkout;
 the header ABI, SDK lock, archive and packaged runtime must still match. A Git
 revision alone cannot identify uncommitted native payloads. The client accepts
-only ABI 18; other ABI values fail before compilation. Do not mix a client from
+only ABI 19; other ABI values fail before compilation. Do not mix a client from
 one ABI with a runtime from another.
+
+## ABI 19 screen sharing
+
+ABI 19 routes `getDisplayMedia` to Cobble's origin prompt as a display request.
+Window… or Screen… opens the macOS content-sharing picker for that surface;
+cancelling it denies the page. The runtime enables Chromium's system-picker
+capture path, so Chrome's own desktop-media picker is never shown. Without that
+picker the SDK refuses display requests before asking Cobble. Streams are
+video only. Page state reports window/screen capture separately from camera and
+microphone. `CCSPageStopMediaCapture` (stop-all) now also ends window and screen
+streams.
+
+Window management (`getScreenDetails`, cross-screen placement) arrives as the
+`windowManagement` media-request kind. Every other prompt-backed permission
+stays denied. Cobble's saved decision answers every status check through
+`ChromiumContext.permissionResolver`, including quiet checks on load. Chromium
+keeps only a session grant for unsaved answers and stores no denial.
+`ChromiumContext.resetPermission(_:origin:)` clears that grant; Cobble calls it
+whenever its saved decision stops allowing. See `docs/features/screen-sharing.md`.
+The SDK harness covers display metadata, window and screen grants, state, stop,
+stop-all and denial. For window management it covers metadata, saved decisions
+answering quiet checks, reset and stored-nothing denial. It uses fake devices
+and DevTools clicks, since stock Chromium asks only after a click.
 
 ## ABI 18 integration
 
-The pinned ABI 18 SDK adds structured navigation failures,
+The ABI 18 SDK adds structured navigation failures,
 load progress and primary-renderer responsiveness to the adapter. Shared page
 state stays engine-neutral; WebKit supplies its native progress estimate too.
 The SDK also exposes runtime identity and download source/interruption metadata.
@@ -109,6 +132,47 @@ both the original private ABI 17 runtime and the rebuilt public runtime. This
 is an existing open qualification issue, not a passing download/release gate.
 The runtime remains a development artifact; no new signed app update is
 published by this source migration.
+
+## Screen sharing validation (2026-11-04)
+
+The [matched development runtime](https://github.com/ignaciojuarez/chrome-sdk/releases/tag/sdk-153.0.8010.37-abi19-f0a128e)
+adds ABI 19 screen sharing and window management. It also fixes a page that
+leaves full screen while macOS is still animating in: before, its window stayed
+full screen until Esc.
+
+**SDK harness.** All 13 new checks passed:
+
+- seven display checks, including stop-all;
+- six window-management checks, including saved decisions answering quiet checks.
+
+DevTools clicks drive window management, since stock Chromium asks only after
+one. 242 of 245 native checks passed; the DevTools frontend probe was skipped
+because it needs a foreground key window. The three failures need no new native
+window and fail identically on the unmodified ABI 18 `371054c` runtime:
+
+- picture-in-picture
+- document picture-in-picture
+- display-media containment
+
+**Source and adapter checks.** SDK Python (72), Swift (34) and Cobble adapter
+(12) tests passed with the pinned SDK. The full Cobble suite passed: 625 tests,
+including the four local WebKit audio-mute fixtures.
+
+**`local full` fixture flow** (one display; this Mac has no camera or
+microphone, so step 1 used Chromium's fake devices):
+
+- Cobble's prompts named `http://localhost:8765`.
+- Remembered camera, microphone and window-management allows answered without
+  a prompt, and `permissions.query` reported `granted`.
+- Screen details read the real 1920×1080 display.
+- The real macOS picker opened for Window…, and Cancel gave `NotAllowedError`.
+- A real Screen… share reported `monitor`, and the site menu's Stop ended it.
+- Turning Camera off ended the camera, microphone and screen tracks.
+- Revoking asked again, and a blocked site was refused without a prompt.
+- Fullscreen reported events `[true, false]`, and the window left full screen in
+  3 of 3 runs.
+
+Real hardware, multiple displays and real sites remain unqualified.
 
 ## Fullscreen validation (2026-10-31)
 

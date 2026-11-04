@@ -41,6 +41,26 @@ Owned media prompts and capture indicators are implemented. Native camera/mic
 success, TCC denial/retry, cross-origin frames, background tabs, revocation and
 navigation/close cancellation still need hardware qualification.
 
+### W19 — Screen sharing
+
+`getDisplayMedia` asks with the site's origin (Window… / Screen… / Not Now),
+then the macOS content-sharing picker selects the exact source. Grants are
+never saved; a site can be blocked. The site menu stops sharing or blocks the
+site. WebKit uses a runtime-checked private delegate and fails closed without
+it; Chromium needs SDK ABI 19, fails closed without the macOS picker and shares
+video only. Chromium window management (`getScreenDetails`) uses the camera
+prompt and storage; WebKit stays stock. `Tests/Fixtures/PermissionFlow`
+exercises camera and microphone, screen details, sharing and fullscreen on one
+origin; see `docs/features/screen-sharing.md`.
+
+Gate: the fixture flow passes in `local full`, the adapter checks pass, and the
+full suite passes, including local WebKit audio-mute fixtures. On 2026-11-04 the
+Full flow passed on one display, with fake camera and microphone devices. The
+real picker was cancelled and a real screen was shared and stopped; see
+`CHROMIUM.md`. Real-site calls (Meet, Zoom, Teams), real camera and microphone
+hardware, multiple displays, cross-origin frames, background tabs and navigation
+during the picker still need manual qualification.
+
 ### W18 — WebKit audio mute
 
 Native output mute keeps playback running. Its runtime-checked private bridge
@@ -83,7 +103,7 @@ contracts and UI. Keep request handles and rendering types inside adapters.
 | C01–C03, C28 | Match source, ABI, exports and packaged runtime; verify startup, child sandbox enforcement, profile paths, teardown and reproducible upgrades. Keep build outputs outside source control. |
 | C04, C14, C29, C31 | Native typing, IME, VoiceOver, clipboard, drag/drop, display/sleep and focus; qualify live movement, visibility, find feedback and remembered zoom. |
 | C05, C09, C30 | Media and popup bridges exist; qualify hardware/TCC, grant/revoke, origin/frame identity, stale prompts, exactly-once cancellation and safe window movement. |
-| C06, C07, C15 | Screen/system-audio capture, geolocation/notifications/device prompts and pointer/keyboard lock lack qualified host integration. Keep unsupported paths unavailable or safely rejected. Content fullscreen moves the page into its own native Space with an origin banner; isolated Full passed enter, page exit, Escape, navigation and tab close. Qualify real sites and macOS-initiated exit. |
+| C06, C07, C15 | ABI 19 routes window/screen capture to Cobble's prompt and the macOS picker (W19); system/tab audio is not shared. Geolocation/notifications/device prompts and pointer/keyboard lock lack qualified host integration. Keep unsupported paths unavailable or safely rejected. Content fullscreen moves the page into its own native Space with an origin banner; isolated Full passed enter, page exit, Escape, navigation and tab close. Qualify real sites and macOS-initiated exit. |
 | C08, C35 | Native connection/certificate details and repost ownership exist. Complete mixed-content/TLS/error recovery and shared-renderer crash/replacement checks; URL text alone is not security evidence. |
 | C10, C18, C19 | Native blocking, profile cleanup and data controls have fixtures. Verify live mutation failure, private isolation, category/domain/cache scopes, extension-storage exclusions and time-range limits. |
 | C11–C13, C16, C33 | Native mute, print, screenshot, metadata, DOM/MHTML, local-file and DevTools paths need current-package native/document qualification. Do not label MHTML as a WebKit archive. |

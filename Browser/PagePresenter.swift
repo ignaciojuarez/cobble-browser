@@ -183,12 +183,18 @@ import UniformTypeIdentifiers
         guard let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
               let anchor = SiteControlAnchorView.find(in: window.contentView, tabID: tabID, contextID: contextID),
               anchor.isEligible(tabID: tabID, contextID: contextID) else { completion(.deny); return }
-        let device = kinds.count == 2 ? String(localized: "camera and microphone") : (kinds.contains(.camera) ? String(localized: "camera") : String(localized: "microphone"))
+        let host = URL(string: originName)?.host ?? originName
+        let windows = kinds == [.windowManagement]
+        let title = windows
+            ? String(format: String(localized: "Allow %@ to see your displays and place windows on them?"), host)
+            : String(format: String(localized: "Allow %@ to use your %@?"), host,
+                     kinds.count == 2 ? String(localized: "camera and microphone")
+                     : (kinds.contains(.camera) ? String(localized: "camera") : String(localized: "microphone")))
         let canRemember = !contextID.isPrivate && store != nil && sameOrigin
         let presentation = MediaPermissionPopover(anchor: anchor, tabID: tabID, contextID: contextID,
-            origin: originName, device: device, symbol: kinds.contains(.camera) ? "camera.fill" : "mic.fill",
+            origin: originName, title: title, symbol: windows ? "display.2" : kinds.contains(.camera) ? "camera.fill" : "mic.fill",
             embeddedIn: sameOrigin ? nil : (topLevelOrigin ?? String(localized: "an unidentified page")), canRemember: canRemember,
-            isCurrent: isCurrent) { [weak self] allowed, remember in
+            notice: windows ? Self.displayNotice() : nil, isCurrent: isCurrent) { [weak self] allowed, remember in
             guard self?.cancellations.removeValue(forKey: id) != nil else { return }
             completion(Self.resolveMediaPermission(allowed: allowed && isCurrent(), remember: remember,
                 canRemember: canRemember, kinds: kinds, origin: origin, contextID: contextID,
@@ -200,6 +206,41 @@ import UniformTypeIdentifiers
         }
         presentation.show()
     }
+    /// Screen sharing asks in the foreground unless the site is blocked; nil denies. The engine then opens the
+    /// system picker. Grants are never remembered.
+    func requestDisplayCapture(id: UUID = UUID(), origin: URL?, topLevelOrigin: String?, sameOrigin: Bool,
+                               tabID: UUID, contextID: BrowsingContextID, store: SiteSettingsStore?,
+                               isCurrent: @escaping () -> Bool,
+                               completion: @escaping (PageDisplaySurface?) -> Void) {
+        guard isCurrent(), let origin, let originName = AddressResolver.canonicalOrigin(origin),
+              contextID.isPrivate || store?.setting(origin: origin, profileID: contextID.profileID,
+                                                    engineID: contextID.engineID).screenSharing != .deny,
+              let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
+              let anchor = SiteControlAnchorView.find(in: window.contentView, tabID: tabID, contextID: contextID),
+              anchor.isEligible(tabID: tabID, contextID: contextID) else { completion(nil); return }
+        var surface: PageDisplaySurface?
+        let presentation = MediaPermissionPopover(anchor: anchor, tabID: tabID, contextID: contextID,
+            isCurrent: isCurrent, completion: { [weak self] allowed, _ in
+                guard self?.cancellations.removeValue(forKey: id) != nil else { return }
+                completion(allowed && isCurrent() ? surface : nil)
+            }) { finish in
+                DisplayCaptureContent(origin: originName,
+                    embeddedIn: sameOrigin ? nil : (topLevelOrigin ?? String(localized: "an unidentified page")),
+                    notice: Self.displayNotice()) { chosen in
+                        surface = chosen
+                        finish(chosen != nil, false)
+                    }
+            }
+        cancellations[id] = {
+            presentation.finish(allowed: false, remember: false)
+            completion(nil)
+        }
+        presentation.show()
+    }
+    /// Informational only, from AppKit's display list. Never sent to or read from the page.
+    static func displayNotice(count: Int = NSScreen.screens.count) -> String? {
+        count > 1 ? String(format: String(localized: "%lld displays are connected."), count) : nil
+    }
     static func resolveMediaPermission(allowed: Bool, remember: Bool, canRemember: Bool,
                                        kinds: Set<PermissionKind>, origin: URL, contextID: BrowsingContextID,
                                        sameOrigin: Bool, store: SiteSettingsStore?) -> SitePermission {
@@ -210,8 +251,7 @@ import UniformTypeIdentifiers
         guard allowed else { return .deny }
         if canRemember, remember, let store {
             var saved = store.setting(origin: origin, profileID: contextID.profileID, engineID: contextID.engineID)
-            if kinds.contains(.camera) { saved.camera = .allow }
-            if kinds.contains(.microphone) { saved.microphone = .allow }
+            for kind in kinds where kind != .screenSharing { saved[kind] = .allow }
             store.update(saved)
         }
         return .allow

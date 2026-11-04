@@ -1,0 +1,89 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Permission flow</title>
+<!--
+  One origin, the order permission-heavy sites use: camera and microphone,
+  screen details, screen sharing, fullscreen. Each step only reports what the
+  engine returned; nothing here changes what the page can read.
+  Automated: CobbleTests/WebKitPageTests testPermissionFlow*.
+  Manual and Full builds: docs/features/screen-sharing.md.
+-->
+<style>
+  body { font: 13px -apple-system, sans-serif; margin: 24px; }
+  button { margin: 0 6px 6px 0; }
+  pre { white-space: pre-wrap; }
+</style>
+<button data-step="media">1. Camera and microphone</button>
+<button data-step="screens">2. Read screens</button>
+<button data-step="share">3. Share a screen</button>
+<button data-step="fullscreen">4. Fullscreen</button>
+<button data-step="live">Live tracks</button>
+<button data-step="stop">Stop tracks</button>
+<pre id="log"></pre>
+<script>
+"use strict";
+const flow = window.permissionFlow = { results: {}, tracks: [], fullscreenEvents: [] };
+const failure = error => ({ ok: false, error: error.name });
+// A step that never settles reports TimeoutError instead of hanging the run.
+const settled = promise => Promise.race([promise, new Promise((_, reject) =>
+  setTimeout(() => reject(new DOMException("The step did not finish.", "TimeoutError")), 5000))]);
+document.addEventListener("fullscreenchange", () => {
+  flow.fullscreenEvents.push(document.fullscreenElement === document.documentElement);
+});
+flow.steps = {
+  async media() {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: true });
+      flow.tracks.push(...stream.getTracks());
+      return { ok: true, kinds: stream.getTracks().map(track => track.kind).sort() };
+    } catch (error) { return failure(error); }
+  },
+  async screens() {
+    const basic = { width: screen.width, height: screen.height, isExtended: screen.isExtended ?? null };
+    if (!("getScreenDetails" in window)) return { ok: true, api: false, ...basic };
+    try {
+      const details = await getScreenDetails();
+      const permission = (await navigator.permissions.query({ name: "window-management" })).state;
+      return { ok: true, api: true, permission, count: details.screens.length, ...basic };
+    } catch (error) { return { ...failure(error), api: true, ...basic }; }
+  },
+  async share() {
+    try {
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      flow.tracks.push(...stream.getTracks());
+      return { ok: true, surface: stream.getVideoTracks()[0].getSettings().displaySurface ?? null };
+    } catch (error) { return failure(error); }
+  },
+  async fullscreen() {
+    const before = flow.fullscreenEvents.length;
+    try {
+      await settled(document.documentElement.requestFullscreen());
+      const entered = document.fullscreenElement === document.documentElement;
+      await settled(document.exitFullscreen());
+      // Engines may fire the exit fullscreenchange after the promise settles.
+      await settled(new Promise(resolve => {
+        const check = () => flow.fullscreenEvents.length - before >= 2 ? resolve() : requestAnimationFrame(check);
+        check();
+      })).catch(() => {});
+      return { ok: true, entered, exited: document.fullscreenElement === null,
+               events: flow.fullscreenEvents.slice(before) };
+    } catch (error) { return failure(error); }
+  },
+  async live() {
+    return { ok: true, live: flow.live() };
+  },
+  async stop() {
+    flow.tracks.forEach(track => track.stop());
+    return { ok: true, stopped: flow.tracks.length };
+  },
+};
+flow.live = () => flow.tracks.filter(track => track.readyState === "live").map(track => track.kind).sort();
+flow.run = async step => {
+  flow.results[step] = await flow.steps[step]();
+  document.getElementById("log").textContent = JSON.stringify(flow.results, null, 2);
+  return flow.results[step];
+};
+document.querySelectorAll("button[data-step]").forEach(button => {
+  button.addEventListener("click", () => flow.run(button.dataset.step));
+});
+</script>

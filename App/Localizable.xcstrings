@@ -1,6 +1,33 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "%lld displays are connected." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Hay %lld pantallas conectadas."}}}
+    },
+    "A page was unloaded because screen sharing could not be stopped safely. Unsaved page content may be lost." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Se descargó una página porque no se pudo detener de forma segura el uso compartido de pantalla. Puede que se haya perdido el contenido sin guardar."}}}
+    },
+    "Allow %@ to see a window or your screen?" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "¿Permitir que %@ vea una ventana o tu pantalla?"}}}
+    },
+    "Allow %@ to see your displays and place windows on them?" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "¿Permitir que %@ vea tus pantallas y coloque ventanas en ellas?"}}}
+    },
+    "Off blocks this site from asking to share your screen." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Desactivado impide que este sitio pida compartir tu pantalla."}}}
+    },
+    "Screen…" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Pantalla…"}}}
+    },
+    "Stop sharing" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Dejar de compartir"}}}
+    },
+    "Window management" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Gestión de ventanas"}}}
+    },
+    "Window…" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ventana…"}}}
+    },
     "Keyboard Privacy" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Privacidad del teclado"}}}
     },

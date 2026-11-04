@@ -1848,6 +1848,231 @@ final class WebKitPageTests: XCTestCase {
         return configuration
     }
 
+    func testDisplayCaptureStopsThroughWebKitAndBlocksNativeMute() async throws {
+        // Mock grants skip the delegate, isolating WebKit capture state and the stop bridge.
+        let fixture = try await DisplayCaptureFixture(prompts: false)
+        defer { fixture.close() }
+        let page = fixture.page
+        XCTAssertEqual(WebKitDisplayCapture.support, .full)
+        XCTAssertTrue(page.capabilities.captureControls.contains(.stopDisplay))
+        XCTAssertFalse(page.stopDisplayCapture(), "Nothing to stop")
+        let shared = try await fixture.share()
+        XCTAssertTrue(shared?.localizedCaseInsensitiveContains("screen") == true, String(describing: shared))
+        try await waitFor { page.state.isDisplayCapturing }
+        XCTAssertTrue(page.state.audioMuteBlocked, "Capture history keeps native output mute safe")
+        XCTAssertTrue(page.stopDisplayCapture())
+        try await waitFor { !page.state.isDisplayCapturing }
+        let ended = try await page.webView.evaluateJavaScript("window.displayTrack.readyState") as? String
+        XCTAssertEqual(ended, "ended")
+        XCTAssertTrue(page.state.audioMuteBlocked)
+    }
+
+    func testDisplayCaptureIsDeniedWhenTheOriginPromptCannotShow() async throws {
+        // WebKit's default would share without asking; Cobble denies when it cannot show the origin.
+        let fixture = try await DisplayCaptureFixture(prompts: true)
+        defer { fixture.close() }
+        fixture.anchor.isEnabled = false
+        let result = try await fixture.share()
+        XCTAssertEqual(result, "NotAllowedError")
+        XCTAssertFalse(fixture.page.state.isDisplayCapturing)
+        XCTAssertFalse(fixture.page.state.hasPendingPrompt)
+    }
+
+    func testDisplayCaptureFailsClosedWithoutTheCheckedWebKitDelegate() async throws {
+        // Without the delegate WebKit opens its stock picker (mock devices grant at once), so Cobble refuses instead.
+        for support in [WebKitDisplayCapture.Support.denyOnly, .absent] {
+            let fixture = try await DisplayCaptureFixture(prompts: true, support: support)
+            defer { fixture.close() }
+            XCTAssertEqual(fixture.page.responds(to: WebKitDisplayCapture.request), support == .denyOnly)
+            XCTAssertFalse(fixture.page.responds(to: WebKitDisplayCapture.stateChanged))
+            let result = try await fixture.share()
+            XCTAssertEqual(result, "NotAllowedError", "\(support)")
+            let framed = try await fixture.page.webView.callAsyncJavaScript("""
+                const frame = document.body.appendChild(document.createElement("iframe"));
+                try { await frame.contentWindow.navigator.mediaDevices.getDisplayMedia({video: true}); return "shared"; }
+                catch (error) { return error.name; }
+                """, contentWorld: .page) as? String
+            XCTAssertEqual(framed, "NotAllowedError", "\(support) in a blank frame")
+            XCTAssertFalse(fixture.page.state.isDisplayCapturing)
+            XCTAssertFalse(fixture.page.stopDisplayCapture())
+            XCTAssertFalse(fixture.page.state.hasPendingPrompt)
+        }
+    }
+
+    func testPermissionFlowHonorsSavedDecisionsAndFailsClosed() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePermissionFlow-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SiteSettingsStore(directory: directory)
+        let origin = DisplayCaptureFixture.permissionFlowOrigin
+        var setting = SiteSetting(profileID: Profile.defaultID, origin: origin.absoluteString, camera: .allow, microphone: .allow)
+        setting.screenSharing = .deny
+        XCTAssertTrue(store.update(setting))
+        let fixture = try await DisplayCaptureFixture(prompts: true, siteSettings: store, flow: true)
+        defer { fixture.close() }
+        let page = fixture.page
+        // No Cobble prompt can show, so every grant below comes from a saved decision.
+        fixture.anchor.isEnabled = false
+
+        // 1. Remembered camera and microphone, reported as capture state.
+        let media = try await fixture.run("media")
+        XCTAssertEqual(media.kinds, ["audio", "video"], "\(media)")
+        try await waitFor { page.state.camera == .active && page.state.microphone == .active }
+        // 2. WebKit keeps its stock screen API; the values come from the real display.
+        let screens = try await fixture.run("screens")
+        XCTAssertEqual(screens.api, false, "WebKit has no window-management API")
+        let display = try XCTUnwrap(fixture.window.screen ?? NSScreen.main)
+        XCTAssertEqual(screens.width, display.frame.width, "\(screens)")
+        XCTAssertEqual(screens.height, display.frame.height, "\(screens)")
+        // 3. A blocked site is refused before any prompt.
+        let blocked = try await fixture.run("share")
+        XCTAssertEqual(blocked.error, "NotAllowedError")
+        XCTAssertFalse(page.state.isDisplayCapturing)
+
+        // Revoked and denied decisions take effect in the next document.
+        for value in [SitePermission.ask, .deny] {
+            setting.camera = value; setting.microphone = value; setting.screenSharing = .ask
+            XCTAssertTrue(store.update(setting))
+            try await fixture.loadPermissionFlow()
+            try await waitFor { page.state.camera == .none && page.state.microphone == .none }
+            let refused = try await fixture.run("media")
+            XCTAssertEqual(refused.error, "NotAllowedError", "\(value)")
+            // Unblocked, sharing still needs the origin prompt; without it the request is refused once.
+            let unprompted = try await fixture.run("share")
+            XCTAssertEqual(unprompted.error, "NotAllowedError", "\(value)")
+            XCTAssertFalse(page.state.isDisplayCapturing)
+            XCTAssertFalse(page.state.hasPendingPrompt)
+        }
+    }
+
+    func testPermissionFlowAsksWithTheOriginAndKeepsFullscreenEvents() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePermissionFlow-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SiteSettingsStore(directory: directory)
+        let fixture = try await DisplayCaptureFixture(prompts: true, siteSettings: store, flow: true)
+        defer { fixture.close() }
+        try XCTSkipUnless(NSApp.isActive && fixture.window.isKeyWindow,
+            "Cobble's prompts and fullscreen need an active GUI session. Run this test from Xcode with Cobble in the foreground.")
+        let page = fixture.page
+        func run(_ step: String, choosing label: String) async throws -> DisplayCaptureFixture.FlowResult {
+            var finished = false
+            let request = Task { @MainActor in
+                defer { finished = true }
+                return try await fixture.run(step)
+            }
+            try await waitFor { finished || (fixture.anchor.presentation != nil && page.state.hasPendingPrompt) }
+            try XCTSkipIf(finished && !(NSApp.isActive && fixture.window.isKeyWindow),
+                "Cobble lost the foreground before its origin prompt could show; no prompt result is claimed.")
+            var button: (() -> Bool)?
+            for _ in 0..<50 where button == nil {
+                button = self.promptButton(label)
+                if button == nil { try await Task.sleep(for: .milliseconds(20)) }
+            }
+            guard let button else {
+                fixture.anchor.presentation?.finish(allowed: false, remember: false)
+                _ = try? await request.value
+                throw XCTSkip("Cobble's prompt for \(step) could not press \(label) in this session; no prompt result is claimed.")
+            }
+            XCTAssertTrue(button())
+            return try await request.value
+        }
+        let origin = DisplayCaptureFixture.permissionFlowOrigin
+        let media = try await run("media", choosing: String(localized: "Allow"))
+        XCTAssertEqual(media.kinds, ["audio", "video"], "\(media)")
+        XCTAssertEqual(store.setting(origin: origin, profileID: Profile.defaultID).camera, .allow, "Allow is remembered")
+        try await waitFor { page.state.camera == .active }
+        let screens = try await fixture.run("screens")
+        XCTAssertEqual(screens.api, false)
+        let shared = try await run("share", choosing: String(localized: "Window…"))
+        XCTAssertEqual(shared.ok, true, "\(shared)")
+        try await waitFor { page.state.isDisplayCapturing }
+        XCTAssertEqual(store.setting(origin: origin, profileID: Profile.defaultID).screenSharing, .ask, "Sharing is never remembered")
+        // Cobble leaves fullscreen events exactly as WebKit reports them.
+        let fullscreen = try await fixture.run("fullscreen")
+        XCTAssertEqual(fullscreen.entered, true, "\(fullscreen)")
+        XCTAssertEqual(fullscreen.exited, true, "\(fullscreen)")
+        XCTAssertEqual(fullscreen.events, [true, false], "\(fullscreen)")
+        XCTAssertTrue(page.stopDisplayCapture())
+        try await waitFor { !page.state.isDisplayCapturing }
+        page.setCapture(.camera, .none); page.setCapture(.microphone, .none)
+        try await waitFor { page.state.camera == .none && page.state.microphone == .none }
+    }
+
+    func testDisplayCaptureAsksWithTheOriginBeforeWebKitShares() async throws {
+        let fixture = try await DisplayCaptureFixture(prompts: true)
+        defer { fixture.close() }
+        try XCTSkipUnless(NSApp.isActive && fixture.window.isKeyWindow,
+            "The origin prompt needs an active GUI session; this hosted process cannot activate. Run this test from Xcode with Cobble in the foreground.")
+        let page = fixture.page
+        func share(choosing label: String) async throws -> String? {
+            var finished = false
+            let request = Task { @MainActor in
+                defer { finished = true }
+                return try await fixture.share()
+            }
+            try await waitFor { finished || (fixture.anchor.presentation != nil && page.state.hasPendingPrompt) }
+            try XCTSkipIf(finished && !(NSApp.isActive && fixture.window.isKeyWindow),
+                "Cobble lost the foreground before its origin prompt could show; no prompt result is claimed.")
+            var button: (() -> Bool)?
+            for _ in 0..<50 where button == nil {
+                button = self.promptButton(label)
+                if button == nil { try await Task.sleep(for: .milliseconds(20)) }
+            }
+            guard let button else {
+                fixture.anchor.presentation?.finish(allowed: false, remember: false)
+                _ = try? await request.value
+                throw XCTSkip("Cobble's prompt could not press \(label) in this session; no prompt result is claimed.")
+            }
+            XCTAssertTrue(button())
+            return try await request.value
+        }
+        // Without this delegate WebKit would share silently; Cobble's origin prompt decides.
+        let denied = try await share(choosing: String(localized: "Not Now"))
+        XCTAssertEqual(denied, "NotAllowedError")
+        XCTAssertFalse(page.state.isDisplayCapturing)
+        let shared = try await share(choosing: String(localized: "Window…"))
+        XCTAssertTrue(shared?.localizedCaseInsensitiveContains("window") == true, String(describing: shared))
+        try await waitFor { page.state.isDisplayCapturing }
+        XCTAssertTrue(page.stopDisplayCapture())
+        try await waitFor { !page.state.isDisplayCapturing }
+    }
+
+    /// Presses a prompt button through accessibility, or through the popover's keyboard shortcut when SwiftUI
+    /// has not built its accessibility tree: Return is the default action, Escape is Not Now.
+    private func promptButton(_ label: String) -> (() -> Bool)? {
+        if let button = NSApp.windows.lazy.compactMap({ self.accessibilityButton(label, in: $0) }).first {
+            return { button.accessibilityPerformPress?() == true }
+        }
+        let key: (String, UInt16)? = switch label {
+        case String(localized: "Allow"), String(localized: "Window…"): ("\r", 36)
+        case String(localized: "Not Now"): ("\u{1b}", 53)
+        default: nil
+        }
+        guard let key, let popover = NSApp.windows.first(where: {
+            $0.isVisible && NSStringFromClass(type(of: $0)).contains("Popover")
+        }) else { return nil }
+        return {
+            guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: popover.windowNumber, context: nil, characters: key.0,
+                charactersIgnoringModifiers: key.0, isARepeat: false, keyCode: key.1) else { return false }
+            return popover.performKeyEquivalent(with: event)
+        }
+    }
+
+    private func accessibilityButton(_ label: String, in element: Any) -> AnyObject? {
+        let node = element as AnyObject
+        func text(_ getter: String) -> String? {
+            guard let object = node as? NSObject, object.responds(to: NSSelectorFromString(getter)),
+                  let value = object.perform(NSSelectorFromString(getter))?.takeUnretainedValue() else { return nil }
+            return (value as? NSAttributedString)?.string ?? value as? String
+        }
+        if text("accessibilityRole") == NSAccessibility.Role.button.rawValue,
+           text("accessibilityLabel") == label || text("accessibilityTitle") == label { return node }
+        if let window = node as? NSWindow { return window.contentView.flatMap { accessibilityButton(label, in: $0) } }
+        if let view = node as? NSView,
+           let button = view.subviews.lazy.compactMap({ self.accessibilityButton(label, in: $0) }).first { return button }
+        return (node.accessibilityChildren?() ?? []).lazy.compactMap { self.accessibilityButton(label, in: $0) }.first
+    }
+
     private func htmlURL(title: String) -> URL {
         let html = "<html><head><title>\(title)</title></head><body><input value=''></body></html>"
         return URL(string: "data:text/html;base64," + Data(html.utf8).base64EncodedString())!
@@ -1890,4 +2115,96 @@ private final class LocalPageHandler: NSObject, WKURLSchemeHandler {
     }
 
     func webView(_ webView: WKWebView, stop urlSchemeTask: WKURLSchemeTask) {}
+}
+
+/// A focused WebKit page with WebKit's mock screen and window devices, which stand in for the macOS picker.
+@MainActor private final class DisplayCaptureFixture {
+    let page: WebKitPage
+    let window: NSWindow
+    let anchor = SiteControlAnchorView(frame: NSRect(x: 8, y: 450, width: 22, height: 22))
+
+    init(prompts: Bool, support: WebKitDisplayCapture.Support = .full, siteSettings: SiteSettingsStore? = nil,
+         flow: Bool = false) async throws {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        typealias Setter = @convention(c) (AnyObject, Selector, Bool) -> Void
+        for (name, value) in [("_setMockCaptureDevicesEnabled:", true), ("_setMockCaptureDevicesPromptEnabled:", prompts)] {
+            let selector = NSSelectorFromString(name)
+            unsafeBitCast(configuration.preferences.method(for: selector), to: Setter.self)(configuration.preferences, selector, value)
+        }
+        page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(), configuration: configuration,
+                          siteSettings: siteSettings, displayCapture: support) { _, _, _ in }
+        let container = NSView(frame: NSRect(x: 0, y: 0, width: 640, height: 480))
+        page.webView.frame = container.bounds
+        container.addSubview(page.webView)
+        anchor.tabID = page.tabID; anchor.contextID = page.contextID; anchor.isEnabled = true
+        anchor.isCurrent = { _, _ in true }
+        container.addSubview(anchor)
+        window = NSWindow(contentRect: container.frame, styleMask: [.titled, .closable], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.contentView = container
+        NSApp.activate(ignoringOtherApps: true)
+        window.makeKeyAndOrderFront(nil)
+        window.makeFirstResponder(page.webView)
+        typealias SelectDevice = @convention(c) (AnyObject, Selector, NSNumber?) -> Void
+        let select = NSSelectorFromString("_setIndexOfGetDisplayMediaDeviceSelectedForTesting:")
+        unsafeBitCast(page.webView.method(for: select), to: SelectDevice.self)(page.webView, select, 0)
+        if flow { try await loadPermissionFlow() }
+        else { try await load("<title>Display fixture</title>", title: "Display fixture", baseURL: URL(string: "https://display.example/")!) }
+        let activated = ContinuousClock.now.advanced(by: .seconds(2))
+        while ContinuousClock.now < activated, !(NSApp.isActive && window.isKeyWindow) {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    static let permissionFlowOrigin = URL(string: "https://flow.example")!
+    static var permissionFlow: String {
+        get throws {
+            try String(contentsOf: URL(fileURLWithPath: #filePath).deletingLastPathComponent()
+                .appendingPathComponent("Fixtures/PermissionFlow/index.html"), encoding: .utf8)
+        }
+    }
+
+    /// A new document, as after Cobble unloads pages for a changed saved decision.
+    func loadPermissionFlow() async throws {
+        try await load(Self.permissionFlow, title: "Permission flow", baseURL: Self.permissionFlowOrigin)
+    }
+
+    private func load(_ html: String, title: String, baseURL: URL) async throws {
+        page.webView.loadHTMLString(html, baseURL: baseURL)
+        let loaded = ContinuousClock.now.advanced(by: .seconds(10))
+        while ContinuousClock.now < loaded, page.webView.title != title || page.webView.isLoading {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+    }
+
+    struct FlowResult: Decodable, Sendable {
+        var ok: Bool?, error: String?, kinds: [String]?, api: Bool?, width: Double?, height: Double?
+        var surface: String?, entered: Bool?, exited: Bool?, events: [Bool]?
+    }
+
+    /// Runs one Tests/Fixtures/PermissionFlow step and returns what the engine reported.
+    func run(_ step: String) async throws -> FlowResult {
+        let json = try await page.webView.callAsyncJavaScript("return JSON.stringify(await permissionFlow.run(step))",
+            arguments: ["step": step], contentWorld: .page) as? String
+        return try JSONDecoder().decode(FlowResult.self, from: Data((json ?? "{}").utf8))
+    }
+
+    /// Returns the shared track label or the rejection name.
+    func share() async throws -> String? {
+        try await page.webView.callAsyncJavaScript("""
+            try {
+              const [track] = (await navigator.mediaDevices.getDisplayMedia({video: true})).getVideoTracks();
+              window.displayTrack = track;
+              return track.label;
+            } catch (error) { return error.name; }
+            """, contentWorld: .page) as? String
+    }
+
+    func close() {
+        anchor.presentation?.finish(allowed: false, remember: false)
+        page.close()
+        window.contentView = nil
+        window.close()
+    }
 }

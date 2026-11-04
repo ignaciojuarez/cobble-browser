@@ -368,6 +368,11 @@ import CobbleChromium
         return true
     }
 
+    @discardableResult func stopDisplayCapture() -> Bool {
+        guard !closing, let source else { return false }
+        return source.stopDisplayCapture()
+    }
+
     func setAudioMuted(_ muted: Bool) throws {
         guard !closing else { throw EngineError.closed }
         guard let source else { throw EngineError.notReady("The Chromium page is not ready.") }
@@ -566,6 +571,7 @@ import CobbleChromium
             state.isAudioMuted = source.isAudioMuted
             state.camera = source.isCapturingCamera ? .active : .none
             state.microphone = source.isCapturingMicrophone ? .active : .none
+            state.isDisplayCapturing = source.isCapturingDisplay
             if state.camera != .none { state.grantedMediaKinds.remove(.camera) }
             if state.microphone != .none { state.grantedMediaKinds.remove(.microphone) }
             state.hoveredLink = source.hoveredLink.flatMap { value in

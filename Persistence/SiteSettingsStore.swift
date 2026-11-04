@@ -37,10 +37,15 @@ struct SiteSetting: Identifiable, Hashable, Codable, Sendable {
     var camera: SitePermission = .ask
     var microphone: SitePermission = .ask
     var popups: SitePermission = .ask
+    var windowManagement: SitePermission = .ask
+    /// `.ask` or `.deny`. Screen sharing grants are never saved, so `.allow` reads and saves as `.ask`.
+    var screenSharing: SitePermission = .ask { didSet { if screenSharing == .allow { screenSharing = .ask } } }
     var engineID: EngineID = .webKit
     var zoom: Double?
     var browserIdentity: SiteBrowserIdentity = .standard
-    enum CodingKeys: String, CodingKey { case id, profileID, origin, camera, microphone, popups, engineID, zoom, browserIdentity }
+    enum CodingKeys: String, CodingKey {
+        case id, profileID, origin, camera, microphone, popups, windowManagement, screenSharing, engineID, zoom, browserIdentity
+    }
     init(id: UUID = UUID(), profileID: UUID, origin: String, camera: SitePermission = .ask,
          microphone: SitePermission = .ask, popups: SitePermission = .ask, engineID: EngineID = .webKit,
          zoom: Double? = nil, browserIdentity: SiteBrowserIdentity = .standard) {
@@ -49,6 +54,28 @@ struct SiteSetting: Identifiable, Hashable, Codable, Sendable {
         self.zoom = zoom
         self.browserIdentity = browserIdentity
     }
+    subscript(kind: PermissionKind) -> SitePermission {
+        get {
+            switch kind {
+            case .camera: camera
+            case .microphone: microphone
+            case .windowManagement: windowManagement
+            case .screenSharing: screenSharing
+            }
+        }
+        set {
+            switch kind {
+            case .camera: camera = newValue
+            case .microphone: microphone = newValue
+            case .windowManagement: windowManagement = newValue
+            case .screenSharing: screenSharing = newValue
+            }
+        }
+    }
+    /// Any saved decision other than zoom and identity.
+    var hasPermissions: Bool {
+        camera != .ask || microphone != .ask || popups != .ask || windowManagement != .ask || screenSharing != .ask
+    }
     init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
         id = try c.decode(UUID.self, forKey: .id); profileID = try c.decode(UUID.self, forKey: .profileID)
@@ -56,6 +83,9 @@ struct SiteSetting: Identifiable, Hashable, Codable, Sendable {
         camera = try c.decode(SitePermission.self, forKey: .camera)
         microphone = try c.decode(SitePermission.self, forKey: .microphone)
         popups = try c.decodeIfPresent(SitePermission.self, forKey: .popups) ?? .ask
+        windowManagement = try c.decodeIfPresent(SitePermission.self, forKey: .windowManagement) ?? .ask
+        let sharing = try c.decodeIfPresent(SitePermission.self, forKey: .screenSharing) ?? .ask
+        screenSharing = sharing == .allow ? .ask : sharing
         engineID = try c.decodeIfPresent(EngineID.self, forKey: .engineID) ?? .webKit
         let decodedZoom = try c.decodeIfPresent(Double.self, forKey: .zoom)
         zoom = decodedZoom.flatMap { $0.isFinite && (0.5...3).contains($0) ? $0 : nil }
@@ -132,7 +162,7 @@ final class SiteSettingsStore {
         var entry = setting(origin: origin, profileID: profileID)
         guard entry.browserIdentity != identity else { lastError = nil; return true }
         entry.browserIdentity = identity
-        if identity == .standard && entry.camera == .ask && entry.microphone == .ask && entry.popups == .ask && entry.zoom == nil {
+        if identity == .standard && !entry.hasPermissions && entry.zoom == nil {
             return save(entries.filter { $0.id != entry.id })
         }
         return update(entry)
@@ -206,7 +236,7 @@ final class SiteSettingsStore {
             let id = Self.syncID(profile: entry.profileID, engine: entry.engineID, origin: entry.origin)
             var changed = entry
             changed.zoom = desired.removeValue(forKey: id)?.3
-            return changed.zoom == nil && changed.camera == .ask && changed.microphone == .ask && changed.popups == .ask && changed.browserIdentity == .standard ? nil : changed
+            return changed.zoom == nil && !changed.hasPermissions && changed.browserIdentity == .standard ? nil : changed
         }
         for (_, value) in desired {
             next.append(SiteSetting(profileID: value.0, origin: value.2, engineID: value.1, zoom: value.3))
@@ -238,7 +268,7 @@ final class SiteSettingsStore {
 
     static func mediaDecision(kinds: Set<PermissionKind>, setting: SiteSetting?, isPrivate: Bool, sameOrigin: Bool) -> SitePermission {
         guard !isPrivate, let setting else { return .ask }
-        let values = kinds.map { $0 == .camera ? setting.camera : setting.microphone }
+        let values = kinds.map { setting[$0] }
         if values.contains(.deny) { return .deny }
         return sameOrigin && !values.isEmpty && values.allSatisfy { $0 == .allow } ? .allow : .ask
     }
@@ -250,42 +280,44 @@ final class SiteSettingsStore {
 
     struct Summary: Identifiable {
         let origin: String
-        let camera: SitePermission?
-        let microphone: SitePermission?
+        /// nil when engines disagree; absent kinds no engine supports.
+        let permissions: [PermissionKind: SitePermission?]
         let browserIdentity: SiteBrowserIdentity
         var id: String { origin }
+        var camera: SitePermission? { permissions[.camera] ?? nil }
+        var microphone: SitePermission? { permissions[.microphone] ?? nil }
     }
     func summaries(profileID: UUID, engines: [any BrowserEngine], includeIdentity: Bool = false) -> [Summary] {
         let origins = Set(entries.filter {
-            $0.profileID == profileID && ($0.camera != .ask || $0.microphone != .ask || $0.popups != .ask || (includeIdentity && $0.browserIdentity != .standard))
+            $0.profileID == profileID && ($0.hasPermissions || (includeIdentity && $0.browserIdentity != .standard))
         }.map(\.origin))
         return origins.sorted().compactMap { origin in
             guard let url = URL(string: origin) else { return nil }
             @MainActor func value(_ kind: PermissionKind) -> SitePermission? {
                 var values = engines.filter { $0.capabilities.permissions.contains(kind) }.map {
-                    let entry = setting(origin: url, profileID: profileID, engineID: $0.id)
-                    return kind == .camera ? entry.camera : entry.microphone
+                    setting(origin: url, profileID: profileID, engineID: $0.id)[kind]
                 }
-                values += entries.filter { entry in entry.profileID == profileID && entry.origin == origin && !engines.contains(where: { engine in engine.id == entry.engineID }) }.map { kind == .camera ? $0.camera : $0.microphone }
+                values += entries.filter { entry in entry.profileID == profileID && entry.origin == origin && !engines.contains(where: { engine in engine.id == entry.engineID }) }.map { $0[kind] }
                 return Set(values).count == 1 ? values.first : nil
             }
-            return Summary(origin: origin, camera: value(.camera), microphone: value(.microphone),
+            var permissions: [PermissionKind: SitePermission?] = [:]
+            for kind in [PermissionKind.camera, .microphone, .windowManagement, .screenSharing]
+            where engines.contains(where: { $0.capabilities.permissions.contains(kind) }) {
+                permissions[kind] = value(kind)
+            }
+            return Summary(origin: origin, permissions: permissions,
                            browserIdentity: browserIdentity(for: url, profileID: profileID))
         }
     }
     @discardableResult
-    func update(origin: String, profileID: UUID, camera: SitePermission? = nil, microphone: SitePermission? = nil,
+    func update(origin: String, profileID: UUID, _ kind: PermissionKind, _ value: SitePermission,
                 engines: [any BrowserEngine]) -> Bool {
         guard beginMutation(), canSave, let url = URL(string: origin),
               let normalized = AddressResolver.canonicalOrigin(url) else { return false }
         var next = entries
-        for engine in engines {
-            let changeCamera = camera != nil && engine.capabilities.permissions.contains(.camera)
-            let changeMicrophone = microphone != nil && engine.capabilities.permissions.contains(.microphone)
-            guard changeCamera || changeMicrophone else { continue }
+        for engine in engines where engine.capabilities.permissions.contains(kind) {
             var entry = setting(origin: url, profileID: profileID, engineID: engine.id)
-            if changeCamera { entry.camera = camera! }
-            if changeMicrophone { entry.microphone = microphone! }
+            entry[kind] = value
             next.removeAll { $0.profileID == profileID && $0.origin == normalized && $0.engineID == engine.id }
             next.append(entry)
         }
@@ -305,6 +337,7 @@ final class SiteSettingsStore {
             guard entry.zoom != nil || entry.browserIdentity != .standard else { return nil }
             var next = entry
             next.camera = .ask; next.microphone = .ask; next.popups = .ask
+            next.windowManagement = .ask; next.screenSharing = .ask
             return next
         })
     }

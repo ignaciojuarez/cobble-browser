@@ -33,7 +33,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     private var lastPublishedURL: String?
     private var lastPublishedTitle: String?
     private var mediaProbe: Task<Void, Never>?
-    // Any future display-capture grant must also set this before granting;
+    // Every capture grant, including display capture, sets this before granting;
     // native current-state getters cannot reveal latent flags after capture ends.
     private var hasCaptureHistory = false
     private var findRequestID = UUID()
@@ -65,11 +65,13 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     private let profileID: UUID
     private let isPrivate: Bool
     private let clientCertificateSearchList: [SecKeychain]?
+    private let displayCapture: WebKitDisplayCapture.Support
 
     init(tabID: UUID, dataStore: WKWebsiteDataStore,
          configuration: WKWebViewConfiguration? = nil,
          siteSettings: SiteSettingsStore? = nil, profileID: UUID = Profile.defaultID, isPrivate: Bool = false, context: WebKitContext? = nil, contextID: BrowsingContextID? = nil,
          windowID: UUID = UUID(), clientCertificateSearchList: [SecKeychain]? = nil,
+         displayCapture: WebKitDisplayCapture.Support = WebKitDisplayCapture.support,
          onChange: @escaping (UUID, String, String) -> Void) {
         self.tabID = tabID
         let resolvedConfiguration = configuration ?? WKWebViewConfiguration()
@@ -95,12 +97,16 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         self.isPrivate = isPrivate
         self.windowID = windowID
         self.clientCertificateSearchList = clientCertificateSearchList
+        self.displayCapture = displayCapture
         super.init()
     }
 
     var webView: WKWebView {
         if let storedWebView { return storedWebView }
-        if !closed { Self.installFaviconScript(in: configuration.userContentController) }
+        if !closed {
+            Self.installFaviconScript(in: configuration.userContentController)
+            if displayCapture == .absent { configuration.userContentController.addUserScript(WebKitDisplayCapture.failClosedScript) }
+        }
         let view = ContextMenuWebView(frame: .zero, configuration: configuration)
         guard !closed else { return view }
         storedWebView = view
@@ -469,7 +475,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     }
 
     func setCapture(_ kind: PermissionKind, _ capture: PageCapture) {
-        guard !closed, let view = storedWebView else { return }
+        guard !closed, kind == .camera || kind == .microphone, let view = storedWebView else { return }
         hasCaptureHistory = true
         state.audioMuteBlocked = true
         let state: WKMediaCaptureState = switch capture {
@@ -480,7 +486,15 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         switch kind {
         case .camera: view.setCameraCaptureState(state, completionHandler: nil)
         case .microphone: view.setMicrophoneCaptureState(state, completionHandler: nil)
+        case .windowManagement, .screenSharing: break
         }
+    }
+
+    @discardableResult func stopDisplayCapture() -> Bool {
+        guard !closed, let view = storedWebView, displayCapture == .full,
+              WebKitAudioMute.isDisplayCapturing(view) else { return false }
+        WebKitDisplayCapture.stop(view) { [weak self] in self?.refreshAudioState() }
+        return true
     }
 
     func setAudioMuted(_ muted: Bool) throws {
@@ -1074,6 +1088,42 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         guard !closed else { completionHandler(nil); return }
         prompts.chooseFiles(multiple: parameters.allowsMultipleSelection, directories: parameters.allowsDirectories,
                             completion: completionHandler)
+    }
+
+    // WebKit only calls the private display-capture delegate when its checked signature is present.
+    override func responds(to selector: Selector!) -> Bool {
+        if selector == WebKitDisplayCapture.request { return displayCapture != .absent }
+        if selector == WebKitDisplayCapture.stateChanged { return displayCapture == .full }
+        return super.responds(to: selector)
+    }
+
+    /// getDisplayMedia. Cobble asks with the page origin; WebKit then opens the macOS picker.
+    @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
+    func requestDisplayCapture(_ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
+                               systemAudio: Bool, decisionHandler: @escaping (Int) -> Void) {
+        let deny = WebKitDisplayCapture.Decision.deny.rawValue
+        guard !closed, displayCapture == .full else { decisionHandler(deny); return }
+        let originURL = securityOriginURL(origin)
+        let requestOrigin = originURL.flatMap(AddressResolver.canonicalOrigin)
+        let topLevelOrigin = webView.url.flatMap(AddressResolver.canonicalOrigin)
+        let navigation = activeNavigation
+        prompts.requestDisplayCapture(origin: originURL, topLevelOrigin: topLevelOrigin,
+            sameOrigin: frame.isMainFrame || (requestOrigin != nil && requestOrigin == topLevelOrigin),
+            tabID: tabID, contextID: contextID, store: siteSettings, isCurrent: { [weak self] in
+                guard let self else { return false }
+                return !self.closed && self.activeNavigation === navigation
+            }) { [weak self] surface in
+                guard let self, let surface, !self.closed else { decisionHandler(deny); return }
+                self.hasCaptureHistory = true
+                self.state.audioMuteBlocked = true
+                decisionHandler((surface == .screen ? WebKitDisplayCapture.Decision.screen : .window).rawValue)
+            }
+    }
+
+    /// Publishes display-capture changes immediately instead of waiting for the media probe.
+    @objc(_webView:mediaCaptureStateDidChange:)
+    func mediaCaptureStateDidChange(_ webView: WKWebView, flags: UInt) {
+        refreshState()
     }
 
     func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,

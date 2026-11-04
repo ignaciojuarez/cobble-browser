@@ -1178,16 +1178,19 @@ private struct SitePermissionsView: View {
                     VStack(alignment: .leading) {
                         Text(entry.origin).font(.headline)
                         HStack {
-                            Picker("Camera", selection: Binding(get: { entry.camera }, set: { if let value = $0 { update(entry, camera: value) } })) {
-                                ForEach(SitePermission.allCases, id: \.self) { Text(permissionTitle($0)).tag(Optional($0)) }
-                                Text("Mixed").tag(nil as SitePermission?).disabled(true)
-                            }.disabled(!app.engines.engines.contains { $0.capabilities.permissions.contains(.camera) })
-                            Picker("Microphone", selection: Binding(get: { entry.microphone }, set: { if let value = $0 { update(entry, microphone: value) } })) {
-                                ForEach(SitePermission.allCases, id: \.self) { Text(permissionTitle($0)).tag(Optional($0)) }
-                                Text("Mixed").tag(nil as SitePermission?).disabled(true)
-                            }.disabled(!app.engines.engines.contains { $0.capabilities.permissions.contains(.microphone) })
+                            permissionPicker("Camera", .camera, entry)
+                            permissionPicker("Microphone", .microphone, entry)
                             Button("Forget") {
-                                if confirm(), app.siteSettings.forget(origin: entry.origin, profileID: profileID) { unloadPages() }
+                                if confirm(), app.siteSettings.forget(origin: entry.origin, profileID: profileID) {
+                                    app.engines.resetPermission(.windowManagement, origin: entry.origin, profileID: profileID)
+                                    unloadPages()
+                                }
+                            }
+                        }
+                        if entry.permissions.keys.contains(.windowManagement) || entry.permissions.keys.contains(.screenSharing) {
+                            HStack {
+                                permissionPicker("Window management", .windowManagement, entry)
+                                permissionPicker("Screen sharing", .screenSharing, entry)
                             }
                         }
                     }.padding(.vertical, 6)
@@ -1219,10 +1222,24 @@ private struct SitePermissionsView: View {
         case .deny: String(localized: "Deny")
         }
     }
-    private func update(_ original: SiteSettingsStore.Summary, camera: SitePermission? = nil, microphone: SitePermission? = nil) {
+    /// Screen sharing offers Ask and Deny only: its grants are never saved.
+    @ViewBuilder private func permissionPicker(_ title: LocalizedStringKey, _ kind: PermissionKind,
+                                               _ entry: SiteSettingsStore.Summary) -> some View {
+        if let value = entry.permissions[kind] {
+            Picker(title, selection: Binding(get: { value }, set: { if let next = $0 { update(entry, kind, next) } })) {
+                ForEach(SitePermission.allCases.filter { kind != .screenSharing || $0 != .allow }, id: \.self) {
+                    Text(permissionTitle($0)).tag(Optional($0))
+                }
+                Text("Mixed").tag(nil as SitePermission?).disabled(true)
+            }
+        }
+    }
+    private func update(_ original: SiteSettingsStore.Summary, _ kind: PermissionKind, _ value: SitePermission) {
         guard confirm() else { return }
-        if app.siteSettings.update(origin: original.origin, profileID: profileID,
-            camera: camera, microphone: microphone, engines: app.engines.engines) { unloadPages() }
+        guard app.siteSettings.update(origin: original.origin, profileID: profileID, kind, value,
+                                      engines: app.engines.engines) else { return }
+        if value != .allow { app.engines.resetPermission(kind, origin: original.origin, profileID: profileID) }
+        unloadPages()
     }
 }
 

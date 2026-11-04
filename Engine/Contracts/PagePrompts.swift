@@ -124,3 +124,7 @@ typealias PageHTTPAuthRequest = PagePromptRequest<PageHTTPAuthChallenge, PageHTT
 typealias PageFileChooserRequest = PagePromptRequest<PageFileChooser, [URL]?>
 typealias PageExternalProtocolRequest = PagePromptRequest<PageExternalProtocolPrompt, Bool>
 typealias PageClientCertificateRequest = PagePromptRequest<PageClientCertificatePrompt, UUID?>
+/// What the user allows a page to share; the system picker then selects the exact window or display.
+enum PageDisplaySurface: Hashable, Sendable { case window, screen }
+/// getDisplayMedia consent. Never remembered; nil denies.
+typealias PageDisplayCaptureRequest = PagePromptRequest<Void, PageDisplaySurface?>
