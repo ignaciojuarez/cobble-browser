@@ -59,6 +59,22 @@ final class SyncOrganizationReviewTests: XCTestCase {
         }
     }
 
+    func testLocalOnlyPinKeepsItsPlaceWhenOrganizationApplies() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleSyncOrg-\(UUID())")
+        let app = AppModel(store: SessionStore(directory: directory), engines: EngineRegistry([TestEngine(.webKit)]))
+        defer {
+            app.windows.forEach { $0.closePages() }
+            app.library.close()
+            try? FileManager.default.removeItem(at: directory)
+        }
+        let first = SavedItem(spaceID: Space.defaultID, urlString: "https://one.example/", title: "One")
+        let secret = SavedItem(spaceID: Space.defaultID, urlString: "https://example.com/?access_token=fixture", title: "Local")
+        let second = SavedItem(spaceID: Space.defaultID, urlString: "https://two.example/", title: "Two")
+        app.savedItems = [first, secret, second]
+        try await app.applySyncItems(app.organizationSyncItems(), module: .organization)
+        XCTAssertEqual(app.savedItems.map(\.id), [first.id, secret.id, second.id])
+    }
+
     func testMovedSpaceRepairsOldProfileReferences() async throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleSyncOrg-\(UUID())")
         let app = AppModel(store: SessionStore(directory: directory), engines: EngineRegistry([TestEngine(.webKit)]))

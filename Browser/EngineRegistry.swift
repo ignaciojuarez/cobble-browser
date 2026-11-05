@@ -15,7 +15,7 @@ import Foundation
     func engine(_ id: EngineID) -> (any BrowserEngine)? { engines.first { $0.id == id } }
     /// Build availability affects execution, never the saved engine choice.
     func effectiveID(_ requested: EngineID) -> EngineID {
-        if requested == EngineID(rawValue: "chromium"), engine(requested) == nil,
+        if requested == .chromium, engine(requested) == nil,
            engine(.webKit) != nil { return .webKit }
         return requested
     }
@@ -23,7 +23,7 @@ import Foundation
     func name(for id: EngineID) -> String {
         if let engine = engine(id) { return engine.name }
         if effectiveID(id) != id, let fallback = engine(effectiveID(id)) {
-            return String(format: String(localized: "%@ (using %@)"), id == EngineID(rawValue: "chromium") ? "Chromium" : id.rawValue, fallback.name)
+            return String(format: String(localized: "%@ (using %@)"), id == .chromium ? "Chromium" : id.rawValue, fallback.name)
         }
         return String(format: String(localized: "Unavailable (%@)"), id.rawValue)
     }

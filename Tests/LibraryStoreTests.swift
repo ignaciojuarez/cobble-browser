@@ -37,6 +37,15 @@ final class LibraryStoreTests: XCTestCase {
         }
     }
 
+    func testOversizedHistoryTitleSyncsUntitledInsteadOfStallingSync() throws {
+        try withLibrary { store, _ in
+            let profile = UUID()
+            store.recordVisit(urlString: "https://long-title.example", title: String(repeating: "a", count: 5000), profileID: profile)
+            let items = try store.syncItems(module: .history, profileIDs: [profile])
+            XCTAssertEqual(items.map { $0.fields["title"] }, [""])
+        }
+    }
+
     func testCombinedSearchMatchesHistoryAndCustomBookmarkTitles() throws {
         try withLibrary { store, _ in
             let profile = UUID(), url = "https://search.example"

@@ -101,26 +101,7 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         guard confirmQuitDespiteDownloads() else { runtime.cancelQuit(); return }
         terminating = true
         Task {
-            model.sync.stop()
-            guard await model.requestTerminationPreflight() else {
-                model.sync.start()
-                terminating = false
-                runtime.cancelQuit()
-                return
-            }
-            controllers.values.forEach { $0.recordFrame() }
-            guard await model.flushAndWait() == nil else {
-                model.windows.forEach { $0.cancelClosePages() }
-                model.sync.start()
-                terminating = false
-                runtime.cancelQuit()
-                return
-            }
-            closeAllDevTools()
-            model.windows.forEach { $0.closePages() }
-            await model.downloads.cancelAll()
-            await model.engines.shutdown()
-            runtime.requestQuit()
+            if await prepareToQuit() { runtime.requestQuit() } else { runtime.cancelQuit() }
         }
     }
     #endif
@@ -184,32 +165,30 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         guard confirmQuitDespiteDownloads() else { return .terminateCancel }
         terminating = true
         Task { [weak self] in
-            guard let self else {
-                sender.reply(toApplicationShouldTerminate: false)
-                return
-            }
-            self.model.sync.stop()
-            guard await self.model.requestTerminationPreflight() else {
-                self.model.sync.start()
-                self.terminating = false
-                sender.reply(toApplicationShouldTerminate: false)
-                return
-            }
-            self.controllers.values.forEach { $0.recordFrame() }
-            guard await self.model.flushAndWait() == nil else {
-                self.model.windows.forEach { $0.cancelClosePages() }
-                self.model.sync.start()
-                self.terminating = false
-                sender.reply(toApplicationShouldTerminate: false)
-                return
-            }
-            self.closeAllDevTools()
-            self.model.windows.forEach { $0.closePages() }
-            await self.model.downloads.cancelAll()
-            await self.model.engines.shutdown()
-            sender.reply(toApplicationShouldTerminate: true)
+            sender.reply(toApplicationShouldTerminate: await self?.prepareToQuit() ?? false)
         }
         return .terminateLater
+    }
+    /// Shared by AppKit and Chromium-client quits. False means the quit was cancelled and browsing resumes.
+    private func prepareToQuit() async -> Bool {
+        model.sync.stop()
+        guard await model.requestTerminationPreflight() else {
+            model.sync.start()
+            terminating = false
+            return false
+        }
+        controllers.values.forEach { $0.recordFrame() }
+        guard await model.flushAndWait() == nil else {
+            model.windows.forEach { $0.cancelClosePages() }
+            model.sync.start()
+            terminating = false
+            return false
+        }
+        closeAllDevTools()
+        model.windows.forEach { $0.closePages() }
+        await model.downloads.cancelAll()
+        await model.engines.shutdown()
+        return true
     }
     private func confirmQuitDespiteDownloads() -> Bool {
         guard let warning = DownloadStore.quitWarning(activeCount: model.downloads.activeCount) else { return true }
@@ -809,7 +788,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func chromiumPageFirstResponder() -> NSView? {
-        guard model.selectedPage?.contextID.engineID.rawValue == "chromium" else { return nil }
+        guard model.selectedPage?.contextID.engineID == .chromium else { return nil }
         return pageFirstResponder()
     }
 
@@ -844,7 +823,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private func fullScreenPageView(in eventWindow: NSWindow?) -> NSView? {
         guard let eventWindow, let page = model.selectedPage else { return nil }
         if page.nativeView.window === eventWindow { return page.nativeView }
-        guard page.contextID.engineID.rawValue == "chromium",
+        guard page.contextID.engineID == .chromium,
               NSStringFromClass(type(of: eventWindow)) == "CobbleContentFullscreenWindow" else { return nil }
         return eventWindow.contentView
     }

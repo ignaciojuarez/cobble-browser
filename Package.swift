@@ -34,7 +34,7 @@ let package = Package(
     name: "CobbleNativeClient",
     platforms: [.macOS("26.0")],
     products: [.library(name: "CobbleNativeClient", type: .dynamic, targets: ["CobbleNativeClient"])],
-    dependencies: [chromiumSDK, .package(url: "https://github.com/sparkle-project/Sparkle.git", exact: "2.10.0")],
+    dependencies: [chromiumSDK, .package(url: "https://github.com/sparkle-project/Sparkle.git", exact: "2.10.1")],
     targets: [
         .target(name: "CobbleNativeClient",
                 dependencies: [.product(name: "CobbleChromium", package: "chrome-sdk"),

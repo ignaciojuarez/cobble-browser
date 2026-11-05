@@ -106,7 +106,7 @@ if __name__ == "__main__":
         sys.exit(0)
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("app", type=Path)
-    parser.add_argument("--tools", type=Path, required=True, help="Sparkle 2.10.0 bin directory")
+    parser.add_argument("--tools", type=Path, required=True, help="Sparkle 2.10.1 bin directory")
     parser.add_argument("--output", type=Path, required=True, help="New directory outside the repo")
     parser.add_argument("--tag", required=True)
     parser.add_argument("--notes", type=Path, help="Markdown release notes")

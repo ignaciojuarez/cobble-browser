@@ -62,7 +62,7 @@ struct TabEngineIcon: View {
     static func image(for id: EngineID) -> Image {
         switch id {
         case .webKit: Image("SafariEngine")
-        case EngineID(rawValue: "chromium"): Image("ChromeEngine")
+        case .chromium: Image("ChromeEngine")
         default: Image(systemName: "gearshape.2")
         }
     }

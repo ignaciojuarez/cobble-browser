@@ -307,6 +307,29 @@ final class DownloadStoreTests: XCTestCase {
         XCTAssertEqual(store.entries.first?.status, .failed)
     }
 
+    func testWindowShowsOneDownloadSaveSheetAtATime() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleDownloadSheets-\(UUID())")
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = DownloadStore(preferences: BrowserPreferences(directory: directory))
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 400, height: 300), styleMask: [.titled], backing: .buffered, defer: true)
+        window.isReleasedWhenClosed = false
+        defer { window.close() }
+        let first = PendingDownload(), second = PendingDownload()
+        first.window = window; second.window = window
+        store.accept(first, isPrivate: false)
+        store.accept(second, isPrivate: false)
+        var secondDestination: URL?? = .none
+        first.onDestination?("first.txt") { _ in }
+        second.onDestination?("second.txt") { secondDestination = .some($0) }
+
+        XCTAssertEqual(secondDestination, .some(nil))
+        XCTAssertEqual(store.entries.first?.status, .cancelled)
+        let firstID = try XCTUnwrap(store.entries.last?.id)
+        XCTAssertTrue(store.entries.last?.status.isActive == true)
+        store.cancel(id: firstID)
+    }
+
     func testCancellationInvalidatesPendingRetry() throws {
         let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleDownloadRaces-\(UUID())")
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -644,7 +667,7 @@ final class DownloadStoreTests: XCTestCase {
 @MainActor private final class PendingDownload: EngineDownload {
     let id = UUID()
     let suggestedFilename = "fixture.txt"
-    var window: NSWindow? { nil }
+    var window: NSWindow?
     var onProgress: ((Double?) -> Void)?
     var onDestination: ((String, @escaping (URL?) -> Void) -> Void)?
     var onFinish: (() -> Void)?

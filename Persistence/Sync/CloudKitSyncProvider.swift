@@ -4,8 +4,6 @@ import Security
 
 @MainActor
 struct CloudKitSyncProvider: SyncProvider {
-    let name = "iCloud"
-
     private let containerID = "iCloud.com.ignacio.cobble"
     private let recordType = "CobbleSyncRecord"
     private let payloadKey = "payload"

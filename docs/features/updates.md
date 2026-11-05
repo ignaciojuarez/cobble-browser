@@ -1,6 +1,6 @@
 # App updates
 
-Sparkle 2.10.0 provides signed updates for **Full release builds**. GitHub hosts
+Sparkle 2.10.1 provides signed updates for **Full release builds**. GitHub hosts
 the archives and [signed feed](../../updates/appcast.xml); no updater account,
 server or paid service is needed. [The current Full beta](https://github.com/ignaciojuarez/cobble-browser/releases/tag/v0.1.0-beta.3)
 is Developer ID-signed, Apple-notarized and stapled. Beta 3's public ZIP checksum,
@@ -43,7 +43,7 @@ is added. This source trace still needs the real installed-update test below.
 
 ## Signing setup (once)
 
-Download the **2.10.0** tools from [Sparkle’s official release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.0).
+Download the **2.10.1** tools from [Sparkle’s official release](https://github.com/sparkle-project/Sparkle/releases/tag/2.10.1).
 Keep the extracted `bin` directory at a stable local path:
 
 ```sh
@@ -62,7 +62,7 @@ signing. A development certificate alone does not qualify a public download.
 
 ## Repeatable release command
 
-Requires Python 3.11+, Xcode, GitHub CLI (`gh auth login`), Sparkle 2.10.0 tools,
+Requires Python 3.11+, Xcode, GitHub CLI (`gh auth login`), Sparkle 2.10.1 tools,
 a matching prebuilt Chromium runtime, and a clean committed public checkout.
 Sign into your developer team in Xcode first. The command uses that existing
 sign-in for notarization; no separate notarization password/profile is required.
@@ -151,4 +151,4 @@ Local builds/tests do not close these release gates. See [ROADMAP](../../ROADMAP
 [Sparkle setup](https://sparkle-project.org/documentation/),
 [Gentle reminders](https://sparkle-project.org/documentation/gentle-reminders/),
 [publishing](https://sparkle-project.org/documentation/publishing/),
-[installer quit event](https://github.com/sparkle-project/Sparkle/blob/2.10.0/Sparkle/InstallerProgress/InstallerProgressAppController.m).
+[installer quit event](https://github.com/sparkle-project/Sparkle/blob/2.10.1/Sparkle/InstallerProgress/InstallerProgressAppController.m).

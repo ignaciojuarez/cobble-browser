@@ -124,6 +124,8 @@ import XCTest
         assertInsert(SidebarDrop.hitTest(rows: rows, x: 100, y: 20), before: second, group: .rootPins, indent: false)
         assertInsert(SidebarDrop.hitTest(rows: rows, x: 145, y: 20), before: third, group: .rootPins, indent: false)
         assertInsert(SidebarDrop.hitTest(rows: rows, x: 70, y: 110), before: nil, group: .rootPins, indent: false)
+        // The lower half of a first-row tile still targets the first row.
+        assertInsert(SidebarDrop.hitTest(rows: rows, x: 20, y: 50), before: first, group: .rootPins, indent: false)
     }
 
     func testGlobalPinGridInsertsIntoFavorites() {

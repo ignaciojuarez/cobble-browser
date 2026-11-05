@@ -160,7 +160,7 @@ import CobbleChromium
     func zoom(by factor: Double) {
         guard !closing, let source, factor.isFinite, factor > 0 else { return }
         guard let current = source.zoomFactor else {
-            state.errorMessage = "Zoom is unavailable for this Chromium page."
+            state.errorMessage = String(localized: "Zoom is unavailable for this Chromium page.")
             return
         }
         do {
@@ -773,7 +773,7 @@ import CobbleChromium
         guard closing, !closeForced, state.lifecycle != .closed else { return }
         closing = false
         state.lifecycle = .ready
-        state.errorMessage = "Chromium cancelled the close request; this page is still open."
+        state.errorMessage = String(localized: "Chromium cancelled the close request; this page is still open.")
         guard let source else { return }
         source.onChange = { [weak self, weak source] in
             guard let self, let source else { return }

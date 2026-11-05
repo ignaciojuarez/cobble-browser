@@ -100,7 +100,6 @@ struct SyncBatch: Sendable {
 /// No CloudKit types cross this boundary. A provider owns authentication, opaque cursors,
 /// conditional writes, and retries of server conflicts; the coordinator owns local data.
 @MainActor protocol SyncProvider {
-    var name: String { get }
     func accountID() async throws -> String
     func fetchChanges(module: SyncModule, cursor: Data?, expectedAccountID: String) async throws -> SyncBatch
     func save(_ records: [SyncRecord], module: SyncModule, expectedAccountID: String) async throws -> [SyncRecord]

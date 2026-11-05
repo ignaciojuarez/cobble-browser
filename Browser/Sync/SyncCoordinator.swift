@@ -14,6 +14,8 @@ final class SyncCoordinator {
     @ObservationIgnored private let provider: any SyncProvider
     @ObservationIgnored private let url: URL
     @ObservationIgnored private var state = SyncState()
+    /// The journal known to be on disk; an unchanged state is not rewritten.
+    @ObservationIgnored private var savedState: SyncState?
     @ObservationIgnored private var writable = true
     @ObservationIgnored private var generation = 0
     @ObservationIgnored private var retryAfter: Date?
@@ -40,6 +42,7 @@ final class SyncCoordinator {
                     guard id == record.id, record.counter <= state.counter else { throw SyncFailure.invalidRecord }
                     _ = try record.validated()
                 }
+                savedState = state
             }
             enabled = state.enabled; modules = state.modules; lastSync = state.lastSync
         } catch {
@@ -125,10 +128,11 @@ final class SyncCoordinator {
 
     private func saveState() throws {
         guard writable else { throw SyncFailure.localWrite(String(localized: "Sync storage is unavailable.")) }
+        guard state != savedState else { return }
         do {
-            try FileManager.default.createDirectory(at: url.deletingLastPathComponent(), withIntermediateDirectories: true)
             let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
-            try encoder.encode(state).write(to: url, options: .atomic)
+            try PersistenceFile.write(encoder.encode(state), to: url)
+            savedState = state
         }
         catch {
             // Never send a revision that cannot survive process restart.

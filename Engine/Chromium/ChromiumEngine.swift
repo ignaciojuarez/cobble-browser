@@ -41,7 +41,7 @@ extension SiteBrowserIdentity {
 /// not register it with the app until that launcher and its framework are
 /// packaged together.
 @MainActor final class ChromiumEngine: BrowserEngine {
-    let id = EngineID(rawValue: "chromium")
+    let id = EngineID.chromium
     let name = "Chromium"
     let capabilities = EngineCapabilities(pageOperations: chromiumPageOperations, requiresCloseConfirmation: true,
                                           permissions: chromiumPermissions, captureControls: chromiumCaptureControls,
@@ -257,7 +257,7 @@ extension SiteBrowserIdentity {
             }
         } catch {
             child.forceClose()
-            parentHost.state.errorMessage = "Chromium could not show this popup in the current window."
+            parentHost.state.errorMessage = String(localized: "Chromium could not show this popup in the current window.")
             return
         }
         guard parentHost.state.lifecycle == .ready, !parentHost.closing else {
@@ -380,7 +380,8 @@ extension SiteBrowserIdentity {
     }
 
     private func receiveJavaScriptDialog(_ request: ChromiumJavaScriptDialogRequest) {
-        guard request.isPending, let host = promptHost(request.page),
+        // Closing a tab runs its before-unload handler, so that one dialog may arrive while the page closes.
+        guard request.isPending, let host = promptHost(request.page, allowClosing: request.kind == .beforeUnload),
               var identity = promptIdentity(host: host,
                   requestingOrigin: request.requestingOrigin, topLevelOrigin: request.topLevelOrigin,
                   documentID: request.frameToken,
@@ -656,9 +657,9 @@ extension SiteBrowserIdentity {
         return text.isEmpty ? String(localized: "Unknown") : text
     }
 
-    private func promptHost(_ page: CobbleChromium.ChromiumPage) -> ChromiumPage? {
+    private func promptHost(_ page: CobbleChromium.ChromiumPage, allowClosing: Bool = false) -> ChromiumPage? {
         guard let host = pages[ObjectIdentifier(page)], host.source === page,
-              host.state.lifecycle == .ready else { return nil }
+              host.state.lifecycle == .ready || allowClosing && host.state.lifecycle == .closing else { return nil }
         return host
     }
 
@@ -773,7 +774,7 @@ extension SiteBrowserIdentity {
 
     func websiteData() async throws -> [WebsiteDataRecord] {
         guard isAvailable else { throw EngineError.closed }
-        guard !isPrivate else { throw EngineError.unsupported("private website data") }
+        guard !isPrivate else { throw EngineError.unsupported(String(localized: "private website data")) }
         let context = try await nativeContext()
         let domains = try await context.websiteDataSites()
         guard isAvailable else { throw EngineError.closed }
@@ -789,7 +790,7 @@ extension SiteBrowserIdentity {
 
     func removeWebsiteData(_ request: WebsiteDataRemovalRequest) async throws {
         guard isAvailable else { throw EngineError.closed }
-        guard !isPrivate else { throw EngineError.unsupported("private website data") }
+        guard !isPrivate else { throw EngineError.unsupported(String(localized: "private website data")) }
         guard chromiumDataRemoval.contains(request.capability), !request.categories.isEmpty else {
             throw EngineError.unsupported("this website data range")
         }
@@ -867,7 +868,7 @@ extension SiteBrowserIdentity {
 
     func extensionContext() async throws -> CobbleChromium.ChromiumContext {
         guard isAvailable else { throw EngineError.closed }
-        guard !isPrivate else { throw EngineError.unsupported("private extensions") }
+        guard !isPrivate else { throw EngineError.unsupported(String(localized: "private extensions")) }
         return try await nativeContext()
     }
 

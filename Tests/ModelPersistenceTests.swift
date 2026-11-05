@@ -175,6 +175,21 @@ final class ModelPersistenceTests: XCTestCase {
         XCTAssertEqual(loaded.folders.first { $0.id == folder.id }?.color, .theme)
     }
 
+    func testMigratedSessionKeepsOriginalBytesAfterLaterSaves() throws {
+        let root = try directory()
+        let store = SessionStore(directory: root)
+        let legacy = Data(#"{"version":8,"profiles":[{"id":"00000000-0000-0000-0000-000000000001","name":"Default","storeBinding":{"legacyDefault":{}}}],"spaces":[{"id":"00000000-0000-0000-0000-000000000002","profileID":"00000000-0000-0000-0000-000000000001","name":"Home"}],"folders":[],"savedItems":[],"windows":[]}"#.utf8)
+        try legacy.write(to: store.url)
+        XCTAssertNotNil(store.load().snapshot)
+        save(SessionSnapshot(spaces: [Space(id: Space.defaultID, name: "One")]), to: store)
+        save(SessionSnapshot(spaces: [Space(id: Space.defaultID, name: "Two")]), to: store)
+        XCTAssertNotEqual(try Data(contentsOf: store.backupURL), legacy)
+        let preserved = try FileManager.default.contentsOfDirectory(at: root, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("session.pre-migration-") }
+        XCTAssertEqual(preserved.count, 1)
+        XCTAssertEqual(try Data(contentsOf: XCTUnwrap(preserved.first)), legacy)
+    }
+
     func testAddressResolution() {
         let examples = [
             "example.com/path": "https://example.com/path",
@@ -191,6 +206,8 @@ final class ModelPersistenceTests: XCTestCase {
         XCTAssertEqual(AddressResolver.resolve("https://exa\n mple.com/a?b=c\r\n  d"), .navigate(URL(string: "https://example.com/a?b=cd")!))
         XCTAssertEqual(AddressResolver.resolve("about:blank"), .blank)
         XCTAssertEqual(AddressResolver.resolve("mailto:a@example.com"), .external(URL(string: "mailto:a@example.com")!))
+        XCTAssertEqual(AddressResolver.resolve("tel:911"), .external(URL(string: "tel:911")!))
+        XCTAssertEqual(AddressResolver.resolve("TEL:5551234"), .external(URL(string: "TEL:5551234")!))
         guard case let .navigate(search) = AddressResolver.resolve("swift & webkit") else { return XCTFail("Expected search") }
         XCTAssertEqual(URLComponents(url: search, resolvingAgainstBaseURL: false)?.queryItems?.first?.value, "swift & webkit")
     }

@@ -23,7 +23,7 @@ extension AppModel {
                     fields["source"] = source.absoluteString
                 }
                 let exceptions = blocker.exceptions(profileID: profile.id)
-                guard exceptions.allSatisfy({ URL(string: $0).flatMap(AddressResolver.canonicalOrigin) == $0 }) else {
+                guard exceptions.allSatisfy(AddressResolver.isCanonicalOrigin) else {
                     throw SyncFailure.invalidRecord
                 }
                 fields["exceptions"] = exceptions.sorted().joined(separator: "\n")
@@ -52,7 +52,7 @@ extension AppModel {
                     (rulesKind == "source" && source.map(Self.safeBlockerSource) == true) else { throw SyncFailure.invalidRecord }
             let exceptions = encoded.isEmpty ? [] : encoded.components(separatedBy: "\n")
             guard exceptions.count <= 1000, Set(exceptions).count == exceptions.count,
-                  exceptions.allSatisfy({ URL(string: $0).flatMap(AddressResolver.canonicalOrigin) == $0 }) else {
+                  exceptions.allSatisfy(AddressResolver.isCanonicalOrigin) else {
                 throw SyncFailure.invalidRecord
             }
             if profiles.contains(where: { $0.id == profile }) {

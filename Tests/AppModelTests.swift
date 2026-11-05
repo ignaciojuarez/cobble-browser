@@ -225,9 +225,9 @@ final class AppModelTests: XCTestCase {
             let space = try XCTUnwrap(app.spaces.first { $0.profileID == profile.id })
             XCTAssertEqual(space.isGeneratedDefault, true)
             XCTAssertEqual(space.displayedName, String(localized: "Home"))
-            app.renameSpace(id: space.id, name: "Studio")
+            app.updateSpace(id: space.id, name: "Studio", icon: space.icon)
             XCTAssertEqual(app.spaces.first { $0.id == space.id }?.displayedName, "Studio")
-            app.renameSpace(id: space.id, name: "Home")
+            app.updateSpace(id: space.id, name: "Home", icon: space.icon)
             XCTAssertEqual(app.spaces.first { $0.id == space.id }?.isGeneratedDefault, false)
             XCTAssertEqual(app.spaces.first { $0.id == space.id }?.displayedName, "Home")
             let restored = try SessionSnapshot.decode(JSONEncoder().encode(app.snapshot))
@@ -314,6 +314,32 @@ final class AppModelTests: XCTestCase {
         let saved = await app.flushAndWait()
         XCTAssertNil(saved)
         XCTAssertEqual(app.persistenceMessage, notice)
+    }
+
+    func testNewerSessionStillBrowsesAndQuitsWithoutTouchingItsFiles() async throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleReadOnlySession-\(UUID())", isDirectory: true)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SessionStore(directory: directory)
+        var future = SessionSnapshot()
+        future.version = SessionSnapshot.currentVersion + 1
+        let onDisk = try JSONEncoder().encode(future)
+        try onDisk.write(to: store.url)
+        let app = AppModel(store: store, websiteDataStoreOverride: .nonPersistent())
+        defer { app.windows.forEach { $0.closePages() }; app.library.close() }
+        XCTAssertFalse(store.allowsSaving)
+        let notice = try XCTUnwrap(app.persistenceMessage)
+
+        let window = try XCTUnwrap(app.windows.first)
+        let tab = Tab(title: "Fixture")
+        window.record.tabs = [tab]
+        window.select(tab.id)
+        XCTAssertNotNil(window.selectedPage)
+        XCTAssertNil(window.addressError)
+        let quit = await app.flushAndWait()
+        XCTAssertNil(quit)
+        XCTAssertEqual(app.persistenceMessage, notice)
+        XCTAssertEqual(try Data(contentsOf: store.url), onDisk)
     }
 
     func testFailedFinalSaveCanCancelTerminationAndLaterSuccessClearsTheWarning() async throws {
@@ -455,9 +481,9 @@ final class AppModelTests: XCTestCase {
             XCTAssertFalse(window.selectSpace(at: 9))
             XCTAssertEqual(window.selectedSpace?.name, "Lab")
             let work = try XCTUnwrap(window.spaces.first(where: { $0.name == "Work" }))
-            app.setSpaceIcon(id: work.id, icon: "pretzel")
+            app.updateSpace(id: work.id, name: work.name, icon: "pretzel")
             XCTAssertNil(window.spaces.first(where: { $0.id == work.id })?.icon)
-            app.setSpaceIcon(id: work.id, icon: "🥨")
+            app.updateSpace(id: work.id, name: work.name, icon: "🥨")
             XCTAssertEqual(window.spaces.first(where: { $0.id == work.id })?.icon, "🥨")
             app.undoOrganization()
             XCTAssertNil(window.spaces.first(where: { $0.id == work.id })?.icon)
@@ -470,7 +496,7 @@ final class AppModelTests: XCTestCase {
             app.updateFolder(id: folder.id, name: "Reading", color: .purple)
             XCTAssertEqual(app.folders.first { $0.id == folder.id }?.name, "Reading")
             XCTAssertEqual(app.folders.first { $0.id == folder.id }?.color, .purple)
-            app.setFolderColor(id: folder.id, color: .blue)
+            app.updateFolder(id: folder.id, name: "Reading", color: .blue)
             XCTAssertEqual(app.folders.first { $0.id == folder.id }?.color, .blue)
         }
     }
@@ -1355,6 +1381,10 @@ final class AppModelTests: XCTestCase {
             XCTAssertEqual(app.savedItems.filter { $0.spaceID == Space.defaultID }.map(\.id),
                            [pins[1].id, pins[2].id, pins[3].id, pins[0].id])
             XCTAssertEqual(app.savedItems.filter { $0.spaceID == nil }.map(\.id), [favorite.id])
+            // Dropping a pin onto itself keeps its place.
+            app.moveSavedItem(id: pins[1].id, spaceID: Space.defaultID, folderID: nil, before: pins[1].id)
+            XCTAssertEqual(app.savedItems.filter { $0.spaceID == Space.defaultID }.map(\.id),
+                           [pins[1].id, pins[2].id, pins[3].id, pins[0].id])
             app.moveSpace(id: spaces[0].id, offset: 3)
             XCTAssertEqual(app.spaces.map(\.id), [spaces[1].id, spaces[2].id, spaces[3].id, spaces[0].id])
             app.moveSpace(id: spaces[0].id, before: spaces[2].id)

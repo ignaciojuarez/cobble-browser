@@ -198,12 +198,13 @@ enum SidebarDrop {
         if y >= tileBounds.maxY {
             return .insert(before: nil, group: group, y: tileBounds.maxY, indent: false)
         }
-        let rowY = pins.map { $0.frame.minY }.min { abs($0 - y) < abs($1 - y) } ?? first.frame.minY
-        let row = pins.filter { abs($0.frame.minY - rowY) < 1 }.sorted { $0.frame.minX < $1.frame.minX }
+        // The row whose center is nearest the pointer, so a tile's lower half stays in its own row.
+        let rowY = pins.map { $0.frame.midY }.min { abs($0 - y) < abs($1 - y) } ?? first.frame.midY
+        let row = pins.filter { abs($0.frame.midY - rowY) < 1 }.sorted { $0.frame.minX < $1.frame.minX }
         for pin in row where x < pin.frame.midX {
             return .insert(before: pin.id, group: group, y: pin.frame.minY, indent: false)
         }
-        if let next = pins.first(where: { $0.frame.minY > rowY }) {
+        if let next = pins.first(where: { $0.frame.midY > rowY }) {
             return .insert(before: next.id, group: group, y: next.frame.minY, indent: false)
         }
         return .insert(before: nil, group: group, y: last.frame.maxY, indent: false)

@@ -3,6 +3,7 @@ import Foundation
 struct EngineID: RawRepresentable, Hashable, Codable, Sendable {
     var rawValue: String
     static let webKit = EngineID(rawValue: "webkit")
+    static let chromium = EngineID(rawValue: "chromium")
     init(rawValue: String) { self.rawValue = rawValue }
     init(from decoder: Decoder) throws { rawValue = try decoder.singleValueContainer().decode(String.self) }
     func encode(to encoder: Encoder) throws {

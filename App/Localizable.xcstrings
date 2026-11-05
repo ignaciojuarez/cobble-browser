@@ -336,16 +336,6 @@
         }
       }
     },
-    "Content blocker source installation" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Instalación de la fuente del bloqueador de contenido"
-          }
-        }
-      }
-    },
     "Content rules are unavailable on this device." : {
       "localizations" : {
         "es" : {
@@ -622,6 +612,16 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "Se eliminó un registro de sincronización de iCloud fuera de Cobble."
+          }
+        }
+      }
+    },
+    "Another download in this window is waiting for a location." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Otra descarga de esta ventana está esperando una ubicación."
           }
         }
       }
@@ -1029,16 +1029,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ puntos"
-          }
-        }
-      }
-    },
-    "%@ progress indicator" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Indicador de progreso %@"
           }
         }
       }
@@ -2993,16 +2983,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "No se pudieron cargar las reglas de contenido. Desactívalas o sustitúyelas en Ajustes antes de abrir esta página."
-          }
-        }
-      }
-    },
-    "Content-blocker profile deletion" : {
-      "localizations" : {
-        "es" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "eliminación del perfil del bloqueador de contenido"
           }
         }
       }

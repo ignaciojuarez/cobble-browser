@@ -788,19 +788,3 @@ final class TabCommandTests: XCTestCase {
         onClose?()
     }
 }
-
-@MainActor private final class TabSelectionDownload: EngineDownload {
-    let id = UUID()
-    let suggestedFilename = "fixture"
-    var window: NSWindow?
-    var onProgress: ((Double?) -> Void)?
-    var onDestination: ((String, @escaping (URL?) -> Void) -> Void)?
-    var onFinish: (() -> Void)?
-    var onFailure: ((Error) -> Void)?
-    private var cancellation: (() -> Void)?
-    func start() {}
-    func cancel(completion: @escaping () -> Void) { cancellation = completion }
-    func detach() {}
-    func fail() { onFailure?(NSError(domain: "CobbleTabSelection", code: 1)) }
-    func finishCancellation() { cancellation?(); cancellation = nil }
-}

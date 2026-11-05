@@ -18,13 +18,14 @@ import ObjectiveC
     private static let setDisplay = NSSelectorFromString("_setDisplayCaptureState:completionHandler:")
     private static let setSystemAudio = NSSelectorFromString("_setSystemAudioCaptureState:completionHandler:")
 
-    /// Probed once per process.
+    /// Probed once per process. Stopping and showing capture also needs the getters `WebKitAudioMute` checks.
     static let support: Support = {
         guard let delegate = objc_getProtocol("WKUIDelegatePrivate"),
               signature(protocol_getMethodDescription(delegate, request, false, true).types) == "v@:@@@B@?" else {
             return .absent
         }
-        guard signature(protocol_getMethodDescription(delegate, stateChanged, false, true).types) == "v@:@Q",
+        guard WebKitAudioMute.isAvailable,
+              signature(protocol_getMethodDescription(delegate, stateChanged, false, true).types) == "v@:@Q",
               [setDisplay, setSystemAudio].allSatisfy({ selector in
                   signature(class_getInstanceMethod(WKWebView.self, selector).flatMap(method_getTypeEncoding)) == "v@:q@?"
               }) else { return .denyOnly }
