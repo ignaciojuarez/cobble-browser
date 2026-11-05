@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Links opened in a new tab from a WebKit tab — ⌘-click, middle-click or
+  Open Link in New Tab, including links that already open a new window —
+  now use the new site's engine setting instead of copying the current tab's.
 - Screen sharing works in WebKit and Chromium tabs. When a site asks, Cobble
   shows which site wants to see your screen; choose Window… or Screen…, then
   pick it in the macOS sharing picker. Cobble asks every time and notes when
