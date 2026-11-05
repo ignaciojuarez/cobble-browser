@@ -971,7 +971,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
            events.onCreatePage != nil {
             _ = createChild(configuration: webView.configuration, request: action.request,
                             activate: Self.activatesNewTab(modifiers: action.modifierFlags, buttonNumber: action.buttonNumber),
-                            automaticEngine: action.modifierFlags.contains(.command))
+                            engineRequest: action.request)
             decisionHandler(.cancel)
             return
         }
@@ -1047,10 +1047,15 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
             }
         }
         // WebKit loads popup requests itself; nil distinguishes this from Cmd-click.
-        // Menu tabs open in the background, like Cmd-click.
+        // Menu tabs open in the background, like Cmd-click. Tabs the user asks for
+        // (menu, Cmd- or middle-click on a target=_blank link) choose their engine
+        // like any new tab; script popups stay with their opener.
+        let userTab = menuOpen == .tab || (navigationAction.navigationType == .linkActivated
+            && (navigationAction.modifierFlags.contains(.command) || navigationAction.buttonNumber == 2))
         return createChild(configuration: configuration, request: nil,
                            activate: menuOpen == nil && Self.activatesNewTab(modifiers: navigationAction.modifierFlags,
-                                                                             buttonNumber: navigationAction.buttonNumber))
+                                                                             buttonNumber: navigationAction.buttonNumber),
+                           engineRequest: userTab ? navigationAction.request : nil)
     }
 
     func webViewDidClose(_ webView: WKWebView) { if !closed { events.onClose?() } }
@@ -1550,17 +1555,20 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         return true
     }
 
+    /// `request` is loaded by Cobble; `engineRequest` routes a user-opened tab
+    /// through automatic engine selection.
     private func createChild(configuration: WKWebViewConfiguration, request: URLRequest?, activate: Bool,
-                             automaticEngine: Bool = false) -> WKWebView? {
+                             engineRequest: URLRequest? = nil) -> WKWebView? {
         guard !closed, events.onCreatePage != nil || events.onCreatePageForRequest != nil else { return nil }
         let child = WebKitPage(tabID: UUID(), dataStore: configuration.websiteDataStore,
             configuration: configuration, siteSettings: siteSettings, profileID: profileID,
             isPrivate: isPrivate, context: context, contextID: contextID,
             windowID: windowID, clientCertificateSearchList: clientCertificateSearchList) { _, _, _ in }
         child.applyContentRules()
-        let accepted = if automaticEngine, let request, request.url != nil, let createForRequest = events.onCreatePageForRequest,
-                            ["GET", "HEAD"].contains(request.httpMethod?.uppercased() ?? "GET") {
-            createForRequest(child, request, activate)
+        let accepted = if let engineRequest, ["http", "https"].contains(engineRequest.url?.scheme?.lowercased()),
+                            let createForRequest = events.onCreatePageForRequest,
+                            ["GET", "HEAD"].contains(engineRequest.httpMethod?.uppercased() ?? "GET") {
+            createForRequest(child, engineRequest, activate)
         } else if let create = events.onCreatePage {
             create(child, activate)
         } else {
