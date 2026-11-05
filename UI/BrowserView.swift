@@ -1070,9 +1070,10 @@ struct SiteControlPopover: View {
                 action(.copyURL, symbol: "link")
                 Menu { pageActions } label: {
                     Image(systemName: "ellipsis").font(.system(size: 14, weight: .medium))
+                        .frame(maxWidth: .infinity).frame(height: 32)
+                        .contentShape(Rectangle())
                 }
-                .menuStyle(.borderlessButton).menuIndicator(.hidden)
-                .frame(maxWidth: .infinity).frame(height: 32)
+                .menuStyle(.button).buttonStyle(.plain).menuIndicator(.hidden)
                 .modifier(SiteHoverBackground())
                 .help(String(localized: "Page Actions")).accessibilityLabel(String(localized: "Page Actions"))
             }

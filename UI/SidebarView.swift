@@ -361,7 +361,8 @@ struct SidebarView: View {
                         .contentShape(Rectangle())
                 }
                 .labelStyle(.iconOnly)
-                .menuStyle(.borderlessButton)
+                .menuStyle(.button)
+                .buttonStyle(.plain)
                 .menuIndicator(.hidden)
                 .sidebarItemControl()
                 .help("Space Actions")
@@ -829,16 +830,17 @@ struct SidebarView: View {
             Menu {
                 engineChoices(for: tab)
             } label: {
-                Color.clear
+                TabEngineIcon(engine: engine)
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                     .contentShape(Rectangle())
             }
-            .menuStyle(.borderlessButton)
+            // A borderless-button menu only hit-tests its tiny native label; a plain button menu uses the whole frame.
+            .menuStyle(.button)
+            .buttonStyle(.plain)
             .menuIndicator(.hidden)
             .help(String(format: String(localized: "Using %@ — change engine"), engine.name))
             .accessibilityLabel(String(format: String(localized: "Using %@ — change engine"), engine.name))
             .sidebarItemControl(disabled: tab.url == nil)
-            .overlay { TabEngineIcon(engine: engine).allowsHitTesting(false) }
         }
     }
 
@@ -1048,9 +1050,11 @@ struct SidebarView: View {
         } label: {
             Image(systemName: theme.symbol(.add))
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .contentShape(Rectangle())
         }
         .labelStyle(.iconOnly)
-        .menuStyle(.borderlessButton)
+        .menuStyle(.button)
+        .buttonStyle(.plain)
         .menuIndicator(.hidden)
         .sidebarItemControl(role: .toolbar)
         .help(String(localized: "New"))
