@@ -321,7 +321,7 @@ import CobbleChromium
         for index in next.indices.reversed() where next[index].profileID == profileID {
             guard let item = byID[next[index].chromiumID] else {
                 if next[index].source == .store { next.remove(at: index); continue }
-                next[index].errorMessage = "This extension is no longer installed in Chromium."
+                next[index].errorMessage = String(localized: "This extension is no longer installed in Chromium.")
                 continue
             }
             if next[index].source == .store {
@@ -334,7 +334,7 @@ import CobbleChromium
             }
             guard let sourcePath = next[index].sourcePath,
                 Self.samePath(item.path, root.appendingPathComponent(sourcePath)) else {
-                next[index].errorMessage = "Chromium reported an unexpected extension path."
+                next[index].errorMessage = String(localized: "Chromium reported an unexpected extension path.")
                 continue
             }
             next[index] = Self.record(
@@ -503,14 +503,14 @@ import CobbleChromium
             components.path.isEmpty || components.path == "/" || components.path == "/*"
         else {
             throw EngineError.unsupported(
-                "Chromium grants individual HTTP(S) sites, not URL patterns.")
+                String(localized: "Chromium grants individual HTTP(S) sites, not URL patterns."))
         }
         var result = URLComponents()
         result.scheme = scheme
         result.host = host
         result.port = components.port
         result.path = "/"
-        guard let url = result.url else { throw EngineError.unsupported("Invalid HTTP(S) site.") }
+        guard let url = result.url else { throw EngineError.unsupported(String(localized: "Invalid HTTP(S) site.")) }
         return url.absoluteString
     }
 
@@ -533,30 +533,30 @@ import CobbleChromium
             (manifestValues?.fileSize ?? Int.max) <= 1_000_000
         else {
             throw EngineError.notReady(
-                "Choose an unpacked extension directory containing a small regular manifest.json file.")
+                String(localized: "Choose an unpacked extension directory containing a small regular manifest.json file."))
         }
         if let contents = FileManager.default.enumerator(
             at: source, includingPropertiesForKeys: Array(keys))
         {
             for case let item as URL in contents {
                 if try item.resourceValues(forKeys: keys).isSymbolicLink == true {
-                    throw EngineError.notReady("Extension folders cannot contain symbolic links.")
+                    throw EngineError.notReady(String(localized: "Extension folders cannot contain symbolic links."))
                 }
             }
         }
         let manifestData = try Data(contentsOf: manifestURL)
         guard let manifest = try JSONSerialization.jsonObject(with: manifestData) as? [String: Any]
         else {
-            throw EngineError.notReady("The extension manifest is invalid.")
+            throw EngineError.notReady(String(localized: "The extension manifest is invalid."))
         }
         guard manifest["theme"] == nil else {
-            throw EngineError.unsupported("Chromium themes are not supported by Cobble.")
+            throw EngineError.unsupported(String(localized: "Chromium themes are not supported by Cobble."))
         }
         guard manifest["app"] == nil else {
-            throw EngineError.unsupported("Chrome Apps are not supported by Cobble.")
+            throw EngineError.unsupported(String(localized: "Chrome Apps are not supported by Cobble."))
         }
         guard !FileManager.default.fileExists(atPath: destination.path) else {
-            throw EngineError.notReady("The managed extension destination already exists.")
+            throw EngineError.notReady(String(localized: "The managed extension destination already exists."))
         }
         try FileManager.default.createDirectory(
             at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)

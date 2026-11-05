@@ -24,6 +24,11 @@ enum AddressResolver {
         return origin.url?.absoluteString
     }
 
+    /// True for a stored origin string such as `https://example.com`, already in canonical form.
+    static func isCanonicalOrigin(_ value: String) -> Bool {
+        URL(string: value).flatMap(canonicalOrigin) == value
+    }
+
     static func resolve(_ input: String, engines: [SearchEngine] = SearchEngine.builtIns,
                         defaultEngine: SearchEngine = .duckDuckGo) -> AddressResolution {
         // Wrapped pastes: drop line breaks and the indentation around them, as other browsers do.
@@ -34,7 +39,9 @@ enum AddressResolver {
             return .invalid(String(localized: "The address contains control characters."))
         }
         let local = raw.range(of: #"^(?:localhost|\d+\.\d+\.\d+\.\d+)(?=[:/?#]|$)"#, options: [.regularExpression, .caseInsensitive]) != nil || raw.hasPrefix("[")
-        let hostPort = raw.range(of: #"^(?:localhost|[^\s/:?#]+|\[[^\]]+\]):\d+(?:[/?#].*)?$"#, options: .regularExpression) != nil
+        // `tel:911` is a phone number, not host `tel` on port 911.
+        let external = ["mailto:", "tel:"].contains { raw.lowercased().hasPrefix($0) }
+        let hostPort = !external && raw.range(of: #"^(?:localhost|[^\s/:?#]+|\[[^\]]+\]):\d+(?:[/?#].*)?$"#, options: .regularExpression) != nil
         let explicitScheme = raw.range(of: #"^[a-zA-Z][a-zA-Z0-9+.-]*:"#, options: .regularExpression) != nil && !hostPort
         if explicitScheme {
             guard let url = URL(string: raw), let scheme = url.scheme?.lowercased() else { return .invalid(String(localized: "Invalid address.")) }

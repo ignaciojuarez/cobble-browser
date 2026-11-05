@@ -152,7 +152,11 @@ extension AppModel {
         }
         let localOnlyIDs = Set(localOnly.map(\.id))
         nextSaved.removeAll { localOnlyIDs.contains($0.id) }
-        nextSaved += localOnly
+        // Keep each local-only item before the synced item that follows it here.
+        for item in localOnly {
+            let successor = savedItems.drop { $0.id != item.id }.dropFirst().first { !localOnlyIDs.contains($0.id) }?.id
+            nextSaved.insert(item, at: successor.flatMap { id in nextSaved.firstIndex { $0.id == id } } ?? nextSaved.endIndex)
+        }
         nextSaved = nextSaved.compactMap { original in
             guard profileIDs.contains(original.profileID) else { return nil }
             var item = original

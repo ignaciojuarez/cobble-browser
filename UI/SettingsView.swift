@@ -169,7 +169,7 @@ struct SettingsView: View {
                     Text(app.engines.name(for: app.preferences.defaultEngine)).foregroundStyle(.secondary)
                 }
             }
-            if app.engines.effectiveID(EngineID(rawValue: "chromium")) == .webKit {
+            if app.engines.effectiveID(.chromium) == .webKit {
                 Text("Chromium is not included in this build. Chromium choices use WebKit for now and are remembered.")
                     .font(.caption).foregroundStyle(.secondary)
             }

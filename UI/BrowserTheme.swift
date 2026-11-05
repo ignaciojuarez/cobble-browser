@@ -21,8 +21,8 @@ struct BrowserThemeStyle: Equatable {
     let configuration: BrowserThemeConfiguration
     let accent: Color
 
-    init(provider: some BrowserThemeProviding, accent: Color) {
-        configuration = provider.configuration
+    init(preset: BrowserThemePreset, accent: Color) {
+        configuration = preset.configuration
         self.accent = accent
     }
 
@@ -113,7 +113,7 @@ struct ThemeControlGroup<Content: View>: View {
 }
 
 private struct BrowserThemeKey: EnvironmentKey {
-    static let defaultValue = BrowserThemeStyle(provider: BrowserThemePreset.legacy, accent: .white)
+    static let defaultValue = BrowserThemeStyle(preset: .legacy, accent: .white)
 }
 
 extension EnvironmentValues {
@@ -185,9 +185,6 @@ extension TabLoadingIndicatorStyle {
         case .system: String(localized: "Default")
         case .terminalSquares: String(localized: "Terminal Squares")
         }
-    }
-    var accessibilityTitle: String {
-        String(format: String(localized: "%@ progress indicator"), title)
     }
 }
 

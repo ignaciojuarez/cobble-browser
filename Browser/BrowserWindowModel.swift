@@ -168,7 +168,6 @@ final class BrowserWindowModel: Identifiable {
         if let tabID { closeTab(tabID) }
     }
 
-    func isLoading(_ tabID: UUID) -> Bool { pages[tabID]?.isLoading == true }
     func captureState(for tabID: UUID) -> (camera: PageCapture, microphone: PageCapture, display: Bool) {
         guard let state = pages[tabID]?.state, state.lifecycle == .ready, !state.isCrashed else { return (.none, .none, false) }
         return (state.camera, state.microphone, state.isDisplayCapturing)
@@ -493,6 +492,15 @@ final class BrowserWindowModel: Identifiable {
         host.applyContentRules()
     }
 
+    /// One presenter per typed request; the page reports its pending state while a sheet is up.
+    private func makePresenter(for host: any BrowserPage, requestID: UUID) -> PagePresenter {
+        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
+            host?.setAppPromptPending(pending)
+        }
+        promptPresenters[requestID] = (host.tabID, presenter)
+        return presenter
+    }
+
     private func presentMediaPermission(_ request: PageMediaPermissionRequest, from host: any BrowserPage,
                                         generation: UUID) {
         guard request.isPending, request.tabID == host.tabID, request.contextID == host.contextID,
@@ -508,10 +516,7 @@ final class BrowserWindowModel: Identifiable {
             return
         }
         guard promptPresenters[request.id] == nil else { request.resolve(.deny); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         presenter.requestMedia(id: request.id, kinds: request.kinds, origin: request.requestingOrigin,
             topLevelOrigin: embeddingOrigin, sameOrigin: requestingOrigin == embeddingOrigin,
             tabID: host.tabID, contextID: host.contextID, store: app.siteSettings,
@@ -532,10 +537,7 @@ final class BrowserWindowModel: Identifiable {
               host.capabilities.captureControls.contains(.stopDisplay),
               let topLevelOrigin = identity.topLevelOrigin.flatMap(AddressResolver.canonicalOrigin),
               promptPresenters[request.id] == nil else { request.resolve(nil); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         presenter.requestDisplayCapture(id: request.id, origin: identity.requestingOrigin,
             topLevelOrigin: topLevelOrigin,
             sameOrigin: AddressResolver.canonicalOrigin(identity.requestingOrigin) == topLevelOrigin,
@@ -573,10 +575,7 @@ final class BrowserWindowModel: Identifiable {
         guard request.isPending, dialog.kind != .formRepost || dialog.isReload,
               promptIsCurrent(request.identity, host: host, generation: generation),
               promptPresenters[request.id] == nil else { request.resolve(.cancel); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         let origin = AddressResolver.canonicalOrigin(request.identity.requestingOrigin) ?? request.identity.requestingOrigin.absoluteString
         let alert: NSAlert = switch dialog.kind {
         case .alert:
@@ -609,10 +608,7 @@ final class BrowserWindowModel: Identifiable {
                                  generation: UUID) {
         guard request.isPending, promptIsCurrent(request.identity, host: host, generation: generation),
               promptPresenters[request.id] == nil else { request.resolve(nil); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         let challenge = request.prompt
         let target = (challenge.isProxy ? request.identity.requestingOrigin.host : challenge.requestURL.host)
             ?? request.identity.requestingOrigin.host ?? "website"
@@ -649,10 +645,7 @@ final class BrowserWindowModel: Identifiable {
                                     generation: UUID) {
         guard request.isPending, promptIsCurrent(request.identity, host: host, generation: generation),
               promptPresenters[request.id] == nil else { request.resolve(nil); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         let chooser = request.prompt
         if chooser.mode == .save {
             presenter.chooseSaveFile(id: request.id, acceptedTypes: chooser.acceptedTypes,
@@ -685,10 +678,7 @@ final class BrowserWindowModel: Identifiable {
         guard request.isPending, promptIsCurrent(request.identity, host: host, generation: generation),
               prompt.userGesture, prompt.primaryMainFrame, !prompt.fencedFrame,
               promptPresenters[request.id] == nil else { request.resolve(false); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         let requestingOrigin = AddressResolver.canonicalOrigin(request.identity.requestingOrigin)
             ?? request.identity.requestingOrigin.absoluteString
         let alert = PagePresenter.alert(title: String(localized: "Open another application?"),
@@ -711,10 +701,7 @@ final class BrowserWindowModel: Identifiable {
               Set(prompt.choices.map(\.id)).count == prompt.choices.count,
               clientCertificateIsCurrent(request, host: host, generation: generation),
               promptPresenters[request.id] == nil else { request.resolve(nil); return }
-        let presenter = PagePresenter(window: { [weak host] in host?.nativeView.window }) { [weak host] pending in
-            host?.setAppPromptPending(pending)
-        }
-        promptPresenters[request.id] = (host.tabID, presenter)
+        let presenter = makePresenter(for: host, requestID: request.id)
         let origin = AddressResolver.canonicalOrigin(request.identity.requestingOrigin)
             ?? request.identity.requestingOrigin.absoluteString
         presenter.chooseClientCertificate(id: request.id, origin: origin,

@@ -29,7 +29,7 @@ final class LibraryStore {
     private enum Value { case text(String), number(Double), integer(Int64) }
     private static let transient = unsafeBitCast(-1, to: sqlite3_destructor_type.self)
 
-    init(directory: URL? = nil) {
+    init(directory: URL) {
         var initialized = false
         defer {
             if !initialized {
@@ -38,8 +38,6 @@ final class LibraryStore {
                 database = nil
             }
         }
-        let directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Cobble", isDirectory: true)
         do { try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true) }
         catch { lastError = String(format: String(localized: "Could not create the library folder: %@"), error.localizedDescription); return }
         guard sqlite3_open_v2(directory.appendingPathComponent("library.sqlite").path, &database,
@@ -172,9 +170,13 @@ final class LibraryStore {
             if let profile = UUID(uuidString: profileString), profileIDs.contains(profile),
                Self.syncSafeURL(Self.text(statement, column: 1)) != nil {
                 let url = Self.text(statement, column: 1)
-                let title = Self.text(statement, column: module == .bookmarks ? 3 : 2)
-                guard title.utf8.count <= 4096, !title.contains("\0") else {
-                    throw SyncFailure.localWrite(String(localized: "A saved title is too long or invalid to sync. Edit it in the library and try again."))
+                var title = Self.text(statement, column: module == .bookmarks ? 3 : 2)
+                if title.utf8.count > 4096 || title.contains("\0") {
+                    // Page titles are not editable; sync the visit untitled, as deletions already do.
+                    guard module == .history else {
+                        throw SyncFailure.localWrite(String(localized: "A saved title is too long or invalid to sync. Edit it in the library and try again."))
+                    }
+                    title = ""
                 }
                 var fields = ["profileID": profile.uuidString, "url": url, "title": title]
                 if module == .history { fields["visitedAt"] = String(sqlite3_column_double(statement, 4)) }

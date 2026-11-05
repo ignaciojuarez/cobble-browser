@@ -8,7 +8,7 @@ import WebKit
         if WebKitAudioMute.isAvailable { operations.insert(.muteAudio) }
         var controls: Set<PageCaptureControl> = [.mute(.camera), .stop(.camera), .mute(.microphone), .stop(.microphone)]
         var permissions: Set<PermissionKind> = [.camera, .microphone]
-        if WebKitDisplayCapture.support == .full && WebKitAudioMute.isAvailable {
+        if WebKitDisplayCapture.support == .full {
             controls.insert(.stopDisplay)
             permissions.insert(.screenSharing)
         }

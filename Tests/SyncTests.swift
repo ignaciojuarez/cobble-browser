@@ -401,7 +401,6 @@ final class SyncTests: XCTestCase {
     var writes = 0
 }
 @MainActor private final class MemorySyncProvider: SyncProvider {
-    let name = "Memory"
     var account = "test-account"
     var failSaves = false
     let server: MemorySyncServer

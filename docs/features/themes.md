@@ -1,6 +1,6 @@
 # Browser themes
 
-Native, Legacy, and Retro are bundled as versioned JSON in `Themes/`. `BrowserThemeProviding` supplies validated `BrowserThemeConfiguration` values to shared SwiftUI controls; both Xcode and Swift Package builds package the same resources.
+Native, Legacy, and Retro are bundled as versioned JSON in `Themes/`. `BrowserThemePreset.configuration` supplies validated `BrowserThemeConfiguration` values to shared SwiftUI controls; both Xcode and Swift Package builds package the same resources.
 
 | Area | Current behavior |
 | --- | --- |

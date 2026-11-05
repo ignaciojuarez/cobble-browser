@@ -62,7 +62,7 @@ import Network
     }
 
     private static func exercise(_ app: AppModel, passed: inout [String]) async throws {
-        let chromium = EngineID(rawValue: "chromium")
+        let chromium = EngineID.chromium
         guard app.engines.engine(chromium)?.capabilities.supportsCookieTransfer == true,
               let window = app.windows.first else { throw Failure(message: "A Full ABI 14 fixture build is required") }
         window.confirmEngineSwitch = { _ in true }

@@ -113,7 +113,8 @@ struct MediaPermissionContent: View {
             note: embeddedIn.map { String(format: String(localized: "Embedded in %@. This request only."), $0) }
                 ?? (canRemember ? nil : String(localized: "This request only.")), notice: notice) {
             Button("Not Now") { finish(false, false) }.buttonStyle(SiteActionButtonStyle()).keyboardShortcut(.cancelAction)
-            Button("Allow") { finish(true, canRemember) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+            // No Return shortcut: a page can ask while the user types, and Return must not grant access.
+            Button("Allow") { finish(true, canRemember) }.buttonStyle(SiteActionButtonStyle(prominent: true))
         }
     }
 }
@@ -131,7 +132,7 @@ struct DisplayCaptureContent: View {
             note: embeddedIn.map { String(format: String(localized: "Embedded in %@. This request only."), $0) }
                 ?? String(localized: "This request only."), notice: notice) {
             Button("Not Now") { finish(nil) }.buttonStyle(SiteActionButtonStyle()).keyboardShortcut(.cancelAction)
-            Button("Window…") { finish(.window) }.buttonStyle(SiteActionButtonStyle(prominent: true)).keyboardShortcut(.defaultAction)
+            Button("Window…") { finish(.window) }.buttonStyle(SiteActionButtonStyle(prominent: true))
             Button("Screen…") { finish(.screen) }.buttonStyle(SiteActionButtonStyle())
         }
     }

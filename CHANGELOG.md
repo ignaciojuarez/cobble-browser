@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+- Pressing Return while a camera, microphone or screen-sharing prompt is open
+  no longer allows it; click Allow or Window…. Esc still means Not Now.
+- After a newer Cobble saved your session, an older build can still open pages
+  in the default profile and quit normally; the newer session files stay untouched.
+- Closing a Chromium tab that asks "Leave this page?" now shows that question
+  instead of refusing to close, which also blocked Quit.
+- A page can no longer stack download save sheets: each window shows one at a
+  time and cancels other downloads that arrive meanwhile.
+- Sidebar drags: dropping a pin onto itself keeps it in place, and favorites
+  in a grid land in the row under the pointer.
+- iCloud sync no longer stalls on a page with a very long title and keeps
+  pins that don't sync, such as local files, in their place.
+- Typing a `tel:` number opens the phone app instead of a website.
+- The session saves at most every 2 seconds, so pages with ticking titles no
+  longer rewrite it constantly. Quit still saves everything.
 - Links opened in a new tab from a WebKit tab — ⌘-click, middle-click or
   Open Link in New Tab, including links that already open a new window —
   now use the new site's engine setting instead of copying the current tab's.

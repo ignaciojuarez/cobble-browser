@@ -1,9 +1,5 @@
 import Foundation
 
-protocol BrowserThemeProviding {
-    var configuration: BrowserThemeConfiguration { get }
-}
-
 enum ThemeControlRole: String, Codable, CaseIterable, Sendable { case toolbar, navigation, space, inline }
 enum SpacePreviewMode: String, Codable, CaseIterable, Sendable { case dots, selectedIconAndDots, icons }
 
@@ -52,8 +48,7 @@ struct ThemeControlConfiguration: Codable, Equatable, Sendable {
     var hoverHex: String?
 }
 
-struct BrowserThemeConfiguration: Codable, Equatable, Sendable, BrowserThemeProviding {
-    var configuration: Self { self }
+struct BrowserThemeConfiguration: Codable, Equatable, Sendable {
     struct Colors: Codable, Equatable, Sendable {
         var selectedTab, hover, pin, selectedPin, selectedPinStroke: Double
     }
@@ -113,7 +108,7 @@ struct BrowserThemeConfiguration: Codable, Equatable, Sendable, BrowserThemeProv
     }
 }
 
-extension BrowserThemePreset: BrowserThemeProviding {
+extension BrowserThemePreset {
     var configuration: BrowserThemeConfiguration { Self.configurations[self == .custom ? .legacy : self]! }
 
     private static let configurations: [Self: BrowserThemeConfiguration] = {

@@ -104,9 +104,8 @@ final class SiteSettingsStore {
     private struct Snapshot: Codable { var version = 3; var entries: [SiteSetting] }
     private var url: URL { directory.appendingPathComponent("site-settings.json") }
 
-    init(directory: URL? = nil) {
-        self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Cobble", isDirectory: true)
+    init(directory: URL) {
+        self.directory = directory
         let data: Data
         do { data = try Data(contentsOf: url) }
         catch let error as CocoaError where error.code == .fileReadNoSuchFile { return }

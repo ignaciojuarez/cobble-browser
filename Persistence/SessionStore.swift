@@ -24,9 +24,8 @@ final class SessionStore: @unchecked Sendable {
     /// Compared by value: JSON bytes vary with Set/Dictionary iteration order.
     private var primarySnapshot: SessionSnapshot?
 
-    init(directory: URL? = nil) {
-        self.directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Cobble", isDirectory: true)
+    init(directory: URL) {
+        self.directory = directory
     }
 
     var allowsSaving: Bool { queue.sync { canSave } }
@@ -128,8 +127,13 @@ final class SessionStore: @unchecked Sendable {
         if case let .valid(snapshot, data, migrated) = primary {
             lastValidData = data
             primarySnapshot = snapshot
-            let message = migrated ? String(localized: "The previous session was migrated; its original data will be retained as a backup.") :
+            var message = migrated ? String(localized: "The previous session was migrated; its original data will be retained as a backup.") :
                 (recoveredCorruption ? String(localized: "A damaged backup was preserved separately.") : nil)
+            // The rotating backup is replaced by the second save, so keep the pre-migration bytes apart.
+            if migrated {
+                do { try PersistenceFile.preserve(data, in: directory, prefix: "session.pre-migration") }
+                catch { message = String(format: String(localized: "Could not save the session: %@"), error.localizedDescription) }
+            }
             return LoadResult(snapshot: snapshot, message: message, canSave: true)
         }
         if case let .valid(snapshot, data, _) = backup {

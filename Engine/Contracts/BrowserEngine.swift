@@ -81,9 +81,6 @@ extension BrowserEngine {
             throw EngineError.unsupported(String(format: String(localized: "Profile deletion for %@"), name))
         }
     }
-    func removeProfile(_ profile: Profile) async throws {
-        throw EngineError.unsupported(String(format: String(localized: "Profile deletion for %@"), name))
-    }
 }
 
 struct WebsiteDataRecord: Identifiable, Hashable {
@@ -109,18 +106,6 @@ struct WebsiteDataRecord: Identifiable, Hashable {
 
 extension EngineContext {
     func resetPermission(_ kind: PermissionKind, origin: String) {}
-    func exportCookies(for url: URL) async throws -> CookieTransferSnapshot {
-        throw EngineError.unsupported("cross-engine login sharing")
-    }
-    func replaceCookies(_ cookies: [EngineCookie], for url: URL) async throws -> Int {
-        throw EngineError.unsupported("cross-engine login sharing")
-    }
-    func removeWebsiteData(ids: [UUID]) async throws {
-        try await removeWebsiteData(.init(categories: [.siteData, .cache], scope: .records(ids)))
-    }
-    func clearCache() async throws {
-        try await removeWebsiteData(.init(categories: [.cache], scope: .profile(modifiedSince: nil)))
-    }
 }
 
 @MainActor protocol EngineContentBlocker: ProfileMutationGuarded {
@@ -147,39 +132,4 @@ extension EngineContext {
     func setException(origin: URL, enabled: Bool, profileID: UUID) async
     func replaceExceptions(_ origins: [String], profileID: UUID) async throws
     func removeProfile(_ profileID: UUID) async throws
-}
-
-extension EngineContentBlocker {
-    func replaceExceptions(_ origins: [String], profileID: UUID) async throws {
-        let previous = Set(exceptions(profileID: profileID)), desired = Set(origins)
-        for origin in previous.subtracting(desired) {
-            guard let url = URL(string: origin) else { throw EngineError.notReady(String(localized: "Invalid content blocker exception.")) }
-            await setException(origin: url, enabled: false, profileID: profileID)
-        }
-        for origin in desired.subtracting(previous) {
-            guard let url = URL(string: origin) else { throw EngineError.notReady(String(localized: "Invalid content blocker exception.")) }
-            await setException(origin: url, enabled: true, profileID: profileID)
-        }
-        guard Set(exceptions(profileID: profileID)) == desired else {
-            throw EngineError.notReady(lastError ?? String(localized: "Could not save content blocker exceptions."))
-        }
-    }
-
-    func removeProfile(_: UUID) async throws {
-        throw EngineError.unsupported(String(localized: "Content-blocker profile deletion"))
-    }
-}
-
-extension EngineContentBlocker {
-    func hasRules(profileID: UUID) -> Bool { false }
-    func usesBundledRules(profileID: UUID) -> Bool { false }
-    func useBundledRules(profileID: UUID) async { await installBundledRules(profileID: profileID) }
-    func installRules(from _: URL, profileID _: UUID) async throws {
-        throw EngineError.unsupported(String(localized: "Content blocker source installation"))
-    }
-    func installBundledRules(profileID: UUID) async {}
-    func ensureBundledRules(profileID: UUID) async {}
-    func updateSource(profileID: UUID) -> URL? { nil }
-    func setUpdateSource(_ source: URL?, profileID: UUID) async {}
-    func updateRules(profileID: UUID) async {}
 }

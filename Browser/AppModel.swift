@@ -207,6 +207,8 @@ final class AppModel {
         guard !previous.contains(engineID) else { return true }
         profileEngineUsage[profileID] = previous.union([engineID])
         if let error = store.saveSynchronously(snapshot) {
+            // The default profile can't be deleted, so a session kept read-only must not stop it browsing.
+            if profileID == Profile.defaultID, !store.allowsSaving { return true }
             if previous.isEmpty { profileEngineUsage.removeValue(forKey: profileID) }
             else { profileEngineUsage[profileID] = previous }
             recordSaveResult(error)
@@ -219,10 +221,12 @@ final class AppModel {
         undoStates.removeAll(); canUndoOrganization = false
     }
 
+    /// Throttled, not debounced: a page title that ticks every second can't rewrite the session and its
+    /// backup each time, and steady changes can't postpone the save forever. Quit and explicit saves flush.
     func persist() {
-        pendingSave?.cancel()
+        guard pendingSave == nil else { return }
         pendingSave = Task { [weak self] in
-            do { try await Task.sleep(for: .milliseconds(250)) } catch { return }
+            do { try await Task.sleep(for: .seconds(2)) } catch { return }
             guard !Task.isCancelled else { return }
             self?.saveNow(skippingUnchanged: true)
         }
@@ -251,6 +255,8 @@ final class AppModel {
     }
 
     func flushAndWait() async -> String? {
+        // Saving was disabled at launch to preserve the files; the launch notice already says so.
+        guard store.allowsSaving else { return nil }
         sync.captureLocalChanges()
         return await saveNowAndWait()
     }
@@ -582,23 +588,6 @@ final class AppModel {
         persist()
     }
 
-    func renameSpace(id: UUID, name: String) {
-        guard let i = spaces.firstIndex(where: { $0.id == id }), !isDeletingProfile(spaces[i].profileID), !name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        rememberOrganization()
-        spaces[i].name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        spaces[i].isGeneratedDefault = false
-        persist()
-    }
-
-    func setSpaceIcon(id: UUID, icon: String?) {
-        guard let i = spaces.firstIndex(where: { $0.id == id }), !isDeletingProfile(spaces[i].profileID) else { return }
-        let next = Space.validatedIcon(icon)
-        guard spaces[i].icon != next else { return }
-        rememberOrganization()
-        spaces[i].icon = next
-        persist()
-    }
-
     func updateSpace(id: UUID, name: String, icon: String?) {
         guard let i = spaces.firstIndex(where: { $0.id == id }), !isDeletingProfile(spaces[i].profileID) else { return }
         let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -665,16 +654,6 @@ final class AppModel {
               parentID == nil || folders.contains(where: { $0.id == parentID && $0.spaceID == spaceID }) else { return }
         rememberOrganization()
         folders.append(Folder(spaceID: spaceID, parentID: parentID, name: name, color: color))
-        persist()
-    }
-
-    func setFolderColor(id: UUID, color: FolderColor) {
-        guard let i = folders.firstIndex(where: { $0.id == id }),
-              let space = spaces.first(where: { $0.id == folders[i].spaceID }),
-              !isDeletingProfile(space.profileID) else { return }
-        guard folders[i].color != color else { return }
-        rememberOrganization()
-        folders[i].color = color
         persist()
     }
 
@@ -827,7 +806,7 @@ final class AppModel {
     }
 
     func moveSavedItem(id: UUID, spaceID: UUID?, folderID: UUID?, before: UUID? = nil) {
-        guard let i = savedItems.firstIndex(where: { $0.id == id }), !isDeletingProfile(savedItems[i].profileID) else { return }
+        guard before != id, let i = savedItems.firstIndex(where: { $0.id == id }), !isDeletingProfile(savedItems[i].profileID) else { return }
         if let spaceID, !spaces.contains(where: { $0.id == spaceID && $0.profileID == savedItems[i].profileID }) { return }
         if let folderID, !folders.contains(where: { $0.id == folderID && $0.spaceID == spaceID }) { return }
         let old = savedItems[i]

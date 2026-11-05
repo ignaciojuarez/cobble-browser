@@ -9,7 +9,7 @@ struct BrowserView: View {
     @State private var siteControlOpen = false
     @State private var addressHovered = false
     private var theme: BrowserThemeStyle {
-        BrowserThemeStyle(provider: window.app.preferences.themeTemplate,
+        BrowserThemeStyle(preset: window.app.preferences.themeTemplate,
                           accent: Color(nsColor: window.app.preferences.themeAccentColor))
     }
 
@@ -186,7 +186,7 @@ struct BrowserView: View {
         VStack(spacing: 6) {
             HStack(spacing: 10) {
                 Color.clear.frame(width: 68, height: 28)
-                SidebarItemButton(systemImage: theme.symbol(.sidebar), help: "Toggle Sidebar",
+                SidebarItemButton(systemImage: theme.symbol(.sidebar), help: String(localized: "Toggle Sidebar"),
                                   role: .toolbar) {
                     window.sidebarVisible.toggle()
                 }
@@ -197,16 +197,16 @@ struct BrowserView: View {
                     if !theme.configuration.controls.navigation.hideWhenDisabled || !backDisabled || !forwardDisabled {
                         ThemeControlGroup(configuration: theme.configuration.groups.navigation) {
                             HStack(spacing: 0) {
-                                SidebarItemButton(systemImage: theme.symbol(.back), help: "Back",
+                                SidebarItemButton(systemImage: theme.symbol(.back), help: String(localized: "Back"),
                                                   disabled: backDisabled, role: .navigation) { window.perform(.back) }
-                                SidebarItemButton(systemImage: theme.symbol(.forward), help: "Forward",
+                                SidebarItemButton(systemImage: theme.symbol(.forward), help: String(localized: "Forward"),
                                                   disabled: forwardDisabled, role: .navigation) { window.perform(.forward) }
                             }
                         }
                     }
                     SidebarItemButton(
                         systemImage: theme.symbol(window.selectedPage?.isLoading == true ? .stop : .reload),
-                        help: window.selectedPage?.isLoading == true ? "Stop" : "Reload",
+                        help: window.selectedPage?.isLoading == true ? String(localized: "Stop") : String(localized: "Reload"),
                         disabled: window.selectedPage == nil && window.selectedTab?.urlString.isEmpty != false,
                         role: .toolbar
                     ) {
@@ -233,15 +233,15 @@ struct BrowserView: View {
                         window.cancelAddressEditing(); addressFocused = false
                     }
                     .accessibilityLabel("Address and search")
-                SidebarItemButton(systemImage: "link", help: "Copy Link",
+                SidebarItemButton(systemImage: "link", help: String(localized: "Copy Link"),
                                   disabled: !window.canPerform(.copyURL)) { window.perform(.copyURL) }
                     .opacity(addressHovered ? 1 : 0)
                 if let tabID = window.selectedTab?.id, window.showsMuteControl(tabID) {
                     SidebarItemButton(
                         systemImage: window.isAudioMuted(tabID) ? "speaker.slash" : "speaker.wave.2",
                         help: window.isAudioMuted(tabID)
-                            ? "Unmute Tab"
-                            : "Mute Tab — silence audio while playback continues"
+                            ? String(localized: "Unmute Tab")
+                            : String(localized: "Mute Tab — silence audio while playback continues")
                     ) { window.toggleMute(tabID) }
                 }
                 siteControlButton
@@ -339,7 +339,7 @@ struct BrowserView: View {
     }
 
     private var siteControlButton: some View {
-        SidebarItemButton(systemImage: siteControlSymbol, help: "Site settings",
+        SidebarItemButton(systemImage: siteControlSymbol, help: String(localized: "Site settings"),
                           disabled: window.selectedTab?.url == nil, tint: siteControlColor) {
             siteControlOpen.toggle()
         }
@@ -405,11 +405,11 @@ struct BrowserView: View {
                 }
                 .accessibilityLabel("Find in page")
             if showMatchControls {
-                SidebarItemButton(systemImage: "chevron.up", help: "Previous Match",
+                SidebarItemButton(systemImage: "chevron.up", help: String(localized: "Previous Match"),
                                   tint: Color.white.opacity(0.86), pointSize: 14, side: 26) {
                     window.perform(.findPrevious)
                 }
-                SidebarItemButton(systemImage: "chevron.down", help: "Next Match",
+                SidebarItemButton(systemImage: "chevron.down", help: String(localized: "Next Match"),
                                   tint: Color.white.opacity(0.86), pointSize: 14, side: 26) {
                     window.perform(.findNext)
                 }
@@ -417,7 +417,7 @@ struct BrowserView: View {
                 Text("No matches")
                     .foregroundStyle(.secondary)
             }
-            SidebarItemButton(systemImage: "xmark", help: "Done",
+            SidebarItemButton(systemImage: "xmark", help: String(localized: "Done"),
                               tint: Color.white.opacity(0.86), pointSize: 14, side: 26) {
                 dismissFind()
             }

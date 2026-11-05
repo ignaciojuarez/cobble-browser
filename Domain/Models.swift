@@ -226,7 +226,7 @@ struct SessionSnapshot: Equatable, Codable, Sendable {
         guard (1...currentVersion).contains(version) else { throw CocoaError(.coderReadCorrupt) }
         var snapshot = try decoder.decode(SessionSnapshot.self, from: data)
         if version < 7 {
-            let legacyEngines = [EngineID.webKit, EngineID(rawValue: "chromium")]
+            let legacyEngines = [EngineID.webKit, .chromium]
             snapshot.profileEngineUsage = snapshot.profiles.compactMap { profile in
                 guard profile.id != Profile.defaultID, case .named = profile.storeBinding else { return nil }
                 let saved = snapshot.windows.filter { $0.profileID == profile.id }.flatMap { $0.tabs.map(\.engineID) }

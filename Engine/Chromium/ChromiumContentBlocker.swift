@@ -41,7 +41,7 @@ import CobbleChromium
                 guard configurations[configuration.profileID] == nil,
                       configuration.source.map(Self.validSource) ?? true,
                       Set(configuration.exceptions).count == configuration.exceptions.count,
-                      configuration.exceptions.allSatisfy({ URL(string: $0).flatMap(AddressResolver.canonicalOrigin) == $0 }) else {
+                      configuration.exceptions.allSatisfy(AddressResolver.isCanonicalOrigin) else {
                     throw CocoaError(.coderReadCorrupt)
                 }
                 _ = try ChromiumBlockingRules.files(json: configuration.json, exceptions: configuration.exceptions)
@@ -119,7 +119,7 @@ import CobbleChromium
     }
     func replaceExceptions(_ origins: [String], profileID: UUID) async throws {
         guard origins.count <= 1000, Set(origins).count == origins.count,
-              origins.allSatisfy({ URL(string: $0).flatMap(AddressResolver.canonicalOrigin) == $0 }) else {
+              origins.allSatisfy(AddressResolver.isCanonicalOrigin) else {
             throw EngineError.notReady(String(localized: "Invalid content blocker exception."))
         }
         let desired = origins.sorted()
@@ -276,9 +276,8 @@ import CobbleChromium
         for (name, data) in files { try data.write(to: directory.appendingPathComponent(name), options: .atomic) }
     }
     private func persist(_ values: [UUID: Configuration]) throws {
-        try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
-        try JSONEncoder().encode(Snapshot(configurations: values.values.sorted { $0.profileID.uuidString < $1.profileID.uuidString }))
-            .write(to: settingsURL, options: .atomic)
+        try PersistenceFile.save(Snapshot(configurations: values.values.sorted { $0.profileID.uuidString < $1.profileID.uuidString }),
+                                 to: settingsURL)
     }
     private static func validSource(_ source: URL) -> Bool {
         source.scheme?.lowercased() == "https" && source.host?.isEmpty == false && source.user == nil

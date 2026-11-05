@@ -10,7 +10,7 @@ extension SyncRecord {
 
 /// The journal is committed before uploading and before advancing a provider cursor.
 /// ponytail: retain tombstones until a device-expiry protocol can compact them safely.
-struct SyncState: Codable {
+struct SyncState: Codable, Equatable {
     var version = 1
     var deviceID = UUID().uuidString
     var accountID: String?

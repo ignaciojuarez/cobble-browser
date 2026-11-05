@@ -4,7 +4,7 @@ import SwiftUI
 
 final class BrowserThemeTests: XCTestCase {
     @MainActor func testNativeGlassButtonsUseConfiguredSize() {
-        let theme = BrowserThemeStyle(provider: BrowserThemePreset.native, accent: .white)
+        let theme = BrowserThemeStyle(preset: .native, accent: .white)
         let button = NSHostingView(rootView: SidebarItemButton(systemImage: "plus", help: "Add", role: .toolbar) {}
             .environment(\.browserTheme, theme))
         XCTAssertEqual(button.fittingSize.width, theme.configuration.controls.toolbar.side, accuracy: 0.5)

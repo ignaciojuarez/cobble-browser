@@ -56,6 +56,7 @@ final class DownloadStore {
     @ObservationIgnored private var scopedURLs: [UUID: URL] = [:]
     @ObservationIgnored private var replacementApproved: Set<UUID> = []
     @ObservationIgnored private var panelFolders: [UUID: URL] = [:]
+    @ObservationIgnored private var panelWindows: [UUID: ObjectIdentifier] = [:]
     private var operationTokens: [UUID: UUID] = [:]
     private var cancellingIDs: Set<UUID> = []
     @ObservationIgnored private var cancellationSteps: [UUID: Int] = [:]
@@ -216,6 +217,14 @@ final class DownloadStore {
             completionHandler(temporary)
             return
         }
+        // One save sheet per window, so a page can't stack an endless queue of them.
+        if let window = download.window, panelWindows.values.contains(ObjectIdentifier(window)) {
+            item.status = .cancelled
+            item.errorMessage = String(localized: "Another download in this window is waiting for a location.")
+            completionHandler(nil)
+            release(id: id)
+            return
+        }
         item.name = Self.safeFilename(suggestedFilename)
         let panel = NSSavePanel()
         panel.nameFieldStringValue = item.name
@@ -234,6 +243,7 @@ final class DownloadStore {
         }
         let finish: (NSApplication.ModalResponse) -> Void = { [weak self] result in
             guard let self else { return }
+            self.panelWindows.removeValue(forKey: id)
             let folder = self.panelFolders.removeValue(forKey: id)
             defer { if let folder { self.preferences.endDownloadFolder(folder) } }
             guard self.cancelPanels.removeValue(forKey: id) != nil else { return }
@@ -261,8 +271,10 @@ final class DownloadStore {
                 self.release(id: id)
             }
         }
-        if let window = download.window { panel.beginSheetModal(for: window, completionHandler: finish) }
-        else { panel.begin(completionHandler: finish) }
+        if let window = download.window {
+            panelWindows[id] = ObjectIdentifier(window)
+            panel.beginSheetModal(for: window, completionHandler: finish)
+        } else { panel.begin(completionHandler: finish) }
     }
 
     private func finish(id: UUID) {
@@ -348,6 +360,7 @@ final class DownloadStore {
     private func release(id: UUID, retainingDownload: Bool = false) {
         operationTokens.removeValue(forKey: id)
         cancelPanels.removeValue(forKey: id)?()
+        panelWindows.removeValue(forKey: id)
         if !retainingDownload { downloads.removeValue(forKey: id)?.detach() }
         // Each staging URL owns a unique private directory. Engines report completion
         // or cancellation only after their file work has stopped.

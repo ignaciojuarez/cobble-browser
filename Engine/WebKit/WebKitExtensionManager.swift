@@ -341,8 +341,7 @@ final class WebKitExtensionManager: BrowserExtensionManaging {
 
     private func save(_ next: [Record]) throws {
         do {
-            try FileManager.default.createDirectory(at: snapshotURL.deletingLastPathComponent(), withIntermediateDirectories: true)
-            try JSONEncoder().encode(Snapshot(records: next)).write(to: snapshotURL, options: .atomic)
+            try PersistenceFile.save(Snapshot(records: next), to: snapshotURL)
             records = next
             lastError = nil
             onChange?()
@@ -674,7 +673,7 @@ final class WebKitExtensionSession: NSObject, WKWebExtensionControllerDelegate {
             revokePermissions(for: context)
             try controller.unload(context)
             contexts.removeValue(forKey: id)
-            disposePopups(for: context)
+            closePopups(for: context)
         }
         return record
     }
@@ -686,7 +685,7 @@ final class WebKitExtensionSession: NSObject, WKWebExtensionControllerDelegate {
             revokePermissions(for: context)
             do {
                 try controller.unload(context)
-                disposePopups(for: context)
+                closePopups(for: context)
             }
             catch {
                 retained[id] = context
@@ -715,10 +714,6 @@ final class WebKitExtensionSession: NSObject, WKWebExtensionControllerDelegate {
         Array(popupWindows.values).filter { $0.context === context }.forEach { $0.close() }
     }
 
-    private func disposePopups(for context: WKWebExtensionContext) {
-        closePopups(for: context)
-    }
-
     var presentedPopupCount: Int { popupWindows.values.filter(\.isVisible).count }
     var presentedPopupWebView: WKWebView? { popupWindows.values.first(where: \.isVisible)?.webView }
 
@@ -730,7 +725,7 @@ final class WebKitExtensionSession: NSObject, WKWebExtensionControllerDelegate {
         for context in contexts.values {
             revokePermissions(for: context)
             try? controller.unload(context)
-            disposePopups(for: context)
+            closePopups(for: context)
         }
         contexts.removeAll()
         pages.removeAll()

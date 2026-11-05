@@ -44,9 +44,7 @@ final class WebKitContentBlocker: EngineContentBlocker {
     private var url: URL { directory.appendingPathComponent("content-blockers.json") }
     var canPersistRules: Bool { canSave }
 
-    init(directory: URL? = nil) {
-        let directory = directory ?? FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-            .appendingPathComponent("Cobble", isDirectory: true)
+    init(directory: URL) {
         self.directory = directory
         let cache = directory.appendingPathComponent("ContentRuleLists", isDirectory: true)
         do { try FileManager.default.createDirectory(at: cache, withIntermediateDirectories: true) }
@@ -64,9 +62,7 @@ final class WebKitContentBlocker: EngineContentBlocker {
                 guard configurations[configuration.profileID] == nil, configuration.json.utf8.count <= Self.maximumRulesSize,
                       !configuration.identifier.isEmpty,
                       configuration.source.map({ Self.validUpdateSource(URL(string: $0.url)) }) ?? true,
-                      configuration.exceptions.allSatisfy({ value in
-                          URL(string: value).flatMap(AddressResolver.canonicalOrigin) == value
-                      }) else { throw CocoaError(.coderReadCorrupt) }
+                      configuration.exceptions.allSatisfy(AddressResolver.isCanonicalOrigin) else { throw CocoaError(.coderReadCorrupt) }
                 _ = try Self.encodedRules(configuration)
                 configurations[configuration.profileID] = configuration
             }
@@ -80,9 +76,8 @@ final class WebKitContentBlocker: EngineContentBlocker {
         } catch {
             configurations = [:]
             canSave = false
-            let preserved = directory.appendingPathComponent("content-blockers.corrupt-\(UUID()).json")
             do {
-                try data.write(to: preserved, options: .atomic)
+                try PersistenceFile.preserve(data, in: directory, prefix: "content-blockers.corrupt")
                 lastError = String(localized: "Content blocker settings are unreadable or use an unsupported format. The original was preserved; saving is disabled.")
             } catch { lastError = String(localized: "Content blocker settings are unreadable. The original is untouched; saving is disabled.") }
         }
@@ -244,7 +239,7 @@ final class WebKitContentBlocker: EngineContentBlocker {
             throw EngineError.notReady(lastError ?? String(localized: "Content rules are unavailable."))
         }
         guard origins.count <= 1000, Set(origins).count == origins.count,
-              origins.allSatisfy({ URL(string: $0).flatMap(AddressResolver.canonicalOrigin) == $0 }) else {
+              origins.allSatisfy(AddressResolver.isCanonicalOrigin) else {
             throw EngineError.notReady(String(localized: "Invalid content blocker exception."))
         }
         let desired = origins.sorted()
@@ -266,7 +261,7 @@ final class WebKitContentBlocker: EngineContentBlocker {
         next.removeValue(forKey: profileID)
         do {
             let records = next.values.sorted { $0.profileID.uuidString < $1.profileID.uuidString }
-            try JSONEncoder().encode(Snapshot(configurations: records)).write(to: url, options: .atomic)
+            try PersistenceFile.save(Snapshot(configurations: records), to: url)
         } catch {
             lastError = String(format: String(localized: "Content blocker settings could not be saved: %@"), error.localizedDescription)
             throw error
@@ -345,7 +340,7 @@ final class WebKitContentBlocker: EngineContentBlocker {
         next[configuration.profileID] = configuration
         do {
             let records = next.values.sorted { $0.profileID.uuidString < $1.profileID.uuidString }
-            try JSONEncoder().encode(Snapshot(configurations: records)).write(to: url, options: .atomic)
+            try PersistenceFile.save(Snapshot(configurations: records), to: url)
             return true
         } catch { lastError = String(format: String(localized: "Content blocker settings could not be saved: %@"), error.localizedDescription); return false }
     }
