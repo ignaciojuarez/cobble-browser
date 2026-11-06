@@ -949,7 +949,8 @@ final class BrowserWindowModel: Identifiable {
             return true
         }
         let message = String(format: String(localized: "Reload with %@? Unsaved changes and back/forward history will be lost. You may need to sign in again."), engine.name)
-        let accepted = confirmEngineSwitch?(message) ?? (PagePresenter.alert(title: String(localized: "Change engine?"), message: message,
+        // Leaving a local file has no website state or sign-in to lose.
+        let accepted = URL(string: tab.urlString)?.isFileURL == true || confirmEngineSwitch?(message) ?? (PagePresenter.alert(title: String(localized: "Change engine?"), message: message,
             buttons: [String(localized: "Reload"), String(localized: "Cancel")]).runModal() == .alertFirstButtonReturn)
         guard accepted, !isClosed, record.tabs.contains(where: { $0.id == tab.id }) else { return false }
         if let pending = pendingPages.removeValue(forKey: tab.id) { app.engines.retire(pending) }
@@ -1673,12 +1674,16 @@ final class BrowserWindowModel: Identifiable {
         let targetID: UUID
         let provisional: Bool
         let previousSelection = record.selectedTabID
+        // Chromium serves only the chosen file; WebKit also loads its CSS, images and linked pages.
+        var tabID = tabID
+        if let id = tabID, let tab = record.tabs.first(where: { $0.id == id }),
+           app.engines.effectiveID(tab.engineID) != .webKit { tabID = nil }
         if let tabID {
             guard record.selectedTabID == tabID, record.tabs.contains(where: { $0.id == tabID }) else { throw EngineError.closed }
             targetID = tabID
             provisional = false
         } else {
-            let tab = Tab(spaceID: record.selectedSpaceID, engineID: app.preferences.defaultEngine)
+            let tab = Tab(spaceID: record.selectedSpaceID, engineID: .webKit)
             insertNewTemporaryTab(tab)
             targetID = tab.id
             provisional = true
@@ -1688,8 +1693,11 @@ final class BrowserWindowModel: Identifiable {
             if provisional { rollbackProvisionalLocalFileTab(targetID, previousSelection: previousSelection) }
             throw EngineError.notReady(String(localized: "The page is not ready to open a local file."))
         }
-        do { try await host.openLocalFile(url) }
-        catch {
+        do {
+            // A new tab's page and content rules may still be preparing.
+            try await host.prepare()
+            try await host.openLocalFile(url)
+        } catch {
             if provisional { rollbackProvisionalLocalFileTab(targetID, previousSelection: previousSelection) }
             throw error
         }
