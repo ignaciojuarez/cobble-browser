@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- HTML files opened from Finder, the Dock or File > Open File… now open in a
+  WebKit tab with their styles, images and linked pages, even when Chromium is
+  the default engine. They previously failed with "The page is closed."
 - Pressing Return while a camera, microphone or screen-sharing prompt is open
   no longer allows it; click Allow or Window…. Esc still means Not Now.
 - After a newer Cobble saved your session, an older build can still open pages

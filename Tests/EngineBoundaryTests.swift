@@ -152,6 +152,50 @@ import SQLite3
         }
     }
 
+    func testLocalFileWaitsForANewTabsPageToPrepare() async throws {
+        try await withApp { app, engines in
+            let window = try XCTUnwrap(app.windows.first)
+            engines[0].capabilities.pageOperations.insert(.localFile)
+            engines[0].delayPreparation = true
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleLocalPrepare-\(UUID()).html")
+            try "<title>Prepared</title>".write(to: file, atomically: true, encoding: .utf8)
+            defer { try? FileManager.default.removeItem(at: file) }
+
+            let opening = Task { try await window.acceptLocalFile(file) }
+            try await eventually { engines[0].contexts.flatMap(\.pages).contains { $0.preparation != nil } }
+            engines[0].contexts.flatMap(\.pages).forEach { $0.finishPreparation() }
+            try await opening.value
+
+            XCTAssertEqual(window.selectedTab?.urlString, file.absoluteString)
+            XCTAssertNotNil(window.selectedTab?.localFileBookmark)
+        }
+    }
+
+    func testLocalFilesOpenInWebKitAndLeaveWithoutAPrompt() async throws {
+        try await withApp { app, _ in
+            XCTAssertTrue(app.preferences.setDefaultEngine(self.secondID))
+            let window = try XCTUnwrap(app.windows.first)
+            window.addTab(url: URL(string: "https://before.example")!)
+            let other = try XCTUnwrap(window.selectedTab)
+            XCTAssertEqual(other.engineID, self.secondID)
+            let file = FileManager.default.temporaryDirectory.appendingPathComponent("CobbleLocalWebKit-\(UUID()).html")
+            try "<title>Local</title>".write(to: file, atomically: true, encoding: .utf8)
+            defer { try? FileManager.default.removeItem(at: file) }
+
+            try await window.acceptLocalFile(file, replacing: other.id)
+            let local = try XCTUnwrap(window.selectedTab)
+            XCTAssertNotEqual(local.id, other.id, "Open File… keeps the non-WebKit tab and opens a WebKit one")
+            XCTAssertEqual(local.engineID, .webKit)
+            XCTAssertEqual(local.urlString, file.absoluteString)
+            XCTAssertEqual(window.record.tabs.first { $0.id == other.id }?.urlString, other.urlString)
+
+            window.confirmEngineSwitch = { _ in XCTFail("Leaving a local file must not prompt"); return false }
+            window.addressDraft = self.destination.absoluteString; window.submitAddress()
+            try await self.eventually { window.selectedPage?.contextID.engineID == self.secondID }
+            XCTAssertEqual(window.selectedTab?.id, local.id)
+        }
+    }
+
     func testPrivateLocalFileDuplicateRetainsEphemeralAuthorization() async throws {
         try await withApp { app, _ in
             let window = app.newWindow(isPrivate: true)
@@ -2313,6 +2357,8 @@ import SQLite3
     }
     func applyContentRules() {}
     func openLocalFile(_ url: URL) async throws {
+        // Like ChromiumPage, reject files before the native page exists.
+        guard state.lifecycle == .ready else { throw EngineError.closed }
         if localFileFailure { throw EngineError.notReady("Injected local-file failure") }
         if delayLocalFile {
             try await withCheckedThrowingContinuation { localFileContinuation = $0 }
