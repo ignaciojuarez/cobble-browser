@@ -8,7 +8,7 @@ ROOT="${ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
 BUILD_TOOLS_ROOT="${BUILD_TOOLS_ROOT:-${BUILD_TOOLS:-$HOME/Developer/kiwios/tools/build-runners}}"
 FULL_APP="$ROOT/.context/Cobble.app"
 CHROMIUM_BUILD="${COBBLE_CHROMIUM_BUILD:-$HOME/Developer/cobble-chromium-build}"
-CHROMIUM_APP="${COBBLE_CHROMIUM_APP:-$CHROMIUM_BUILD/next-stable/src/out/Cobble/Chromium.app}"
+CHROMIUM_APP="${COBBLE_CHROMIUM_APP:-$CHROMIUM_BUILD/chromium-157/src/out/Cobble/Chromium.app}"
 PHASE_FILE="$CHROMIUM_BUILD/evidence/full-chrome-current-phase.json"
 COBBLE_APP="${APP:-$ROOT/.context/DerivedData/Build/Products/Debug/Cobble.app}"
 

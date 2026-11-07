@@ -116,6 +116,9 @@ extension SiteBrowserIdentity {
     func removeProfile(_ profile: Profile) async throws {
         guard case .named = profile.storeBinding else { return }
         try await runtime.waitUntilReady()
+        // Settings or sync may have opened a context outside EngineRegistry;
+        // Chromium refuses to delete a profile with a live context.
+        await normalContexts[profile.id]?.close()
         try await runtime.scheduleProfileDeletion(key: chromiumProfileKey(profile.id))
         try chromiumExtensionManager.removeProfile(profile.id)
         try await chromiumContentBlocker.removeProfile(profile.id)
@@ -423,7 +426,7 @@ extension SiteBrowserIdentity {
                 guard let self, self.javaScriptDialogIDs.removeValue(forKey: nativeID) == id else { return }
                 guard let request, request.isPending else { return }
                 switch result {
-                case .accept(let text): request.accept(promptText: text)
+                case .accept(let text): if !request.accept(promptText: text) { request.cancel() }
                 case .cancel: request.cancel()
                 }
             }
@@ -475,9 +478,8 @@ extension SiteBrowserIdentity {
                 [weak self, weak request] credential in
                 guard let self, self.httpAuthRequestIDs.removeValue(forKey: nativeID) == id else { return }
                 guard let request, request.isPending else { return }
-                if let credential {
-                    request.submit(username: credential.username, password: credential.password)
-                } else { request.cancel() }
+                if let credential, request.submit(username: credential.username, password: credential.password) { return }
+                request.cancel()
             }
         request.onCancel = { [weak self, weak host, weak request] in
             guard let self, request != nil,
@@ -517,7 +519,8 @@ extension SiteBrowserIdentity {
                 acceptedTypes: request.acceptedTypes)) { [weak self, weak request] urls in
                 guard let self, self.fileChooserIDs.removeValue(forKey: nativeID) == id else { return }
                 guard let request, request.isPending else { return }
-                if let urls { request.select(urls) } else { request.cancel() }
+                if let urls, request.select(urls) { return }
+                request.cancel()
             }
         request.onCancel = { [weak self, weak host, weak request] in
             guard let self, request != nil,

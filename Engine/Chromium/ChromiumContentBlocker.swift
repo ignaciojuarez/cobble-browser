@@ -66,15 +66,18 @@ import CobbleChromium
     }
     func exceptions(profileID: UUID) -> [String] { configurations[profileID]?.exceptions ?? [] }
     func updateSource(profileID: UUID) -> URL? { configurations[profileID]?.source }
-    func canLoad(profileID: UUID) -> Bool { writable && !failed.contains(profileID) }
+    /// An unreadable settings file disables changes, not browsing: Chromium
+    /// keeps enforcing the rules extension it already installed.
+    func canLoad(profileID: UUID) -> Bool { !failed.contains(profileID) }
 
     /// Run before a normal page navigates. Private contexts never install extensions.
     func prepare(profileID: UUID) async throws {
-        if let operation = operations[profileID] { try await operation.1.value }
+        // A failed change has already restored or marked its profile; its error is not this page's.
+        if let operation = operations[profileID] { _ = try? await operation.1.value }
         guard canLoad(profileID: profileID) else {
             throw EngineError.notReady(lastError ?? String(localized: "Chromium content rules could not load."))
         }
-        guard installed[profileID] == nil else { return }
+        guard writable, installed[profileID] == nil else { return }
         try await enqueue(profileID) { $0 ?? Configuration(profileID: profileID, json: ChromiumBlockingRules.bundledJSON) }
     }
 
@@ -113,13 +116,14 @@ import CobbleChromium
             }
             next.exceptions.removeAll { $0 == origin }
             if enabled { next.exceptions.append(origin) }
+            guard next.exceptions.count <= Self.maximumExceptions else { throw Self.tooManyExceptions }
             next.exceptions.sort()
             return next
         }
     }
     func replaceExceptions(_ origins: [String], profileID: UUID) async throws {
-        guard origins.count <= 1000, Set(origins).count == origins.count,
-              origins.allSatisfy(AddressResolver.isCanonicalOrigin) else {
+        guard origins.count <= Self.maximumExceptions else { throw Self.tooManyExceptions }
+        guard Set(origins).count == origins.count, origins.allSatisfy(AddressResolver.isCanonicalOrigin) else {
             throw EngineError.notReady(String(localized: "Invalid content blocker exception."))
         }
         let desired = origins.sorted()
@@ -278,6 +282,11 @@ import CobbleChromium
     private func persist(_ values: [UUID: Configuration]) throws {
         try PersistenceFile.save(Snapshot(configurations: values.values.sorted { $0.profileID.uuidString < $1.profileID.uuidString }),
                                  to: settingsURL)
+    }
+    /// Matches `ChromiumBlockingRules.files`, which rejects larger exception lists.
+    private static let maximumExceptions = 512
+    private static var tooManyExceptions: EngineError {
+        .notReady(String(format: String(localized: "Chromium content rules allow at most %@ site exceptions."), "\(maximumExceptions)"))
     }
     private static func validSource(_ source: URL) -> Bool {
         source.scheme?.lowercased() == "https" && source.host?.isEmpty == false && source.user == nil

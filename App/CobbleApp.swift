@@ -74,7 +74,9 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
     static func startChromiumClient(handle: UnsafeMutableRawPointer?) -> Int32 {
         guard chromiumClient == nil else { return -1 }
         let client = CobbleApp()
-        guard client.acquireWorkspace() else { return -2 }
+        // A nonzero result makes the launcher abort() with a crash report; the
+        // user has already been told why, so leave quietly instead.
+        guard client.acquireWorkspace() else { exit(EXIT_FAILURE) }
         do {
             let runtime = try ChromiumRuntime(launcherFrameworkHandle: handle)
             client.chromiumRuntime = runtime
@@ -93,7 +95,13 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
             try runtime.registerClient()
             chromiumClient = client
             return 0
-        } catch { return -3 }
+        } catch {
+            let alert = NSAlert()
+            alert.messageText = String(localized: "Couldn’t open Cobble")
+            alert.informativeText = error.localizedDescription
+            alert.runModal()
+            exit(EXIT_FAILURE)
+        }
     }
 
     private func quitChromiumClient() {

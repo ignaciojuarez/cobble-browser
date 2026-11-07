@@ -106,6 +106,9 @@
     "Chromium content rules could not load." : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No se pudieron cargar las reglas de contenido de Chromium."}}}
     },
+    "Chromium content rules allow at most %@ site exceptions." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las reglas de contenido de Chromium admiten como máximo %@ excepciones de sitio."}}}
+    },
     "Install or import content rules first." : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Instala o importa primero las reglas de contenido."}}}
     },

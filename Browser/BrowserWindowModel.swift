@@ -454,10 +454,6 @@ final class BrowserWindowModel: Identifiable {
             // Native close/focus callbacks cannot leave this space or refill an empty selection.
             self.select(tabID)
         }
-        host.events.onKeyEvent = { [weak self] event in
-            guard let self, self.isCurrent(tabID, generation: generation), self.record.selectedTabID == tabID else { return false }
-            return self.onKeyEvent?(event) ?? false
-        }
         host.events.onMediaPermissionRequest = { [weak self, weak host] request in
             guard let self, let host else { request.resolve(.deny); return }
             self.presentMediaPermission(request, from: host, generation: generation)
