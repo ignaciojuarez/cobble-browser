@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+- Chromium tabs run Chromium 157 (from 153), with its security fixes.
+- Closing a Chromium private window while a download is running no longer
+  crashes Cobble.
+- Chromium no longer remembers a site as blocked after Cobble refuses one of
+  its permission requests, and a site's second automatic download is no longer
+  blocked for good.
+- A prompt in a Chromium tab is no longer dismissed when an embedded frame
+  (an ad or a sign-in widget) reloads.
+- Chromium tabs no longer keep visited URLs in favicon or predictor databases;
+  clearing all website data also removes older entries.
+- Signing in with a passkey in a Chromium tab fails cleanly instead of risking
+  a crash; Chromium tabs are no longer discarded under memory pressure.
+- Find in a Chromium tab reports matches for the first search on each page.
+- Deleting a profile now succeeds after its Chromium extensions or content
+  rules were changed in Settings, and an unreadable Chromium content-rules file
+  no longer stops every Chromium page from loading.
+- Full no longer leaves a crash report after "Quit any other Cobble instance",
+  and explains a Chromium runtime mismatch instead of crashing.
 - HTML files opened from Finder, the Dock or File > Open File… now open in a
   WebKit tab with their styles, images and linked pages, even when Chromium is
   the default engine. They previously failed with "The page is closed."

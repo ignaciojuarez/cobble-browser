@@ -63,6 +63,7 @@ jobs:
             -maximum-test-execution-time-allowance 180 \
             "${test_selection[@]}" "${media_selection[@]}" test 2>&1 | tee "$RUNNER_TEMP/CobbleTests.log"
       - name: Check the pinned public Chromium adapter
+        if: ${{ !cancelled() }}
         run: swift test
       - name: Preserve test evidence
         if: always()

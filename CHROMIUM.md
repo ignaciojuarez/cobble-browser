@@ -20,10 +20,11 @@ them once as `~/Developer/cobble` and `~/Developer/chrome-sdk`. Use temporary
 worktrees for branches; do not keep public/private source mirrors.
 
 Keep one incremental Chromium cache outside either repository. On the maintainer
-Mac this is `~/Developer/cobble-chromium-build/next-stable`; its existing path
-is preserved because compiled outputs reference it. The former Chromium 152
-checkout is obsolete. Keep immutable packaged current/rollback runtimes under
-`cobble-chromium-build/runtimes/`, not copies of full build trees.
+Mac this is `~/Developer/cobble-chromium-build/chromium-157`; compiled outputs
+reference that path, so do not rename it. The Chromium 153 `next-stable` tree is
+the rollback source until 157 qualifies, then obsolete. Keep immutable packaged
+current/rollback runtimes under `cobble-chromium-build/runtimes/`, not copies of
+full build trees.
 
 ABI 17 carries exact popup disposition so modified-link children can open in
 the background. The app’s shared page event carries the activation choice for
@@ -33,8 +34,8 @@ both Chromium and WebKit.
 
 | Component | Version |
 | --- | --- |
-| Chromium | `153.0.8010.37` (`b75a5a95ea1a1b55bdbfd6d9f42d47be7507fb8b`) |
-| depot_tools | `81577f19a8497ba7e41afac322e8f03553a863ec` |
+| Chromium | `157.0.8103.39` (`9a31f0acec1854d44e49a73fbf8017598151a583`) |
+| depot_tools | `9fc44de94012dc6598ed1e84a9251759ed5ea7f8` |
 | Cobble SDK | Exact public revision in `Package.swift` and `Package.resolved` |
 | Cobble ABI | 19 |
 
@@ -127,11 +128,26 @@ native-payload provenance, and checksum-verified. The isolated harness passed
 581 hosted tests and 9 adapter tests; the SDK passed 66 Python and 20 Swift
 checks. Full assembly passed deep/strict signature verification.
 
-The broader smoke run timed out during interrupted GET download recovery on
-both the original private ABI 17 runtime and the rebuilt public runtime. This
-is an existing open qualification issue, not a passing download/release gate.
-The runtime remains a development artifact; no new signed app update is
-published by this source migration.
+The broader smoke run then timed out during interrupted GET download recovery.
+The SDK later fixed that Swift-side retry handling (AUDIT F01); matched
+fixtures now pass it (see Runtime boundaries). The runtime remains a
+development artifact; no new signed app update is published by this source
+migration.
+
+## Chromium 157 validation (2026-11-06)
+
+The SDK moved from 153.0.8010.37 to 157.0.8103.39 with all patches rebased and
+the audit's native fixes (see `artifacts/chromium-sdk-audit.md`). The packaged
+development runtime (`release_ready: false`) passed the isolated SDK harness:
+251 of 251 native checks, plus navigation, DOM, forms, rendering, WebGL2,
+downloads, clean shutdown and empty History tables. The former PiP, document
+PiP and display-media containment failures were harness artifacts and pass.
+
+Chromium 157 refuses page fullscreen unless the page view has focus in the key
+window; a real click provides that, and Cobble focuses the selected tab. The
+Cobble adapter built against the pinned SDK and its 12 tests passed. Full
+assembly and launch, closing a private window during a download, real sites
+and hardware remain to be checked.
 
 ## Screen sharing validation (2026-11-04)
 
