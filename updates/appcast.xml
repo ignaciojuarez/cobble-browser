@@ -10,6 +10,28 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Mon, 09 Nov 2026 11:50:33 -0800</pubDate>
+            <sparkle:version>14</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Keyboard Privacy is enabled by default unless you previously chose otherwise, and now hides Option/Alt alongside Command and Control from websites.
+- Global hotkeys can no longer leak orphaned key-up events to pages. This keeps Mica's original Option and Control-Option shortcuts out of Cobble pages.
+- Option-based special characters and site shortcuts are also hidden from pages while Keyboard Privacy is enabled.
+- Includes the latest AI-agent tab automation, AppleScript and privacy fixes from main.
+
+Includes WebKit, Chromium 157.0.8103.39 and signed in-app updates, using the pinned public ABI 19 SDK (93c1dad) and its matching runtime.
+
+This is an early beta. Real-site compatibility, clean-Mac installation and installed version-to-version updates remain unqualified. After updating, older Cobble betas should not be reopened: Chromium does not support moving a profile back to an older version.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.14/Cobble-v0.1.0-beta.14.zip" length="169519976" type="application/octet-stream" sparkle:edSignature="anEorJYUtuMImSVNo29/8c5KT3t1x+t45DhH3e0IUmqMW5EwCf82WZTcv1UXK1FJ8AaSozBux3CcCgljlxqbBw=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Sun, 08 Nov 2026 23:22:07 -0800</pubDate>
             <sparkle:version>13</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -59,29 +81,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.12/Cobble-v0.1.0-beta.12.zip" length="164439119" type="application/octet-stream" sparkle:edSignature="MxMaNqBnR1E2WZN0Ubp1od4ZRStIoM+9D2Z29IfTYlnfSI5nSceH4YpHLFhLoinPSNxo73x4SjdNndPpfFcADw=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Mon, 02 Nov 2026 16:55:18 -0800</pubDate>
-            <sparkle:version>11</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- The site menu is simpler: connection status at the top (click it for the certificate), then on/off switches for Camera, Microphone, Sound and Pop-ups. Allowing camera or microphone now always remembers the site, so the switch stays on until you turn it off. Turning it off also stops the camera or microphone on that page. Works in WebKit and Chromium tabs.
-- Native window buttons appear when a window enters full screen.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (371054c) and its matching Chromium runtime.
-
-This is an early beta. Real-site camera and microphone behavior, interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.11/Cobble-v0.1.0-beta.11.zip" length="164425543" type="application/octet-stream" sparkle:edSignature="tMklGsCBDSIkTYMsKR340UpmcYLcE6YsFW8/TGjxwRkIHa3XaW96PdgXDPBHxya/ffByAABhcvPSYV4pkmCrBQ=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: QvjkcgQ2lqOx0Bx2EOude3FIi0mkKunxkri61RxZWLP7mVsCF6MGUZZDllQeP9r8FHsXJd2rfUvkRksdz40ODA==
-length: 8812
+edSignature: mYKG5zofJC0Ht7iq7yVPalUnxDSAZgkr5MlF2bfPXL8s4itNQYwUI+FmOdWafGXQlt8YF/MjqHmwIJzEusulAw==
+length: 8950
 -->
