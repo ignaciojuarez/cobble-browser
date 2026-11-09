@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+- AI agents and scripts can work with Cobble through the bundled `cobble`
+  command (JSON output) or `cobble mcp` (an MCP server). Settings › Browsing ›
+  Automation copies its path.
+- AppleScript can navigate, go back or forward, and reload tabs, open
+  background tabs, and see which window is in front and each tab's loading,
+  engine, audio and dialog state. The window is now optional.
+- With the new Let Apps Read Pages setting (off by default), apps you allow
+  can read a page's visible text, an outline of its controls, its script
+  errors and requests, and take a screenshot of it. Private windows and local
+  files are never shared.
+- With Let Apps Use Pages (off by default), apps can click, type, choose
+  options and scroll in pages. The sidebar marks tabs an app is using; click
+  the mark to stop all apps at once.
+- Agents open new tabs in their own Agents space, in the background, and can
+  still use any tab you point them at. They can wait for a page to load.
+- Private Sites in Settings › Browsing › Automation keeps banking, mail or
+  other sites away from apps: they see only the site's address.
+- Chromium tabs can share page text with apps too.
+- Window titles now follow the selected tab, so the Window menu and
+  accessibility tools can tell windows apart.
+- Apps reading or using a page, and View Current DOM, never count as you
+  interacting with the site: it cannot open popups or use the clipboard
+  because of them, and tracking prevention does not record a visit.
 - Keyboard Privacy now also hides ⌘ and ⌃ when the pointer enters or leaves
   a WebKit page, moves over the page under the sidebar or command bar, and in
   a full-screen page that opened another tab. Japanese and other input methods

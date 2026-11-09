@@ -1,44 +1,144 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE dictionary SYSTEM "file://localhost/System/Library/DTDs/sdef.dtd">
 <dictionary>
-    <suite name="Cobble Tab Suite" code="Cbbl" description="Normal-window tab automation.">
+    <suite name="Cobble Tab Suite" code="Cbbl" description="Normal-window tab automation. Private windows are never listed. Cobble Settings › Browsing can turn automation off. Tab IDs are unique, so “in window” is optional; it defaults to the frontmost normal window.">
         <record-type name="window info" code="CbWi">
             <property name="id" code="ID  " type="text"><cocoa key="id"/></property>
             <property name="profile id" code="CbPr" type="text"><cocoa key="profileID"/></property>
             <property name="tab count" code="CbCt" type="integer"><cocoa key="tabCount"/></property>
+            <property name="frontmost" code="pisf" type="boolean" description="The frontmost visible normal window."><cocoa key="frontmost"/></property>
+            <property name="selected tab id" code="CbSt" type="text"><cocoa key="selectedTabID"/></property>
+            <property name="space id" code="CbSp" type="text" description="The selected space."><cocoa key="spaceID"/></property>
+            <property name="agent space id" code="CbAi" type="text" description="The space “open tab … with agent space” uses; empty until first used."><cocoa key="agentSpaceID"/></property>
+            <property name="busy" code="CbBz" type="boolean" description="A page action or dialog is open; changes are refused until it finishes."><cocoa key="busy"/></property>
         </record-type>
         <record-type name="tab info" code="CbTi">
             <property name="id" code="ID  " type="text"><cocoa key="id"/></property>
-            <property name="url" code="pURL" type="text"><cocoa key="url"/></property>
+            <property name="url" code="pURL" type="text" description="Empty for local files and non-web pages."><cocoa key="url"/></property>
             <property name="title" code="pnam" type="text"><cocoa key="title"/></property>
             <property name="selected" code="CbSl" type="boolean"><cocoa key="selected"/></property>
+            <property name="loaded" code="CbLd" type="boolean" description="The tab has a live page."><cocoa key="loaded"/></property>
+            <property name="loading" code="CbLg" type="boolean"><cocoa key="loading"/></property>
+            <property name="engine" code="CbEn" type="text" description="webkit or chromium."><cocoa key="engine"/></property>
+            <property name="saved" code="CbSv" type="boolean" description="A pin or favorite."><cocoa key="saved"/></property>
+            <property name="audible" code="CbAu" type="boolean"><cocoa key="audible"/></property>
+            <property name="muted" code="CbMu" type="boolean"><cocoa key="muted"/></property>
+            <property name="busy" code="CbBz" type="boolean" description="The page is showing a dialog or prompt."><cocoa key="busy"/></property>
+            <property name="excluded" code="CbEx" type="boolean" description="The user keeps this site private from apps; only its origin is shown."><cocoa key="excluded"/></property>
+            <property name="space id" code="CbSp" type="text"><cocoa key="spaceID"/></property>
+            <property name="space name" code="CbSn" type="text"><cocoa key="spaceName"/></property>
         </record-type>
-        <command name="list windows" code="CbblLWin" description="List normal windows.">
+        <record-type name="page content" code="CbPc">
+            <property name="id" code="ID  " type="text"><cocoa key="id"/></property>
+            <property name="url" code="pURL" type="text"><cocoa key="url"/></property>
+            <property name="title" code="pnam" type="text"><cocoa key="title"/></property>
+            <property name="text" code="CbTx" type="text" description="Page text, outline or activity, without form values or frames."><cocoa key="text"/></property>
+            <property name="truncated" code="CbTr" type="boolean"><cocoa key="truncated"/></property>
+        </record-type>
+        <record-type name="page image" code="CbPi">
+            <property name="id" code="ID  " type="text"><cocoa key="id"/></property>
+            <property name="url" code="pURL" type="text"><cocoa key="url"/></property>
+            <property name="width" code="CbWd" type="integer"><cocoa key="width"/></property>
+            <property name="height" code="CbHt" type="integer"><cocoa key="height"/></property>
+            <property name="png data" code="CbPn" type="text" description="Base64 PNG of the visible page area."><cocoa key="pngData"/></property>
+        </record-type>
+        <command name="list windows" code="CbblLWin" description="List normal windows, front to back.">
             <cocoa class="CobbleListWindowsCommand"/>
             <result><type type="window info" list="yes"/></result>
         </command>
         <command name="list tabs" code="CbblLTbs" description="List tabs in one normal window.">
             <cocoa class="CobbleListTabsCommand"/>
-            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
             <result><type type="tab info" list="yes"/></result>
         </command>
-        <command name="open tab" code="CbblOTab" description="Open an HTTP or HTTPS URL in one normal window.">
+        <command name="open tab" code="CbblOTab" description="Open an HTTP or HTTPS URL in a normal window.">
             <cocoa class="CobbleOpenTabCommand"/>
             <direct-parameter type="text"/>
-            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <parameter name="activating" code="CbAc" type="boolean" optional="yes" description="Select the new tab. Default true."><cocoa key="activate"/></parameter>
+            <parameter name="agent space" code="CbAs" type="boolean" optional="yes" description="Open in the window’s Agents space, created when first needed. Default false."><cocoa key="agentSpace"/></parameter>
             <result type="tab info"/>
         </command>
-        <command name="select tab" code="CbblSTab" description="Select a tab in one normal window.">
+        <command name="select tab" code="CbblSTab" description="Select a tab in a normal window.">
             <cocoa class="CobbleSelectTabCommand"/>
             <direct-parameter type="text"/>
-            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
             <result type="tab info"/>
         </command>
         <command name="close tab" code="CbblCTab" description="Close a tab when no confirmation is needed.">
             <cocoa class="CobbleCloseTabCommand"/>
             <direct-parameter type="text"/>
-            <parameter name="in window" code="CbWn" type="text"><cocoa key="windowID"/></parameter>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
             <result type="tab info"/>
+        </command>
+        <command name="load url" code="CbblLUrl" description="Navigate a loaded tab to an HTTP or HTTPS URL that uses the same web engine.">
+            <cocoa class="CobbleLoadURLCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in tab" code="CbTb" type="text"><cocoa key="tabID"/></parameter>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="go back" code="CbblGBck" description="Go back in a loaded tab.">
+            <cocoa class="CobbleGoBackCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="go forward" code="CbblGFwd" description="Go forward in a loaded tab.">
+            <cocoa class="CobbleGoForwardCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="reload tab" code="CbblRTab" description="Reload a loaded tab.">
+            <cocoa class="CobbleReloadTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="read tab" code="CbblRdTx" description="Read a loaded web page’s rendered text. Requires Let Apps Read Pages in Settings.">
+            <cocoa class="CobbleReadTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <parameter name="max length" code="CbMx" type="integer" optional="yes" description="Default 100000 characters."><cocoa key="maxLength"/></parameter>
+            <result type="page content"/>
+        </command>
+        <command name="capture tab" code="CbblCpTb" description="Screenshot a loaded web page’s visible area. Requires Let Apps Read Pages in Settings.">
+            <cocoa class="CobbleCaptureTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <result type="page image"/>
+        </command>
+        <command name="wait for tab" code="CbblWait" description="Wait until a loaded tab finishes loading.">
+            <cocoa class="CobbleWaitForTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <parameter name="timeout" code="CbTo" type="integer" optional="yes" description="Seconds, 1 to 60. Default 30."><cocoa key="timeout"/></parameter>
+            <result type="tab info"/>
+        </command>
+        <command name="outline tab" code="CbblOutl" description="Outline a loaded web page’s visible headings, text and controls. Controls carry refs for “perform page action”. Requires Let Apps Read Pages in Settings.">
+            <cocoa class="CobbleOutlineTabCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <parameter name="max length" code="CbMx" type="integer" optional="yes" description="Default 40000 characters."><cocoa key="maxLength"/></parameter>
+            <result type="page content"/>
+        </command>
+        <command name="perform page action" code="CbblActn" description="click, fill, select, scroll or press on an element ref from “outline tab”. Requires Let Apps Use Pages in Settings.">
+            <cocoa class="CobblePerformActionCommand"/>
+            <direct-parameter type="text" description="click, fill, select, scroll or press."/>
+            <parameter name="in tab" code="CbTb" type="text"><cocoa key="tabID"/></parameter>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <parameter name="targeting" code="CbRf" type="text" optional="yes" description="An element ref from the outline, such as kqa12. Optional for scroll and press."><cocoa key="ref"/></parameter>
+            <parameter name="input" code="CbVl" type="text" optional="yes" description="Text to fill, option to select, key to press, or scroll up, down, top or bottom."><cocoa key="value"/></parameter>
+            <parameter name="submitting" code="CbSb" type="boolean" optional="yes" description="After fill, press Enter."><cocoa key="submit"/></parameter>
+            <result type="text"/>
+        </command>
+        <command name="read activity" code="CbblRAct" description="Recent script errors, failed loads and network requests of a loaded web page. Requires Let Apps Read Pages in Settings.">
+            <cocoa class="CobbleReadActivityCommand"/>
+            <direct-parameter type="text"/>
+            <parameter name="in window" code="CbWn" type="text" optional="yes"><cocoa key="windowID"/></parameter>
+            <parameter name="max length" code="CbMx" type="integer" optional="yes" description="Default 20000 characters."><cocoa key="maxLength"/></parameter>
+            <result type="page content"/>
         </command>
     </suite>
 </dictionary>

@@ -18,6 +18,7 @@ final class TabCommandTests: XCTestCase {
             XCTAssertEqual(preferences.persistenceStatus, .readOnly(readError))
             XCTAssertFalse(preferences.setDefaultEngine(EngineID(rawValue: "chromium")))
             XCTAssertFalse(preferences.setExperimentalLoginSharing(true))
+            XCTAssertFalse(preferences.automationTabAccess, "Unreadable settings refuse apps; the stop could not be saved")
             XCTAssertEqual(preferences.errorMessage, readError)
             XCTAssertEqual(try Data(contentsOf: url), original)
 

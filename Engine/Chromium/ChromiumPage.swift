@@ -271,6 +271,12 @@ import CobbleChromium
         catch { throw chromiumEngineError(error) }
     }
 
+    /// Chromium has no isolated-world `innerText` yet, so text comes from the serialized DOM.
+    func renderedText(limit: Int) async throws -> (text: String, truncated: Bool) {
+        let html = try await currentDOM()
+        return await Task.detached(priority: .userInitiated) { DOMText.text(fromHTML: html, limit: limit) }.value
+    }
+
     func connectionDetails() async throws -> PageConnectionDetails? {
         guard !closing, state.lifecycle == .ready, let source else { throw EngineError.closed }
         let revision = state.connectionDetailsRevision

@@ -180,6 +180,175 @@ final class WebKitPageTests: XCTestCase {
         catch { XCTFail("Unexpected error: \(error)") }
     }
 
+    func testRenderedTextIgnoresPageScriptsFormValuesAndHiddenText() async throws {
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { page.close() }
+        page.webView.loadHTMLString("""
+            <title>Text fixture</title><body><p>Visible words</p><p style="display:none">hidden words</p>
+            <input value="typed secret"><script>
+            Object.defineProperty(HTMLElement.prototype, 'innerText', { get() { return 'spoofed' } });
+            String.prototype.slice = function() { return 'spoofed' };
+            </script></body>
+            """, baseURL: nil)
+        try await waitFor { page.webView.title == "Text fixture" && !page.webView.isLoading }
+        let full = try await page.renderedText(limit: 1_000)
+        XCTAssertEqual(full.text.trimmingCharacters(in: .whitespacesAndNewlines), "Visible words")
+        XCTAssertFalse(full.truncated)
+        let prefix = try await page.renderedText(limit: 7)
+        XCTAssertEqual(prefix.text, "Visible")
+        XCTAssertTrue(prefix.truncated)
+        page.close()
+        do {
+            _ = try await page.renderedText(limit: 10)
+            XCTFail("Closed pages must not return text")
+        } catch EngineError.closed {}
+        catch { XCTFail("Unexpected error: \(error)") }
+    }
+
+    func testOutlineAndActionsRunOutsidePageScriptsAndHideValues() async throws {
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { page.close() }
+        page.webView.loadHTMLString("""
+            <title>Act fixture</title><body><h1>Sign in</h1><p>Welcome <b>back</b>, friend.</p>
+            <p style="display:none">hidden words</p>
+            <form onsubmit="event.preventDefault(); document.title = 'submitted:' + document.getElementById('name').value">
+              <label for="name">Name</label><input id="name" value="typed secret">
+              <input type="password" aria-label="Password" value="hunter2">
+              <select aria-label="Color"><option value="r">Red</option><option value="g">Green</option></select>
+              <button id="go" type="button" onclick="this.textContent = 'Clicked'">Go</button>
+            </form>
+            <a href="/docs?x=1">Docs</a><div aria-hidden="true"><button>Concealed</button></div>
+            <script>
+            Object.defineProperty(HTMLElement.prototype, 'innerText', { get() { return 'spoofed' } });
+            Element.prototype.getAttribute = function() { return 'spoofed' };
+            setTimeout(() => { throw new Error('boom') }, 0);
+            Promise.reject('nope');
+            </script></body>
+            """, baseURL: URL(string: "https://example.com/start"))
+        try await waitFor { page.webView.title == "Act fixture" && !page.webView.isLoading }
+        let outline = try await page.pageOutline(limit: 10_000).text
+        for expected in ["heading \"Sign in\" [level=1]", "text \"Welcome back, friend.\"", "choice=\"Red\"",
+                         "option \"Green\"", "to=/docs?x=1"] {
+            XCTAssertTrue(outline.contains(expected), "\(expected) in\n\(outline)")
+        }
+        for secret in ["hidden words", "typed secret", "hunter2", "spoofed", "Concealed"] {
+            XCTAssertFalse(outline.contains(secret), "\(secret) in\n\(outline)")
+        }
+        func ref(_ prefix: String) throws -> String {
+            let line = try XCTUnwrap(outline.split(separator: "\n").first { $0.trimmingCharacters(in: .whitespaces).hasPrefix(prefix) },
+                                     prefix)
+            return String(try XCTUnwrap(line.firstMatch(of: /ref=([a-z]+\d+)/)).output.1)
+        }
+        XCTAssertTrue(outline.contains("textbox \"Password\" [ref="), outline)
+        XCTAssertTrue(outline.contains("password, filled"), outline)
+
+        let clicked = try await page.perform(PageAction(kind: .click, ref: try ref("button \"Go\"")))
+        XCTAssertEqual(clicked, "Clicked button \"Go\"")
+        try await waitForScript(page, "document.getElementById('go').textContent", equals: "Clicked")
+        _ = try await page.perform(PageAction(kind: .select, ref: try ref("combobox \"Color\""), value: "Green"))
+        try await waitForScript(page, "document.querySelector('select').value", equals: "g")
+        _ = try await page.perform(PageAction(kind: .fill, ref: try ref("textbox \"Name\""), value: "Ada", submit: true))
+        try await waitFor { page.webView.title == "submitted:Ada" }
+
+        do { _ = try await page.perform(PageAction(kind: .click, ref: "e999999")); XCTFail("Stale refs must fail") }
+        catch let error as PageActionError { XCTAssertEqual(error, .staleReference) }
+        do {
+            _ = try await page.perform(PageAction(kind: .select, ref: try ref("combobox \"Color\""), value: "Blue"))
+            XCTFail("Unknown options must fail")
+        } catch let error as PageActionError { XCTAssertEqual(error, .noMatchingOption("Blue")) }
+
+        let activity = try await page.pageActivity(limit: 10_000).text
+        XCTAssertTrue(activity.contains("boom"), activity)
+        XCTAssertTrue(activity.contains("nope"), activity)
+    }
+
+    func testAppAccessNeverActivatesOrRevealsItselfToThePage() async throws {
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { page.close() }
+        // The page reports what it can observe in its title, so the test itself runs no gesture-carrying script.
+        // Its rejection reason notices any property access, which would reveal Cobble's error recorder.
+        page.webView.loadHTMLString("""
+            <body><button onclick="clicks++">Go</button><script>
+            let clicks = 0, touched = false;
+            addEventListener('unhandledrejection', event => event.preventDefault());
+            Promise.reject(new Proxy({}, new Proxy({}, { get() { touched = true } })));
+            setInterval(() => {
+              document.title = `active=${navigator.userActivation.hasBeenActive} clicks=${clicks} touched=${touched}`
+            }, 10);
+            </script></body>
+            """, baseURL: URL(string: "https://example.com/"))
+        try await waitFor { page.webView.title == "active=false clicks=0 touched=false" && !page.webView.isLoading }
+        _ = try await page.renderedText(limit: 1_000)
+        _ = try await page.currentDOM()
+        let activity = try await page.pageActivity(limit: 1_000).text
+        XCTAssertTrue(activity.contains("Unhandled rejection: (object)"), activity)
+        let outline = try await page.pageOutline(limit: 1_000).text
+        let ref = try XCTUnwrap(outline.firstMatch(of: /button "Go" \[ref=([a-z]+\d+)/), outline).output.1
+        _ = try await page.perform(PageAction(kind: .click, ref: String(ref)))
+        try await waitFor { page.webView.title == "active=false clicks=1 touched=false" }
+    }
+
+    func testActionsRefuseCoveredControlsAndRefsDieWithTheDocument() async throws {
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { page.close() }
+        page.webView.setFrameSize(NSSize(width: 800, height: 600))
+        page.webView.loadHTMLString("""
+            <title>first</title><body><button onclick="d.showModal()">Open</button>
+            <fieldset disabled><button>Off</button></fieldset>
+            <dialog id="d" aria-label="Confirm"><button>Inside</button></dialog></body>
+            """, baseURL: URL(string: "https://example.com/"))
+        try await waitFor { page.webView.title == "first" && !page.webView.isLoading }
+        let before = try await page.pageOutline(limit: 10_000).text
+        XCTAssertNotNil(before.firstMatch(of: /button "Off" \[ref=[a-z]+\d+, disabled\]/), before)
+        let open = String(try XCTUnwrap(before.firstMatch(of: /button "Open" \[ref=([a-z]+\d+)/), before).output.1)
+        _ = try await page.perform(PageAction(kind: .click, ref: open))
+        // Text reads keep refs; the page opened a dialog since the last outline.
+        var text = ""
+        for _ in 0..<100 where !text.contains("Inside") {
+            try await Task.sleep(for: .milliseconds(20))
+            text = try await page.renderedText(limit: 10_000).text
+        }
+        do { _ = try await page.perform(PageAction(kind: .click, ref: open)); XCTFail("Clicked behind the dialog") }
+        catch let error as PageActionError { XCTAssertEqual(error, .blocked) }
+        let during = try await page.pageOutline(limit: 10_000).text
+        XCTAssertTrue(during.contains("modal dialog \"Confirm\":"), during)
+        XCTAssertFalse(during.contains("Open"), during)
+        let inside = String(try XCTUnwrap(during.firstMatch(of: /button "Inside" \[ref=([a-z]+\d+)/), during).output.1)
+
+        page.webView.loadHTMLString("<title>second</title><button>Open</button><button>Inside</button>",
+                                    baseURL: URL(string: "https://example.com/next"))
+        try await waitFor { page.webView.title == "second" && !page.webView.isLoading }
+        _ = try await page.pageOutline(limit: 10_000)
+        do { _ = try await page.perform(PageAction(kind: .click, ref: inside)); XCTFail("An old ref matched the new page") }
+        catch let error as PageActionError { XCTAssertEqual(error, .staleReference) }
+    }
+
+    func testDOMTextSkipsScriptsHiddenElementsAndFormValues() {
+        let html = """
+            <html><head><title>T</title><script>x()</script></head><body><h1>Title</h1><p>Hello <b>bold</b> world</p>
+            <div hidden>secret</div><p style="display: none">gone</p><input value="typed"><textarea>draft</textarea>
+            <table><tr><td>a</td><td>b</td></tr></table></body></html>
+            """
+        XCTAssertEqual(DOMText.text(fromHTML: html, limit: 1_000).text, "Title\nHello bold world\na\tb")
+        let prefix = DOMText.text(fromHTML: html, limit: 5)
+        XCTAssertEqual(prefix.text, "Title")
+        XCTAssertTrue(prefix.truncated)
+    }
+
+    func testSnapshotOfSizedBackgroundPageOutsideAnyWindow() async throws {
+        let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
+        defer { page.close() }
+        page.webView.setFrameSize(NSSize(width: 320, height: 180))
+        page.webView.loadHTMLString("<title>Background fixture</title><body style='margin:0;background:red'></body>", baseURL: nil)
+        try await waitFor { page.webView.title == "Background fixture" && !page.webView.isLoading }
+        let image = try await page.snapshot()
+        XCTAssertEqual(image.size, NSSize(width: 320, height: 180))
+        let bitmap = try XCTUnwrap(image.tiffRepresentation.flatMap(NSBitmapImageRep.init(data:)))
+        let color = try XCTUnwrap(bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)?.usingColorSpace(.deviceRGB))
+        XCTAssertGreaterThan(color.redComponent, 0.9)
+        XCTAssertLessThan(color.greenComponent, 0.2)
+    }
+
     func testSnapshotCapturesOnlyTheVisibleViewportAndRejectsClosedPage() async throws {
         let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent()) { _, _, _ in }
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 320, height: 180),
@@ -2071,6 +2240,16 @@ final class WebKitPageTests: XCTestCase {
     private func htmlURL(title: String) -> URL {
         let html = "<html><head><title>\(title)</title></head><body><input value=''></body></html>"
         return URL(string: "data:text/html;base64," + Data(html.utf8).base64EncodedString())!
+    }
+
+    private func waitForScript(_ page: WebKitPage, _ script: String, equals expected: String,
+                               file: StaticString = #filePath, line: UInt = #line) async throws {
+        let deadline = ContinuousClock.now.advanced(by: .seconds(10))
+        while ContinuousClock.now < deadline {
+            if (try? await page.webView.evaluateJavaScript(script)) as? String == expected { return }
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        XCTFail("Timed out waiting for \(script) == \(expected)", file: file, line: line)
     }
 
     private func waitFor(_ condition: @MainActor () -> Bool,

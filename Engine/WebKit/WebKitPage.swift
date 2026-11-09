@@ -405,12 +405,37 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     func currentDOM() async throws -> String {
         guard !closed, let view = storedWebView, state.lifecycle == .ready else { throw EngineError.closed }
         let identity = pageIdentity
-        let result = try await view.evaluateJavaScript("document.documentElement ? document.documentElement.outerHTML : ''")
+        let result = try await WebKitPageAutomation.callWithoutUserGesture(view,
+            body: "return document.documentElement ? document.documentElement.outerHTML : ''", arguments: [:])
         guard !closed, identity == pageIdentity else {
             throw EngineError.notReady(String(localized: "The page changed while Cobble was reading the current DOM. Try again."))
         }
         guard let html = result as? String else { throw EngineError.notReady(String(localized: "WebKit did not return the current page DOM.")) }
         return html
+    }
+
+    func renderedText(limit: Int) async throws -> (text: String, truncated: Bool) {
+        // The client world keeps page scripts from replacing the DOM accessors this reads.
+        let result = try await callClientScript("""
+            const root = document.body || document.documentElement;
+            const text = root ? String(root.innerText) : '';
+            return [text.slice(0, limit), text.length > limit];
+            """, arguments: ["limit": max(0, limit)])
+        guard let pair = result as? [Any], pair.count == 2, let text = pair[0] as? String, let truncated = pair[1] as? Bool else {
+            throw EngineError.notReady(String(localized: "WebKit did not return the page text."))
+        }
+        return (text, truncated)
+    }
+
+    /// Runs Cobble's own function body in the client world; `arguments` arrive as data, never as source.
+    func callClientScript(_ body: String, arguments: [String: Any], requireSamePage: Bool = true) async throws -> Any? {
+        guard !closed, let view = storedWebView, state.lifecycle == .ready else { throw EngineError.closed }
+        let identity = pageIdentity
+        let result = try await WebKitPageAutomation.callWithoutUserGesture(view, body: body, arguments: arguments)
+        guard !closed, !requireSamePage || identity == pageIdentity else {
+            throw EngineError.notReady(String(localized: "The page changed while Cobble was reading it. Try again."))
+        }
+        return result
     }
 
     func connectionDetails() async throws -> PageConnectionDetails? {
@@ -883,6 +908,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         guard !faviconControllers.contains(controller) else { return }
         faviconControllers.add(controller)
         controller.addUserScript(faviconScript)
+        controller.addUserScript(WebKitPageAutomation.activityScript)
         controller.add(faviconMessages, contentWorld: .defaultClient, name: faviconMessageName)
     }
 

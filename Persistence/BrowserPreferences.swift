@@ -48,6 +48,11 @@ final class BrowserPreferences {
         /// Minutes before hidden tabs sleep; nil never sleeps them on a timer. This Mac only.
         var tabSleepMinutes: Int?
         var hidesCommandKeysFromPages: Bool?
+        /// Apple Event automation switches and excluded sites. This Mac only; never synced.
+        var automationTabAccess: Bool?
+        var automationPageAccess: Bool?
+        var automationPageControl: Bool?
+        var automationExcludedHosts: [String]?
 
         init() {}
 
@@ -73,6 +78,10 @@ final class BrowserPreferences {
             windowStyle = try container.decodeIfPresent(BrowserWindowStyle.self, forKey: .windowStyle)
             tabSleepMinutes = try container.decodeIfPresent(Int.self, forKey: .tabSleepMinutes)
             hidesCommandKeysFromPages = try container.decodeIfPresent(Bool.self, forKey: .hidesCommandKeysFromPages)
+            automationTabAccess = try container.decodeIfPresent(Bool.self, forKey: .automationTabAccess)
+            automationPageAccess = try container.decodeIfPresent(Bool.self, forKey: .automationPageAccess)
+            automationPageControl = try container.decodeIfPresent(Bool.self, forKey: .automationPageControl)
+            automationExcludedHosts = try container.decodeIfPresent([String].self, forKey: .automationExcludedHosts)
         }
     }
     private static let maximumDownloadFolderBookmarkSize = 1_048_576
@@ -112,6 +121,9 @@ final class BrowserPreferences {
                       let url = URL(string: "https://" + rule.host), EngineRule.host(for: url) == rule.host,
                       url.path.isEmpty, url.port == nil, url.user == nil, url.password == nil,
                       url.query == nil, url.fragment == nil, hosts.insert(rule.host).inserted else { throw CocoaError(.fileReadCorruptFile) }
+            }
+            guard (record.automationExcludedHosts ?? []).allSatisfy(Self.isValidExcludedHost) else {
+                throw CocoaError(.fileReadCorruptFile)
             }
             let searchEngines = SearchEngine.builtIns + (record.searchEngines ?? [])
             guard (record.searchEngines ?? []).allSatisfy(\.isValid),
@@ -204,6 +216,19 @@ final class BrowserPreferences {
     var webInspectorEnabled: Bool { record.webInspectorEnabled ?? false }
     /// Keeps ⌘ and ⌃ keys away from focused pages; typing keys still reach them.
     var hidesCommandKeysFromPages: Bool { record.hidesCommandKeysFromPages ?? false }
+    /// macOS Automation consent still gates every app; this switch lets the user stop all of them at once.
+    /// Unreadable settings refuse apps, and so does a sidebar stop that could not be saved.
+    var automationTabAccess: Bool { !automationStopped && readError == nil && (record.automationTabAccess ?? true) }
+    private var automationStopped = false
+    var automationPageAccess: Bool { automationTabAccess && record.automationPageAccess == true }
+    /// Clicking and typing also needs page access, since actions target elements from a page outline.
+    var automationPageControl: Bool { automationPageAccess && record.automationPageControl == true }
+    var automationExcludedHosts: [String] { record.automationExcludedHosts ?? [] }
+    /// Sites apps may not read or use, including their subdomains.
+    func automationExcludes(_ url: URL) -> Bool {
+        guard let host = EngineRule.host(for: url) else { return false }
+        return automationExcludedHosts.contains { host == $0 || host.hasSuffix("." + $0) }
+    }
     var tabLoadingIndicator: TabLoadingIndicatorStyle { record.tabLoadingIndicator ?? themeTemplate.loadingIndicator }
     var browserChromeFont: BrowserChromeFont { record.browserChromeFont ?? themeTemplate.defaultFont }
     var theme: BrowserThemePreset { record.theme ?? .native }
@@ -228,6 +253,33 @@ final class BrowserPreferences {
     }
     @discardableResult func setHidesCommandKeysFromPages(_ enabled: Bool) -> Bool {
         var next = record; next.hidesCommandKeysFromPages = enabled; return save(next)
+    }
+    @discardableResult func setAutomationTabAccess(_ enabled: Bool) -> Bool {
+        var next = record; next.automationTabAccess = enabled
+        guard save(next) else { return false }
+        automationStopped = false; return true
+    }
+    @discardableResult func setAutomationPageAccess(_ enabled: Bool) -> Bool {
+        var next = record; next.automationPageAccess = enabled; return save(next)
+    }
+    @discardableResult func setAutomationPageControl(_ enabled: Bool) -> Bool {
+        var next = record; next.automationPageControl = enabled; return save(next)
+    }
+    /// Turns off every automation switch in one write.
+    @discardableResult func stopAutomation() -> Bool {
+        var next = record
+        next.automationTabAccess = false; next.automationPageAccess = false; next.automationPageControl = false
+        let saved = save(next)
+        automationStopped = !saved
+        return saved
+    }
+    @discardableResult func setAutomationExcluded(_ url: URL, excluded: Bool) -> Bool {
+        guard let host = EngineRule.siteHost(for: url), !excluded || Self.isValidExcludedHost(host) else {
+            errorMessage = String(localized: "Enter a website such as example.com."); return false
+        }
+        var hosts = automationExcludedHosts.filter { $0 != host }
+        if excluded { hosts.append(host) }
+        var next = record; next.automationExcludedHosts = hosts.sorted(); return save(next)
     }
     @discardableResult func setTabLoadingIndicator(_ style: TabLoadingIndicatorStyle) -> Bool {
         guard style != tabLoadingIndicator else { return true }
@@ -479,6 +531,13 @@ final class BrowserPreferences {
                              "api_key", "apikey", "client_secret", "password", "secret", "session", "code"])
         return !(parts.queryItems ?? []).contains { sensitive.contains($0.name.lowercased()) } &&
             !sensitive.contains { parts.fragment?.lowercased().contains($0 + "=") == true }
+    }
+
+    /// A saved Private Site must read back unchanged, or the next launch would reject the settings file.
+    static func isValidExcludedHost(_ host: String) -> Bool {
+        guard let url = URL(string: "https://" + host) else { return false }
+        return EngineRule.siteHost(for: url) == host && url.path.isEmpty && url.port == nil && url.user == nil
+            && url.query == nil && url.fragment == nil
     }
 
     @discardableResult private func save(_ next: Record) -> Bool {

@@ -103,6 +103,7 @@ Keep these at the project root. Feature status lives under `docs/features/`.
 | `CHROMIUM.md` | SDK integration, pins, qualification |
 | `docs/features/apple-browser.md` | Apple browser doors — default browser, entitlements, helper list |
 | `docs/features/passwords.md` | Apple Passwords, passkeys, SIWA — latest state |
+| `docs/features/automation.md` | AppleScript, `cobble` CLI/MCP, what agents can see |
 
 ## Rules
 
@@ -117,4 +118,5 @@ Keep these at the project root. Feature status lives under `docs/features/`.
 - WebKit WebExtensions: public APIs, explicit site grants, private access opt-in. No Safari App Extensions.
 - Native tab output mute uses the runtime-checked private bridge in `Engine/WebKit/WebKitAudioMute.swift`. Keep it adapter-local; never substitute playback suspension or bypass its capture-history guard. See W18 in `ROADMAP.md` for qualification and the fresh-tab limitation.
 - WebKit screen sharing uses the runtime-checked private delegate in `Engine/WebKit/WebKitDisplayCapture.swift`. Keep it adapter-local; every grant asks with the origin and sets capture history first, and a missing delegate fails closed. Never emulate, override or filter screen, window or fullscreen information. See W19 in `ROADMAP.md` and `docs/features/screen-sharing.md`.
+- App-initiated WebKit page scripts (automation, current DOM) run without a user gesture through the runtime-checked private calls in `Engine/WebKit/WebKitPageAutomation.swift`, and fail closed when they are missing. Public `evaluateJavaScript`/`callAsyncJavaScript` mark the page as user-activated and log a tracking-prevention interaction; never use them for that. See `docs/features/automation.md`.
 - Do not mark a roadmap gate complete without its named evidence. Seven-day use, signing, and notarization cannot be inferred from a local build.

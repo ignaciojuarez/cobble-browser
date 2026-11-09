@@ -40,7 +40,7 @@ let package = Package(
                 dependencies: [.product(name: "CobbleChromium", package: "chrome-sdk"),
                                .product(name: "Sparkle", package: "Sparkle")],
                 path: ".",
-                exclude: ["App/Info.plist", "App/Localizable.xcstrings", "App/Cobble.sdef", "App/es.lproj", "Tests", "Assets.xcassets", "Cobble.xcodeproj",
+                exclude: ["App/Info.plist", "App/Localizable.xcstrings", "App/Cobble.sdef", "App/cobble", "App/es.lproj", "Tests", "Assets.xcassets", "Cobble.xcodeproj",
                           "AGENTS.md", "ARCHITECTURE.md", "DECISIONS.md", "FEATURES.md",
                           "ROADMAP.md", "CHANGELOG.md", "RESEARCH.md", "CHROMIUM.md", "Cobble.entitlements", "Scripts", "docs", "updates",
                           "AppIcon.icon", "t3.json", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md"],

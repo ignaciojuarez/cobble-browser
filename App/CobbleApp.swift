@@ -726,7 +726,6 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     init(model: BrowserWindowModel, onClose: @escaping (UUID) -> Void) {
         self.model = model; self.onClose = onClose
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
-        window.title = model.isPrivate ? String(localized: "Cobble — Private") : "Cobble"
         window.isOpaque = false
         window.backgroundColor = .clear
         window.titlebarAppearsTransparent = true
@@ -737,6 +736,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         window.tabbingMode = .disallowed
         super.init(window: window)
         model.nativeWindow = window
+        trackWindowTitle()
         window.delegate = self
         window.contentView = NSHostingView(rootView: BrowserView(window: model))
         // Keep AppKit's initial key-view selection out of the address field.
@@ -751,6 +751,14 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
            let frame = Self.restoredFrame(saved, visibleFrames: NSScreen.screens.map(\.visibleFrame)) {
             window.setFrame(frame, display: false)
         } else { window.center() }
+    }
+
+    /// Reassigning an unchanged title still posts accessibility notifications, so compare first.
+    private func trackWindowTitle() {
+        let title = withObservationTracking { model.windowTitle } onChange: { [weak self] in
+            Task { @MainActor in self?.trackWindowTitle() }
+        }
+        if window?.title != title { window?.title = title }
     }
 
     static func restoredFrame(_ saved: WindowFrame, visibleFrames: [NSRect]) -> NSRect? {

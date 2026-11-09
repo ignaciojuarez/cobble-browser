@@ -56,6 +56,18 @@ private struct TabLeadingIcon: View {
     }
 }
 
+/// Shown while an app is using a tab. Clicking turns automation off until the user turns it back on in Settings.
+private struct AutomationStopButton: View {
+    let app: AppModel
+
+    var body: some View {
+        SidebarItemButton(systemImage: "cursorarrow.motionlines",
+                          help: String(localized: "An app is using this tab. Click to stop all apps; turn them back on in Settings › Browsing."),
+                          tint: .accentColor) { app.stopAutomation() }
+            .accessibilityLabel(String(localized: "Stop apps using Cobble"))
+    }
+}
+
 struct TabEngineIcon: View {
     let engine: any BrowserEngine
 
@@ -502,8 +514,15 @@ struct SidebarView: View {
                 .accessibilityLabel(String(format: String(localized: "%@: %@, %@"),
                     favorite ? String(localized: "Favorite") : String(localized: "Pinned tab"), item.title,
                     loaded ? String(localized: "loaded") : String(localized: "unloaded")))
-                .accessibilityValue(capture.captureLabel)
+                .accessibilityValue(automationLabel(capture.captureLabel, tabID: tab?.id))
                 .accessibilityAddTraits(selected ? [.isSelected] : [])
+                .accessibilityIdentifier("saved-\(item.id.uuidString)")
+                if let tab, window.automatedTabIDs.contains(tab.id) {
+                    AutomationStopButton(app: window.app)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .padding(1)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+                }
                 if let tab, window.showsMuteControl(tab.id) {
                     Button { window.toggleMute(tab.id) } label: {
                         Image(systemName: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2")
@@ -575,8 +594,10 @@ struct SidebarView: View {
                 .buttonStyle(.plain)
                 .help(item.urlString)
                 .accessibilityLabel(String(format: String(localized: "%@: %@, %@"), favorite ? String(localized: "Favorite") : String(localized: "Pinned tab"), item.title, loaded ? String(localized: "loaded") : String(localized: "unloaded")))
-                .accessibilityValue(capture.captureLabel)
+                .accessibilityValue(automationLabel(capture.captureLabel, tabID: tab?.id))
+                .accessibilityIdentifier("saved-\(item.id.uuidString)")
                 HStack(spacing: 2) {
+                    if let tab, window.automatedTabIDs.contains(tab.id) { AutomationStopButton(app: window.app) }
                     if let tab, window.showsMuteControl(tab.id) {
                         SidebarItemButton(
                             systemImage: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2",
@@ -723,6 +744,11 @@ struct SidebarView: View {
         .animation(nil, value: dropSession.draggedID)
     }
 
+    private func automationLabel(_ label: String, tabID: UUID?) -> String {
+        guard let tabID, window.automatedTabIDs.contains(tabID) else { return label }
+        return [label, String(localized: "Used by an app")].filter { !$0.isEmpty }.joined(separator: ", ")
+    }
+
     private func tabRow(_ tab: Tab, trackDrop: Bool = false) -> some View {
         let selected = window.isTemporaryTabSelected(tab.id) || window.record.selectedTabID == tab.id
         let captureState = window.captureState(for: tab.id)
@@ -748,8 +774,10 @@ struct SidebarView: View {
                 .accessibilityAction { selectTemporaryTabForAccessibility(tab.id) }
                 .buttonStyle(.plain)
                 .accessibilityLabel(tab.displayedTitle)
-                .accessibilityValue(capture.captureLabel)
+                .accessibilityValue(automationLabel(capture.captureLabel, tabID: tab.id))
+                .accessibilityIdentifier("tab-\(tab.id.uuidString)")
                 HStack(spacing: 2) {
+                    if window.automatedTabIDs.contains(tab.id) { AutomationStopButton(app: window.app) }
                     if window.showsMuteControl(tab.id) {
                         SidebarItemButton(
                             systemImage: window.isAudioMuted(tab.id) ? "speaker.slash" : "speaker.wave.2",
