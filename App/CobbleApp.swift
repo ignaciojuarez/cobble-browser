@@ -863,14 +863,15 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// Keyboard privacy: the page never sees ⌘ or ⌃ — not as keys, key releases, held with
-    /// other modifiers, or held while the pointer moves or scrolls. Clicks keep them so ⌘-click
-    /// and ⌃-click still work. Cobble's menu and text editing still run natively.
+    /// Keyboard privacy: the page never sees ⌘, ⌃ or ⌥ — not as keys, key releases, held with
+    /// other modifiers, or held while the pointer moves or scrolls. Clicks keep them so modified
+    /// clicks still work. Cobble's menu and text editing still run natively.
     private func hideCommandKeys(_ event: NSEvent, handled: Bool, pageView: NSView?) -> NSEvent? {
         let passed = handled ? nil : event
+        var pageSawKeyDown = false
         if event.type == .keyUp {
             if hiddenKeyCodes.remove(event.keyCode) != nil { return nil }
-            pressedKeys[event.keyCode] = nil
+            pageSawKeyDown = pressedKeys.removeValue(forKey: event.keyCode) != nil
         }
         let isKey = Self.keyEvents.contains(event.type)
         guard isKey || Self.holdsCommandKey(event), model.app.preferences.hidesCommandKeysFromPages,
@@ -884,14 +885,16 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
             || pageView.visibleRect.contains(pageView.convert(event.locationInWindow, from: nil))
         guard isKey ? inPage(responder)
                 : overPage || Self.focusedPointerEvents.contains(event.type) && inPage(responder) else { return passed }
+        // A global hotkey can consume keyDown but still deliver keyUp. Do not leak that orphan release.
+        if event.type == .keyUp, !pageSawKeyDown { return nil }
         if event.type == .keyDown, handled || Self.isCommandKey(event) {
             hiddenKeyCodes.insert(event.keyCode)
             if !handled, let responder { performNatively(event, in: responder) }
             return nil
         }
         if event.type == .flagsChanged, Self.isCommandKey(event) {
-            // Chromium forwards releases made while ⌘ is held straight to the window, past this
-            // filter. So when ⌘ or ⌃ goes down, release keys the page saw pressed and hide the real release.
+            // Chromium forwards releases made while a modifier is held straight to the window, past this
+            // filter. So when a protected modifier goes down, release keys the page saw and hide the real release.
             if Self.holdsCommandKey(event) {
                 for (code, press) in pressedKeys {
                     if let release = NSEvent.keyEvent(with: .keyUp, location: press.locationInWindow,
@@ -928,8 +931,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         }
     }
 
-    /// ⌘ and ⌃, including their left/right device bits.
-    private static let commandKeyBits = NSEvent.ModifierFlags([.command, .control]).rawValue | 0x2019
+    /// ⌘, ⌃ and ⌥, including their left/right device bits.
+    private static let commandKeyBits = NSEvent.ModifierFlags([.command, .control, .option]).rawValue | 0x2079
 
     static func holdsCommandKey(_ event: NSEvent) -> Bool { event.modifierFlags.rawValue & commandKeyBits != 0 }
     private static func withoutCommandBits(_ flags: NSEvent.ModifierFlags) -> NSEvent.ModifierFlags {
@@ -941,7 +944,7 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
         guard holdsCommandKey(event) else { return event }
         if keyEvents.contains(event.type) {
             let isFlags = event.type == .flagsChanged
-            let characters = isFlags ? "" : (event.modifierFlags.contains(.control)
+            let characters = isFlags ? "" : (holdsCommandKey(event)
                 ? event.charactersIgnoringModifiers : event.characters) ?? ""
             return NSEvent.keyEvent(with: event.type, location: event.locationInWindow,
                 modifierFlags: withoutCommandBits(event.modifierFlags), timestamp: event.timestamp,
@@ -969,9 +972,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     static func isCommandKey(_ event: NSEvent) -> Bool {
         switch event.type {
-        case .keyDown, .keyUp: !event.modifierFlags.isDisjoint(with: [.command, .control])
-        // Left/right Command and Control themselves.
-        case .flagsChanged: [54, 55, 59, 62].contains(event.keyCode)
+        case .keyDown, .keyUp: !event.modifierFlags.isDisjoint(with: [.command, .control, .option])
+        // Left/right Command, Control and Option themselves.
+        case .flagsChanged: [54, 55, 58, 59, 61, 62].contains(event.keyCode)
         default: false
         }
     }

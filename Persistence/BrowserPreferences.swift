@@ -215,7 +215,7 @@ final class BrowserPreferences {
     var tabSleepMinutes: Int? { record.tabSleepMinutes }
     var webInspectorEnabled: Bool { record.webInspectorEnabled ?? false }
     /// Keeps ⌘ and ⌃ keys away from focused pages; typing keys still reach them.
-    var hidesCommandKeysFromPages: Bool { record.hidesCommandKeysFromPages ?? false }
+    var hidesCommandKeysFromPages: Bool { record.hidesCommandKeysFromPages ?? true }
     /// macOS Automation consent still gates every app; this switch lets the user stop all of them at once.
     /// Unreadable settings refuse apps, and so does a sidebar stop that could not be saved.
     var automationTabAccess: Bool { !automationStopped && readError == nil && (record.automationTabAccess ?? true) }

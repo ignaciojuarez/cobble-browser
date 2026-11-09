@@ -64,6 +64,14 @@ final class SearchSettingsTests: XCTestCase {
         XCTAssertEqual(privateWindow.addressDraft, "!do")
     }
 
+    func testKeyboardPrivacyDefaultsOnAndOptOutPersists() throws {
+        let directory = try directory()
+        let preferences = BrowserPreferences(directory: directory)
+        XCTAssertTrue(preferences.hidesCommandKeysFromPages)
+        XCTAssertTrue(preferences.setHidesCommandKeysFromPages(false))
+        XCTAssertFalse(BrowserPreferences(directory: directory).hidesCommandKeysFromPages)
+    }
+
     func testWebInspectorOptInPersists() throws {
         let directory = try directory()
         let original = BrowserPreferences(directory: directory)

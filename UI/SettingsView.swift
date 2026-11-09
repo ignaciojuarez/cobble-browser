@@ -138,8 +138,8 @@ struct SettingsView: View {
             }
             AutomationSettings(app: app)
             SettingsGroup("Keyboard Privacy") {
-                SettingsRow("Hide Command and Control keys from websites", detail: "Pages only receive typing. ⌘ and ⌃ shortcuts still work in Cobble and in text fields, but websites can't see or block them, so site shortcuts such as ⌘K or ⌘Enter stop working.") {
-                    Toggle("Hide Command and Control keys from websites", isOn: Binding(
+                SettingsRow("Hide Command, Control and Option keys from websites", detail: "Pages receive plain typing without modifier chords. Cobble shortcuts and text fields keep working, but websites can't see or block ⌘, ⌃ or ⌥. Option-based special characters and site shortcuts are hidden from pages.") {
+                    Toggle("Hide Command, Control and Option keys from websites", isOn: Binding(
                         get: { app.preferences.hidesCommandKeysFromPages },
                         set: { app.preferences.setHidesCommandKeysFromPages($0) }
                     )).labelsHidden().toggleStyle(.switch)

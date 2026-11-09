@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keyboard Privacy is on by default for settings that have not explicitly chosen otherwise, hides Option/Alt alongside Command and Control, and keeps orphaned key-up events from global hotkeys away from pages.
 - AI agents and scripts can work with Cobble through the bundled `cobble`
   command (JSON output) or `cobble mcp` (an MCP server). Settings › Browsing ›
   Automation copies its path.

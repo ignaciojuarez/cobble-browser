@@ -1283,6 +1283,16 @@ final class UITests: XCTestCase {
             XCTAssertEqual(current[0], "keydown:Shift keyup:Shift keydown:j keypress:j keyup:j",
                            "No release or modifier event reveals ⌘")
             XCTAssertEqual(hiddenPointer, [], "Pointer movement no longer carries ⌘ or ⌃")
+
+            // A Carbon global hotkey can consume keyDown but leave an orphan keyUp for the browser.
+            _ = try await page.webView.evaluateJavaScript("seen = []")
+            try await press(try key(.flagsChanged, "", flags: .option, code: 58),
+                            try key(.keyUp, "p", flags: .option, code: 35),
+                            try key(.flagsChanged, "", code: 58),
+                            try key(.keyUp, "p", code: 35))
+            current = try await state()
+            XCTAssertEqual(current[0], "", "Global-hotkey keyUp events never leak without their keyDown")
+
             // Tracking areas ignore views drawn over the page (peeked sidebar, command bar), so the page
             // still receives this move even though the overlay is under the pointer and holds focus.
             let overlay = PointerRecorder(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
@@ -1335,19 +1345,20 @@ final class UITests: XCTestCase {
         }
     }
 
-    func testKeyboardPrivacyClassifiesOnlyCommandAndControlKeys() throws {
+    func testKeyboardPrivacyClassifiesCommandControlAndOptionKeys() throws {
         func event(_ type: NSEvent.EventType, _ flags: NSEvent.ModifierFlags, code: UInt16, _ key: String = "k") throws -> NSEvent {
             try XCTUnwrap(NSEvent.keyEvent(with: type, location: .zero, modifierFlags: flags, timestamp: 0,
                 windowNumber: 0, context: nil, characters: type == .flagsChanged ? "" : key,
                 charactersIgnoringModifiers: type == .flagsChanged ? "" : key, isARepeat: false, keyCode: code))
         }
         for (type, flags, code) in [(NSEvent.EventType.keyDown, NSEvent.ModifierFlags.command, UInt16(40)), (.keyUp, .control, 40),
-                                    (.keyDown, [.command, .shift], 40), (.flagsChanged, .command, 55), (.flagsChanged, [], 54),
-                                    (.flagsChanged, .control, 59), (.flagsChanged, [], 62)] {
+                                    (.keyDown, [.command, .shift], 40), (.keyDown, .option, 40), (.flagsChanged, .command, 55), (.flagsChanged, [], 54),
+                                    (.flagsChanged, .control, 59), (.flagsChanged, [], 62),
+                                     (.flagsChanged, .option, 58), (.flagsChanged, [], 61)] {
             XCTAssertTrue(BrowserWindowController.isCommandKey(try event(type, flags, code: code)), "\(type) \(flags) \(code)")
         }
         for (type, flags, code) in [(NSEvent.EventType.keyDown, NSEvent.ModifierFlags(), UInt16(40)), (.keyDown, .shift, 40),
-                                    (.keyDown, .option, 40), (.flagsChanged, .shift, 56), (.flagsChanged, .option, 58)] {
+                                    (.flagsChanged, .shift, 56)] {
             XCTAssertFalse(BrowserWindowController.isCommandKey(try event(type, flags, code: code)), "\(type) \(flags) \(code)")
         }
         // Left ⌘ (0x08) and left ⇧ (0x02) device bits: ⌘ goes, ⇧ stays.
@@ -1356,6 +1367,10 @@ final class UITests: XCTestCase {
         XCTAssertEqual(stripped.modifierFlags.intersection(.deviceIndependentFlagsMask), .shift)
         XCTAssertEqual(stripped.modifierFlags.rawValue & 0xffff, 0x02)
         XCTAssertEqual(stripped.charactersIgnoringModifiers, "k")
+
+        let optionStripped = BrowserWindowController.withoutCommandKeys(try event(.keyUp, .option, code: 35, "p"))
+        XCTAssertFalse(optionStripped.modifierFlags.contains(.option))
+        XCTAssertEqual(optionStripped.characters, "p")
     }
 
     func testSettingsRenderWithoutNetwork() async throws {
