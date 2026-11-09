@@ -10,6 +10,37 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Sun, 08 Nov 2026 23:22:07 -0800</pubDate>
+            <sparkle:version>13</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Chromium tabs now run Chromium 157 (from 153), with four milestones of security fixes.
+- Closing a Chromium private window while a download is running no longer crashes Cobble.
+- Chromium no longer remembers a site as blocked after Cobble refuses one of its permission requests, and a site's second automatic download is no longer blocked for good.
+- A prompt in a Chromium tab is no longer dismissed when an embedded frame (an ad or a sign-in widget) reloads. Find reports matches for the first search on each Chromium page.
+- Chromium tabs no longer keep visited URLs in favicon or predictor databases; clearing all website data also removes older entries. Passkey requests fail cleanly instead of risking a crash, and Chromium tabs are no longer discarded under memory pressure.
+- HTML files opened from Finder, the Dock or File > Open File… open in a WebKit tab with their styles, images and linked pages, even when Chromium is your default engine.
+- Screen sharing works in WebKit and Chromium tabs. Cobble shows which site wants to see your screen; choose Window… or Screen…, then pick it in the macOS sharing picker. Cobble asks every time. The site menu can stop sharing or block a site from asking. Chromium tabs share video only.
+- Chromium tabs can ask to see your displays and place windows on them. Cobble asks with the site's name and remembers your answer like camera access.
+- Settings → Permissions shows whether passkeys can work on this Mac.
+- Keyboard Privacy also hides ⌘ and ⌃ when the pointer enters or leaves a WebKit page, moves over the page under the sidebar or command bar, and in a full-screen page that opened another tab. Japanese and other input methods keep their ⌃ shortcuts while composing.
+- A site blocked from camera, microphone or screen sharing can no longer ask again through a frame it embeds. In WebKit tabs, a frame can no longer reuse its own saved camera or microphone permission inside another site while that site navigates away. Turning off Camera or Microphone in the site menu works even when the tab's page is unloaded or still loading.
+- Links opened in a new tab from a WebKit tab use the new site's engine setting.
+- Fixes: Return no longer allows a camera, microphone or screen-sharing prompt. Closing a Chromium tab that asks "Leave this page?" shows that question instead of blocking Quit. Download save sheets no longer stack. Deleting a profile succeeds after its Chromium extensions or content rules were changed. An unreadable Chromium content-rules file no longer stops Chromium pages from loading. Sidebar drags land where you drop them. iCloud sync no longer stalls on very long titles. Typing a `tel:` number opens the phone app. The session saves at most every 2 seconds. The tab engine button is easier to click.
+
+Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 19 SDK (93c1dad) and its matching Chromium 157.0.8103.39 runtime.
+
+This is an early beta. Real-site camera, microphone and screen-sharing behavior, passkeys, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified. After updating, older Cobble betas should not be reopened: Chromium does not support moving a profile back to an older version.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.13/Cobble-v0.1.0-beta.13.zip" length="169410614" type="application/octet-stream" sparkle:edSignature="n/j4375LFztQLuncL85p7KVxZAtEXR/iGte+d1WvfS576o4VvCtkBLATx9KF6ZsrV7UEIY9VEK48dQiJCyoHBA=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Tue, 03 Nov 2026 14:21:33 -0800</pubDate>
             <sparkle:version>12</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -48,29 +79,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.11/Cobble-v0.1.0-beta.11.zip" length="164425543" type="application/octet-stream" sparkle:edSignature="tMklGsCBDSIkTYMsKR340UpmcYLcE6YsFW8/TGjxwRkIHa3XaW96PdgXDPBHxya/ffByAABhcvPSYV4pkmCrBQ=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Sun, 01 Nov 2026 11:23:55 -0800</pubDate>
-            <sparkle:version>10</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Video and page full screen works in Chromium tabs. YouTube and other sites open in their own full-screen Space with a brief "Press Esc to exit" banner. Esc, the site's own button or leaving the Space returns the page to its tab.
-- A crashed Chromium page no longer quits the whole browser.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (371054c) and its matching Chromium runtime.
-
-This is an early beta. Real-site full-screen behavior, interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.10/Cobble-v0.1.0-beta.10.zip" length="164425211" type="application/octet-stream" sparkle:edSignature="i5qifuNhE2K2lwvON0wXoTu2XLsJN7ChDOzzAbp+LFcc1p6h020aBFrkedx3TPrz/pDh+5+dumd5Bv37/jZWBg=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 226BGbBq5HQlCmpi14etY5k81NbY5PQwqKeLvWqS6ijq6E4NlHHbVRtBbVZz471Ur22UNtCstuHqrQumVcGpAQ==
-length: 6160
+edSignature: QvjkcgQ2lqOx0Bx2EOude3FIi0mkKunxkri61RxZWLP7mVsCF6MGUZZDllQeP9r8FHsXJd2rfUvkRksdz40ODA==
+length: 8812
 -->
