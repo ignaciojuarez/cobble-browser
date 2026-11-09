@@ -1230,7 +1230,8 @@ final class UITests: XCTestCase {
             let recorder = PointerRecorder(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
             page.webView.addSubview(recorder)
             nativeWindow.acceptsMouseMovedEvents = true
-            @MainActor func pointerFlags(_ flags: NSEvent.ModifierFlags) async throws -> NSEvent.ModifierFlags? {
+            @MainActor func pointerFlags(_ flags: NSEvent.ModifierFlags, at target: PointerRecorder? = nil) async throws -> NSEvent.ModifierFlags? {
+                let recorder = target ?? recorder
                 pointerX += 7
                 recorder.flags = nil
                 XCTAssertTrue(nativeWindow.makeFirstResponder(recorder))
@@ -1282,6 +1283,13 @@ final class UITests: XCTestCase {
             XCTAssertEqual(current[0], "keydown:Shift keyup:Shift keydown:j keypress:j keyup:j",
                            "No release or modifier event reveals ⌘")
             XCTAssertEqual(hiddenPointer, [], "Pointer movement no longer carries ⌘ or ⌃")
+            // Tracking areas ignore views drawn over the page (peeked sidebar, command bar), so the page
+            // still receives this move even though the overlay is under the pointer and holds focus.
+            let overlay = PointerRecorder(frame: NSRect(x: 0, y: 0, width: 200, height: 200))
+            try XCTUnwrap(page.webView.superview).addSubview(overlay)
+            let overlayPointer = try await pointerFlags([.command, .control], at: overlay)
+            overlay.removeFromSuperview()
+            XCTAssertEqual(overlayPointer, [], "Overlays above the page don't let ⌘ through to it")
 
             XCTAssertTrue(model.app.preferences.setHidesCommandKeysFromPages(false))
             _ = try await page.webView.evaluateJavaScript("seen = []")
@@ -1310,6 +1318,20 @@ final class UITests: XCTestCase {
                             try key(.flagsChanged, "", code: 55, in: fullScreen), try key(.keyDown, "q", code: 12, in: fullScreen))
             current = try await state()
             XCTAssertEqual(current[0], "keydown:q keypress:q", "Full screen hides ⌘ too, and typing still arrives")
+
+            // A full-screen page can open and select another tab while it stays full screen.
+            let other = Tab(title: "Other")
+            model.record.tabs.append(other)
+            model.select(other.id)
+            XCTAssertFalse(model.selectedPage === page)
+            XCTAssertTrue(fullScreen.makeFirstResponder(page.webView))
+            try await press(try key(.keyUp, "q", code: 12, in: fullScreen))
+            _ = try await page.webView.evaluateJavaScript("seen = []")
+            try await press(try key(.flagsChanged, "", flags: .command, code: 55, in: fullScreen),
+                            try key(.keyDown, "k", flags: .command, code: 40, in: fullScreen),
+                            try key(.flagsChanged, "", code: 55, in: fullScreen), try key(.keyDown, "w", code: 13, in: fullScreen))
+            current = try await state()
+            XCTAssertEqual(current[0], "keydown:w keypress:w", "A deselected full-screen page still can't see ⌘")
         }
     }
 

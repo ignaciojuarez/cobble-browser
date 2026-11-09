@@ -191,6 +191,8 @@ final class BrowserWindowModel: Identifiable {
         try? host.setAudioMuted(!host.state.isAudioMuted)
     }
     var selectedPage: (any BrowserPage)? { record.selectedTabID.flatMap { pages[$0] } }
+    /// Every open page, selected or not.
+    var openPages: Dictionary<UUID, any BrowserPage>.Values { pages.values }
     /// Scripting cannot safely change selection while native UI owns a page action.
     var scriptingMutationAllowed: Bool {
         canChangeTemporaryTabs && !isPrivate && !preservingTabsForTermination
@@ -1797,10 +1799,11 @@ final class BrowserWindowModel: Identifiable {
 
     /// The site menu switch: off forgets the saved grant and stops this page's capture.
     func turnOffSitePermission(_ kind: PermissionKind) {
-        guard !isClosed, let host = selectedPage else { return }
+        guard !isClosed else { return }
+        // An unloaded or still-loading tab has no page, but its saved grant must still go.
         if !isPrivate { setSitePermission(kind, .ask) }
         else if let url = selectedTab?.url { revokeEngineGrant(kind, for: url) }
-        if host.state.isCapturing(kind) { stopCapture(kind, in: host) }
+        if let host = selectedPage, host.state.isCapturing(kind) { stopCapture(kind, in: host) }
     }
 
     /// Chromium keeps its own session grant for window management; Cobble's setting stays authoritative.

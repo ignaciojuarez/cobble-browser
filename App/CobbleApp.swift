@@ -828,10 +828,12 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     /// Page full screen hosts the page in another window. WebKit moves the page view itself;
     /// the Chromium SDK moves the web contents inside it into its own full-screen window.
+    /// Any tab counts, not only the selected one: a full-screen page can open and select a new tab.
     private func fullScreenPageView(in eventWindow: NSWindow?) -> NSView? {
-        guard let eventWindow, let page = model.selectedPage else { return nil }
-        if page.nativeView.window === eventWindow { return page.nativeView }
-        guard page.contextID.engineID == .chromium,
+        guard let eventWindow else { return nil }
+        let pages = model.openPages
+        if let page = pages.first(where: { $0.nativeView.window === eventWindow }) { return page.nativeView }
+        guard pages.contains(where: { $0.contextID.engineID == .chromium }),
               NSStringFromClass(type(of: eventWindow)) == "CobbleContentFullscreenWindow" else { return nil }
         return eventWindow.contentView
     }
@@ -868,10 +870,12 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
               event.window == nil || event.window === pageWindow else { return passed }
         func inPage(_ view: NSView?) -> Bool { view.map { $0 === pageView || $0.isDescendant(of: pageView) } ?? false }
         let responder = pageWindow.firstResponder as? NSView
-        let pointerTarget = Self.hoverEvents.contains(event.type) ? event.trackingArea?.owner as? NSView
-            : pageWindow.contentView?.hitTest(event.locationInWindow)
+        // Judge the pointer by position, not hit-testing: tracking areas ignore views drawn over the
+        // page, and WebKit's are owned by a helper object, not a view. Exits happen off the page.
+        let overPage = Self.hoverEvents.contains(event.type)
+            || pageView.visibleRect.contains(pageView.convert(event.locationInWindow, from: nil))
         guard isKey ? inPage(responder)
-                : inPage(pointerTarget) || Self.focusedPointerEvents.contains(event.type) && inPage(responder) else { return passed }
+                : overPage || Self.focusedPointerEvents.contains(event.type) && inPage(responder) else { return passed }
         if event.type == .keyDown, handled || Self.isCommandKey(event) {
             hiddenKeyCodes.insert(event.keyCode)
             if !handled, let responder { performNatively(event, in: responder) }
@@ -903,6 +907,9 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
 
     private func performNatively(_ event: NSEvent, in responder: NSView) {
         guard NSApp.mainMenu?.performKeyEquivalent(with: event) != true else { return }
+        // Input methods use ⌃ keys while composing, e.g. ⌃K for katakana; they stay native too.
+        if (responder as? NSTextInputClient)?.hasMarkedText() == true,
+           responder.inputContext?.handleEvent(event) == true { return }
         if let action = Self.editAction(for: event) {
             responder.tryToPerform(action, with: event)
         } else if event.charactersIgnoringModifiers == "`", event.modifierFlags.contains(.command) {

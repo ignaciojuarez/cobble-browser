@@ -178,7 +178,9 @@ import UniformTypeIdentifiers
         guard !kinds.isEmpty, isCurrent(), let origin,
               let originName = AddressResolver.canonicalOrigin(origin) else { completion(.deny); return }
         let setting = contextID.isPrivate ? nil : store?.setting(origin: origin, profileID: contextID.profileID, engineID: contextID.engineID)
-        let decision = SiteSettingsStore.mediaDecision(kinds: kinds, setting: setting, isPrivate: contextID.isPrivate, sameOrigin: sameOrigin)
+        let embedder = Self.embedderSetting(topLevelOrigin, sameOrigin: sameOrigin, contextID: contextID, store: store)
+        let decision = kinds.contains(where: { embedder?[$0] == .deny }) ? .deny
+            : SiteSettingsStore.mediaDecision(kinds: kinds, setting: setting, isPrivate: contextID.isPrivate, sameOrigin: sameOrigin)
         guard decision == .ask else { completion(decision); return }
         guard let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
               let anchor = SiteControlAnchorView.find(in: window.contentView, tabID: tabID, contextID: contextID),
@@ -215,6 +217,8 @@ import UniformTypeIdentifiers
         guard isCurrent(), let origin, let originName = AddressResolver.canonicalOrigin(origin),
               contextID.isPrivate || store?.setting(origin: origin, profileID: contextID.profileID,
                                                     engineID: contextID.engineID).screenSharing != .deny,
+              Self.embedderSetting(topLevelOrigin, sameOrigin: sameOrigin, contextID: contextID, store: store)?
+                  .screenSharing != .deny,
               let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
               let anchor = SiteControlAnchorView.find(in: window.contentView, tabID: tabID, contextID: contextID),
               anchor.isEligible(tabID: tabID, contextID: contextID) else { completion(nil); return }
@@ -236,6 +240,12 @@ import UniformTypeIdentifiers
             completion(nil)
         }
         presentation.show()
+    }
+    /// The page's own saved setting for an embedded frame's request: blocking a site also blocks what it embeds.
+    private static func embedderSetting(_ topLevelOrigin: String?, sameOrigin: Bool, contextID: BrowsingContextID,
+                                        store: SiteSettingsStore?) -> SiteSetting? {
+        guard !sameOrigin, !contextID.isPrivate, let url = topLevelOrigin.flatMap(URL.init(string:)) else { return nil }
+        return store?.setting(origin: url, profileID: contextID.profileID, engineID: contextID.engineID)
     }
     /// Informational only, from AppKit's display list. Never sent to or read from the page.
     static func displayNotice(count: Int = NSScreen.screens.count) -> String? {

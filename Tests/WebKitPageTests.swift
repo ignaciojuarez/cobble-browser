@@ -2036,24 +2036,19 @@ final class WebKitPageTests: XCTestCase {
         try await waitFor { !page.state.isDisplayCapturing }
     }
 
-    /// Presses a prompt button through accessibility, or through the popover's keyboard shortcut when SwiftUI
-    /// has not built its accessibility tree: Return is the default action, Escape is Not Now.
+    /// Presses a prompt button through accessibility, or Not Now through Escape when SwiftUI has not built
+    /// its accessibility tree. Allow and Window… have no key: Return must never grant.
     private func promptButton(_ label: String) -> (() -> Bool)? {
         if let button = NSApp.windows.lazy.compactMap({ self.accessibilityButton(label, in: $0) }).first {
             return { button.accessibilityPerformPress?() == true }
         }
-        let key: (String, UInt16)? = switch label {
-        case String(localized: "Allow"), String(localized: "Window…"): ("\r", 36)
-        case String(localized: "Not Now"): ("\u{1b}", 53)
-        default: nil
-        }
-        guard let key, let popover = NSApp.windows.first(where: {
+        guard label == String(localized: "Not Now"), let popover = NSApp.windows.first(where: {
             $0.isVisible && NSStringFromClass(type(of: $0)).contains("Popover")
         }) else { return nil }
         return {
             guard let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
-                windowNumber: popover.windowNumber, context: nil, characters: key.0,
-                charactersIgnoringModifiers: key.0, isARepeat: false, keyCode: key.1) else { return false }
+                windowNumber: popover.windowNumber, context: nil, characters: "\u{1b}",
+                charactersIgnoringModifiers: "\u{1b}", isARepeat: false, keyCode: 53) else { return false }
             return popover.performKeyEquivalent(with: event)
         }
     }
