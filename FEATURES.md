@@ -28,7 +28,7 @@ Implementation and qualification are separate. Automated checks use isolated loc
 | Tested signed public update path | v1 | Planned | P7; Sparkle before public v1; verify update integrity and recovery |
 | Merge windows, two-pane split | Later | Planned | P8b; explicit ownership, focus, and restoration |
 | Optional iCloud sync | Requested increment | Implemented | Same iCloud account; categories selected per Mac. See `docs/features/sync.md`; signed two-device qualification pending |
-| Bounded AppleScript tab commands | Requested increment | Implemented | Normal-window list/open/select/close by stable IDs, native dictionary and typed Apple-event fixtures; no private/file/JavaScript access |
+| Bounded AppleScript tab commands | Requested increment | Implemented | Normal-window list/open/select/navigate/reload/wait/close by stable IDs with tab state and front-to-back windows; Agents space for new agent tabs; opt-in page text, outlines, activity and screenshots; opt-in click/fill/select/scroll/press by outline ref; Private Sites; sidebar indicator with one-click stop; bundled `cobble` JSON CLI and MCP server. No private-window, file, form-value or page-supplied script access. See `docs/features/automation.md`; cross-process async replies and Chromium DOM text need manual qualification |
 
 ## Tabs, sidebar, and Arc-style organization
 

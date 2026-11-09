@@ -132,6 +132,35 @@ enum PageArchiveFormat: Sendable {
     }
 }
 
+/// An automation action on an outline element. Values are passed as data, never as script source.
+struct PageAction: Equatable, Sendable {
+    enum Kind: String, CaseIterable, Sendable {
+        /// `fill` replaces a text field's contents; `select` picks an option by label or value;
+        /// `scroll` brings `ref` into view, or scrolls the page by `value` "up" or "down";
+        /// `press` sends a key such as Enter or Escape to `ref` or the focused element.
+        case click, fill, select, scroll, press
+    }
+    var kind: Kind
+    var ref: String?
+    var value: String?
+    /// After `fill`, submits the field's form as Enter would.
+    var submit = false
+}
+
+enum PageActionError: LocalizedError, Equatable {
+    case staleReference, disabled, blocked, notApplicable, noMatchingOption(String)
+
+    var errorDescription: String? {
+        switch self {
+        case .staleReference: String(localized: "That element is no longer on the page. Get a new page outline.")
+        case .disabled: String(localized: "That element is disabled.")
+        case .blocked: String(localized: "A dialog or another part of the page covers that element. Get a new page outline.")
+        case .notApplicable: String(localized: "That action does not apply to this element.")
+        case .noMatchingOption(let value): String(format: String(localized: "No option matches “%@”."), value)
+        }
+    }
+}
+
 @MainActor protocol BrowserPage: AnyObject {
     var tabID: UUID { get }
     var contextID: BrowsingContextID { get }
@@ -161,6 +190,16 @@ enum PageArchiveFormat: Sendable {
     func pageArchive() async throws -> Data
     /// Returns the current, script-mutated DOM. It is not the original response body.
     func currentDOM() async throws -> String
+    /// Returns up to `limit` UTF-16 units of the top document's rendered text (`innerText`), read
+    /// outside page scripts. Form field values and frame contents are not included.
+    func renderedText(limit: Int) async throws -> (text: String, truncated: Bool)
+    /// An outline of the top document's visible headings, text and controls. Controls carry refs
+    /// (`e12`) for `perform`. Form values, passwords and frames are never included.
+    func pageOutline(limit: Int) async throws -> (text: String, truncated: Bool)
+    /// Acts on an element from the latest outline, as the user would. Returns a short description.
+    func perform(_ action: PageAction) async throws -> String
+    /// Recent script errors, failed loads and network requests of the top document.
+    func pageActivity(limit: Int) async throws -> (text: String, truncated: Bool)
     /// Returns an on-demand security snapshot bound to its exact page URL.
     func connectionDetails() async throws -> PageConnectionDetails?
     func setInspectable(_ enabled: Bool)
@@ -211,6 +250,18 @@ extension BrowserPage {
     func openLocalFile(_ url: URL) async throws { throw EngineError.unsupported(String(localized: "opening local files")) }
     func pageArchive() async throws -> Data { throw EngineError.unsupported(String(localized: "saving pages")) }
     func currentDOM() async throws -> String { throw EngineError.unsupported(String(localized: "viewing the current page DOM")) }
+    func renderedText(limit: Int) async throws -> (text: String, truncated: Bool) {
+        throw EngineError.unsupported(String(localized: "reading page text"))
+    }
+    func pageOutline(limit: Int) async throws -> (text: String, truncated: Bool) {
+        throw EngineError.unsupported(String(localized: "page outlines"))
+    }
+    func perform(_ action: PageAction) async throws -> String {
+        throw EngineError.unsupported(String(localized: "page actions"))
+    }
+    func pageActivity(limit: Int) async throws -> (text: String, truncated: Bool) {
+        throw EngineError.unsupported(String(localized: "page activity"))
+    }
     func connectionDetails() async throws -> PageConnectionDetails? { nil }
     func setInspectable(_ enabled: Bool) {}
     func openDevTools(hostWindowID: UUID) throws -> any PageDevToolsSession {

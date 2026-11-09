@@ -18,6 +18,10 @@ final class SyncStoreTests: XCTestCase {
         XCTAssertTrue(source.setTheme(.retro))
         XCTAssertTrue(source.setDefaultEngine(EngineID(rawValue: "chromium")))
         XCTAssertTrue(source.setWebInspectorEnabled(true))
+        XCTAssertTrue(source.setAutomationPageAccess(true))
+        XCTAssertTrue(source.setAutomationPageControl(true))
+        XCTAssertTrue(source.setAutomationTabAccess(false))
+        XCTAssertTrue(source.setAutomationExcluded(try XCTUnwrap(URL(string: "https://bank.example")), excluded: true))
         XCTAssertTrue(source.setNewTabsNextToActive(true))
         XCTAssertTrue(source.addSearchEngine(name: "Docs", template: "https://docs.example/?q={searchTerms}", bang: "docs"))
         let docs = try XCTUnwrap(source.searchEngines.first { $0.name == "Docs" })
@@ -32,6 +36,10 @@ final class SyncStoreTests: XCTestCase {
         XCTAssertEqual(target.theme, .legacy)
         XCTAssertEqual(target.defaultEngine, .webKit)
         XCTAssertFalse(target.webInspectorEnabled)
+        XCTAssertFalse(target.automationPageAccess)
+        XCTAssertFalse(target.automationPageControl)
+        XCTAssertTrue(target.automationTabAccess)
+        XCTAssertTrue(target.automationExcludedHosts.isEmpty)
         XCTAssertFalse(source.syncItems().contains { $0.fields.values.contains("chromium") || $0.fields.values.contains("retro") })
     }
 

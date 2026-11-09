@@ -2329,9 +2329,30 @@ import SQLite3
         loadedURLs.append(url); state.urlString = url.absoluteString
         events.onChange?(tabID, url.absoluteString, url.host ?? "Page")
     }
-    func goBack() {}
-    func goForward() {}
-    func reload() {}
+    var navigationCommands: [String] = []
+    var renderedTextValue = "Rendered text"
+    var snapshotImage: NSImage?
+    var onRenderedText: (() -> Void)?
+    func goBack() { navigationCommands.append("back") }
+    func goForward() { navigationCommands.append("forward") }
+    func reload() { navigationCommands.append("reload") }
+    func renderedText(limit: Int) async throws -> (text: String, truncated: Bool) {
+        onRenderedText?()
+        return (String(renderedTextValue.prefix(limit)), renderedTextValue.count > limit)
+    }
+    func snapshot() async throws -> NSImage {
+        guard let snapshotImage else { throw EngineError.unsupported("Page screenshots") }
+        return snapshotImage
+    }
+    var performedActions: [PageAction] = []
+    func pageOutline(limit: Int) async throws -> (text: String, truncated: Bool) {
+        ("button \"Go\" [ref=e1]", false)
+    }
+    func perform(_ action: PageAction) async throws -> String {
+        performedActions.append(action)
+        return "Did \(action.kind.rawValue)"
+    }
+    func pageActivity(limit: Int) async throws -> (text: String, truncated: Bool) { ("Errors and failed loads:\n  none", false) }
     func stop() {}
     func find(_ text: String, backwards: Bool) { findRequests.append((text, backwards)) }
     func zoom(by factor: Double) {}

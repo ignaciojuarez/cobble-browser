@@ -136,6 +136,7 @@ struct SettingsView: View {
                         })
                 }
             }
+            AutomationSettings(app: app)
             SettingsGroup("Keyboard Privacy") {
                 SettingsRow("Hide Command and Control keys from websites", detail: "Pages only receive typing. ⌘ and ⌃ shortcuts still work in Cobble and in text fields, but websites can't see or block them, so site shortcuts such as ⌘K or ⌘Enter stop working.") {
                     Toggle("Hide Command and Control keys from websites", isOn: Binding(
@@ -581,6 +582,86 @@ extension View {
             .padding(.vertical, 24)
             .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
             .background(SettingsStyle.canvas)
+    }
+}
+
+/// Apple Event automation: a master switch, page reading, page use, private sites and the command-line tool.
+private struct AutomationSettings: View {
+    @Bindable var app: AppModel
+    @State private var site = ""
+
+    var body: some View {
+        let preferences = app.preferences
+        SettingsGroup("Automation") {
+            SettingsRow("Let Apps Control Tabs", detail: "Apps you allow in Privacy & Security › Automation can list, open, navigate and close tabs in normal windows. Agents using the cobble tool open new tabs in an Agents space. Private windows are never shared.") {
+                Toggle("Let Apps Control Tabs", isOn: Binding(
+                    get: { preferences.automationTabAccess },
+                    set: { preferences.setAutomationTabAccess($0) }
+                )).labelsHidden().toggleStyle(.switch)
+            }
+            SettingsRow("Let Apps Read Pages", detail: "Also lets them read page text, page outlines and page errors, and take screenshots. Local files are never shared.") {
+                Toggle("Let Apps Read Pages", isOn: Binding(
+                    get: { preferences.automationPageAccess },
+                    set: { preferences.setAutomationPageAccess($0) }
+                )).labelsHidden().toggleStyle(.switch)
+                    .disabled(!preferences.automationTabAccess)
+            }
+            SettingsRow("Let Apps Use Pages", detail: "Also lets them click, type, choose options and scroll in pages, as you would. Cobble marks tabs an app is using in the sidebar.") {
+                Toggle("Let Apps Use Pages", isOn: Binding(
+                    get: { preferences.automationPageControl },
+                    set: { preferences.setAutomationPageControl($0) }
+                )).labelsHidden().toggleStyle(.switch)
+                    .disabled(!preferences.automationPageAccess)
+            }
+            Divider()
+            VStack(alignment: .leading, spacing: 3) {
+                Text("Private Sites").font(.body.weight(.medium))
+                Text("Apps can't read or use these sites or their subdomains, and see only their address. Use it for banking, mail and health sites.")
+                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+            ForEach(preferences.automationExcludedHosts, id: \.self) { host in
+                HStack(spacing: 10) {
+                    Text(verbatim: host).lineLimit(1).truncationMode(.middle)
+                    Spacer(minLength: 12)
+                    Button("Remove", systemImage: "minus.circle") {
+                        if let url = URL(string: "https://\(host)") { preferences.setAutomationExcluded(url, excluded: false) }
+                    }
+                    .labelStyle(.iconOnly).buttonStyle(.borderless)
+                    .accessibilityLabel(String(format: String(localized: "Remove %@"), host))
+                }
+            }
+            HStack {
+                TextField("bank.example", text: $site)
+                    .textFieldStyle(.roundedBorder)
+                    .onSubmit(addSite)
+                Button("Add", action: addSite)
+                    .disabled(site.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+            Divider()
+            SettingsRow("Apps with access", detail: "macOS lists the apps that may control Cobble.") {
+                Button("Open Privacy Settings…") {
+                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                        NSWorkspace.shared.open(url)
+                    }
+                }
+            }
+            if let tool = Bundle.main.url(forResource: "cobble", withExtension: nil) {
+                SettingsRow("Command-line tool", detail: "Scripts and AI agents can run cobble for JSON output, or “cobble mcp” as an MCP server.") {
+                    Button("Copy Path") {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(tool.path, forType: .string)
+                    }
+                }
+            }
+        }
+        .disabled(preferences.readError != nil)
+    }
+
+    private func addSite() {
+        let text = site.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: text.contains("://") ? text : "https://\(text)"),
+              app.preferences.setAutomationExcluded(url, excluded: true) else { return }
+        site = ""
     }
 }
 

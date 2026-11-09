@@ -9682,6 +9682,138 @@
           }
         }
       }
+    },
+    "reading page text" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "leer el texto de la página"}}}
+    },
+    "The page changed while Cobble was reading it. Try again." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "La página cambió mientras Cobble la leía. Inténtalo de nuevo."}}}
+    },
+    "WebKit did not return the page text." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "WebKit no devolvió el texto de la página."}}}
+    },
+    "This tab is not loaded. Select it first." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Esta pestaña no está cargada. Selecciónala primero."}}}
+    },
+    "This tab has no page in that direction." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Esta pestaña no tiene ninguna página en esa dirección."}}}
+    },
+    "This address opens in another web engine. Open it in a new tab instead." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Esta dirección se abre en otro motor web. Ábrela en una pestaña nueva."}}}
+    },
+    "Turn on Let Apps Read Pages in Cobble Settings › Browsing first." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Primero activa Permitir que las apps lean páginas en Ajustes de Cobble › Navegación."}}}
+    },
+    "Cobble could not encode the screenshot." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cobble no pudo codificar la captura de pantalla."}}}
+    },
+    "Automation" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Automatización"}}}
+    },
+    "Let Apps Read Pages" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Permitir que las apps lean páginas"}}}
+    },
+    "Command-line tool" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Herramienta de línea de comandos"}}}
+    },
+    "Scripts and AI agents can run cobble for JSON output, or “cobble mcp” as an MCP server." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Los scripts y agentes de IA pueden ejecutar cobble para obtener JSON, o «cobble mcp» como servidor MCP."}}}
+    },
+    "Copy Path" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Copiar ruta"}}}
+    },
+    "Turn on Let Apps Control Tabs in Cobble Settings › Browsing first." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Primero activa Permitir que las apps controlen pestañas en Ajustes de Cobble › Navegación."}}}
+    },
+    "Use click, fill, select, scroll or press, with a ref from the page outline." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Usa click, fill, select, scroll o press con una referencia del esquema de la página."}}}
+    },
+    "Turn on Let Apps Use Pages in Cobble Settings › Browsing first." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Primero activa Permitir que las apps usen páginas en Ajustes de Cobble › Navegación."}}}
+    },
+    "This site is private from apps in Cobble Settings › Browsing." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Este sitio es privado para las apps en Ajustes de Cobble › Navegación."}}}
+    },
+    "The page is still loading. Wait again or read it as it is." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "La página sigue cargando. Espera de nuevo o léela tal como está."}}}
+    },
+    "app access to pages on this version of macOS" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "el acceso de apps a páginas en esta versión de macOS"}}}
+    },
+    "A dialog or another part of the page covers that element. Get a new page outline." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Un diálogo u otra parte de la página cubre ese elemento. Obtén un esquema nuevo de la página."}}}
+    },
+    "page outlines" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "esquemas de página"}}}
+    },
+    "page actions" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "acciones en páginas"}}}
+    },
+    "page activity" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "actividad de la página"}}}
+    },
+    "That element is no longer on the page. Get a new page outline." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ese elemento ya no está en la página. Obtén un esquema nuevo de la página."}}}
+    },
+    "That element is disabled." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ese elemento está desactivado."}}}
+    },
+    "That action does not apply to this element." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Esa acción no se aplica a este elemento."}}}
+    },
+    "No option matches “%@”." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ninguna opción coincide con “%@”."}}}
+    },
+    "WebKit did not return the action result." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "WebKit no devolvió el resultado de la acción."}}}
+    },
+    "Enter a website such as example.com." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Escribe un sitio web como example.com."}}}
+    },
+    "Agents" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Agentes"}}}
+    },
+    "An app is using this tab. Click to stop all apps; turn them back on in Settings › Browsing." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Una app está usando esta pestaña. Haz clic para detener todas las apps; vuelve a activarlas en Ajustes › Navegación."}}}
+    },
+    "Stop apps using Cobble" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Detener las apps que usan Cobble"}}}
+    },
+    "Used by an app" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "En uso por una app"}}}
+    },
+    "Let Apps Control Tabs" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Permitir que las apps controlen pestañas"}}}
+    },
+    "Apps you allow in Privacy & Security › Automation can list, open, navigate and close tabs in normal windows. Agents using the cobble tool open new tabs in an Agents space. Private windows are never shared." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las apps que permitas en Privacidad y seguridad › Automatización pueden listar, abrir, navegar y cerrar pestañas en ventanas normales. Los agentes que usan la herramienta cobble abren pestañas nuevas en un espacio Agentes. Las ventanas privadas nunca se comparten."}}}
+    },
+    "Also lets them read page text, page outlines and page errors, and take screenshots. Local files are never shared." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "También les permite leer el texto, el esquema y los errores de las páginas, y hacer capturas. Los archivos locales nunca se comparten."}}}
+    },
+    "Let Apps Use Pages" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Permitir que las apps usen páginas"}}}
+    },
+    "Also lets them click, type, choose options and scroll in pages, as you would. Cobble marks tabs an app is using in the sidebar." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "También les permite hacer clic, escribir, elegir opciones y desplazarse en las páginas, como lo harías tú. Cobble marca en la barra lateral las pestañas que usa una app."}}}
+    },
+    "Private Sites" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Sitios privados"}}}
+    },
+    "Apps can't read or use these sites or their subdomains, and see only their address. Use it for banking, mail and health sites." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las apps no pueden leer ni usar estos sitios ni sus subdominios, y solo ven su dirección. Úsalo para sitios de banca, correo y salud."}}}
+    },
+    "bank.example" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "bank.example"}}}
+    },
+    "Apps with access" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Apps con acceso"}}}
+    },
+    "macOS lists the apps that may control Cobble." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "macOS muestra las apps que pueden controlar Cobble."}}}
+    },
+    "Open Privacy Settings…" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Abrir ajustes de privacidad…"}}}
     }
   },
   "version" : "1.0"

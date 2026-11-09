@@ -119,6 +119,12 @@ final class BrowserWindowModel: Identifiable {
     }
 
     var selectedTab: Tab? { record.tabs.first { $0.id == record.selectedTabID } }
+    /// The native window title, read by the Window menu and accessibility clients. Private windows stay generic.
+    var windowTitle: String {
+        guard !isPrivate else { return String(localized: "Cobble — Private") }
+        guard let tab = selectedTab, !tab.urlString.isEmpty else { return "Cobble" }
+        return tab.displayedTitle
+    }
     func icon(for tabID: UUID) -> NSImage? {
         guard let tab = record.tabs.first(where: { $0.id == tabID }),
               let url = URL(string: tab.urlString), let origin = AddressResolver.canonicalOrigin(url) else { return nil }
@@ -1023,18 +1029,23 @@ final class BrowserWindowModel: Identifiable {
         if changed { app.persist() }
     }
 
-    func addTab(url: URL? = nil, activate: Bool = true) {
+    func addTab(url: URL? = nil, activate: Bool = true, spaceID: UUID? = nil) {
         guard !app.isDeletingProfile(record.profileID) else { return }
         guard let url else {
             openCommandBar()
             return
         }
-        let tab = Tab(spaceID: record.selectedSpaceID, urlString: url.absoluteString, title: url.host ?? "Loading…", engineID: app.preferences.engine(for: url))
+        let tab = Tab(spaceID: spaceID ?? record.selectedSpaceID, urlString: url.absoluteString, title: url.host ?? "Loading…", engineID: app.preferences.engine(for: url))
         insertNewTemporaryTab(tab)
         if activate { select(tab.id) }
         else {
             do {
                 let page = try createPage(for: tab)
+                // A page that was never shown has no size; lay it out like the visible page so it renders and captures.
+                // A full-screen page lives in another window at screen size, so it does not count.
+                let shown = selectedPage?.nativeView
+                let size = (shown?.window === nativeWindow ? shown?.frame.size : nil) ?? nativeWindow?.contentLayoutRect.size ?? .zero
+                if size.width > 0, size.height > 0 { page.nativeView.setFrameSize(size) }
                 adopt(page)
                 load(url, in: page)
             } catch { addressError = error.localizedDescription }
@@ -1042,10 +1053,67 @@ final class BrowserWindowModel: Identifiable {
     }
 
     @discardableResult
-    func addTabForScripting(url: URL) -> Tab? {
-        guard scriptingMutationAllowed else { return nil }
-        addTab(url: url)
-        return selectedTab
+    func addTabForScripting(url: URL, activate: Bool = true, spaceID: UUID? = nil) -> Tab? {
+        guard scriptingMutationAllowed, spaceID.map({ id in spaces.contains { $0.id == id } }) ?? true else { return nil }
+        let existing = Set(record.tabs.map(\.id))
+        addTab(url: url, activate: activate, spaceID: spaceID)
+        let tab = activate ? selectedTab : record.tabs.first { !existing.contains($0.id) }
+        if let tab { noteAutomation(tab.id) }
+        return tab
+    }
+
+    /// Tabs an app used in the last few seconds; the sidebar marks them and offers to stop automation.
+    private(set) var automatedTabIDs: Set<UUID> = []
+    @ObservationIgnored private var automationExpiry: [UUID: Task<Void, Never>] = [:]
+    static let automationIndicatorDuration: Duration = .seconds(20)
+
+    func noteAutomation(_ id: UUID) {
+        if !automatedTabIDs.contains(id) { automatedTabIDs.insert(id) }
+        automationExpiry[id]?.cancel()
+        automationExpiry[id] = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: Self.automationIndicatorDuration)
+            guard !Task.isCancelled, let self else { return }
+            self.automatedTabIDs.remove(id)
+            self.automationExpiry[id] = nil
+        }
+    }
+
+    func clearAutomationIndicators() {
+        automationExpiry.values.forEach { $0.cancel() }
+        automationExpiry = [:]
+        automatedTabIDs = []
+    }
+
+    /// A live, idle page that scripting may read or navigate without presenting native UI.
+    func scriptablePage(_ id: UUID) -> (any BrowserPage)? {
+        guard canChangeTemporaryTabs, !isPrivate, !preservingTabsForTermination,
+              closeRequests[id] == nil, loads[id] == nil, switches[id] == nil, pendingPages[id] == nil,
+              let host = pages[id], host.state.lifecycle == .ready, !host.hasPendingPrompt,
+              !app.suspendedContexts.contains(host.contextID) else { return nil }
+        return host
+    }
+
+    /// Scripted navigation reuses the tab's live page; engine switches need the confirming user path.
+    func navigateTabForScripting(_ id: UUID, to url: URL) -> Bool {
+        guard scriptingMutationAllowed, let host = scriptablePage(id),
+              let tab = record.tabs.first(where: { $0.id == id }),
+              app.engines.effectiveID(app.preferences.engine(for: url, override: tab.engineOverride)) == host.contextID.engineID
+        else { return false }
+        load(url, in: host)
+        return true
+    }
+
+    func goForScripting(_ id: UUID, back: Bool) -> Bool {
+        guard scriptingMutationAllowed, let host = scriptablePage(id),
+              back ? host.canGoBack : host.canGoForward else { return false }
+        if back { host.goBack() } else { host.goForward() }
+        return true
+    }
+
+    func reloadTabForScripting(_ id: UUID) -> Bool {
+        guard scriptingMutationAllowed, let host = scriptablePage(id) else { return false }
+        host.reload()
+        return true
     }
 
     @discardableResult

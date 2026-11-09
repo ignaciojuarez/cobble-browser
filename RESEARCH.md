@@ -98,6 +98,20 @@ other handling. Apple
 does not export browser cookies. Google also documents
 [embedded-user-agent restrictions](https://developers.google.com/identity/protocols/oauth2/policies).
 
+## Agent browser automation (November 2026)
+
+- Playwright MCP and Chrome DevTools MCP drive a browser over CDP and address
+  elements through accessibility-tree refs; Chrome now asks before attaching to
+  a running browser. Claude in Chrome and similar extensions confine agents to
+  their own tab group. Cobble's outline refs and Agents space follow those
+  patterns over Apple Events instead of a debugging port.
+- WebMCP (pages declaring tools for agents, moving from `navigator.modelContext`
+  toward `document.modelContext`) is a draft with no WebKit implementation.
+  Watch it; when WebKit ships it, list a page's declared tools in the outline
+  and call them through the same Read/Use switches.
+- A reported `safaridriver --mcp` mode is unverified; recheck Safari release
+  notes before relying on it.
+
 ## Product choices still requiring evidence
 
 - WebKit's native content-rule lists and Chromium's Declarative Net Request

@@ -87,6 +87,7 @@ Chromium uses its native output-mute operation (C11).
 - [ ] **P8c lightweight surfaces:** peek, small external-link windows and opt-in archival remain deferred; specify ownership and recovery before implementation.
 - [ ] **P8d page tools:** qualify authorized local-file access, visible screenshots, engine-appropriate archives, current-DOM export, zoom and inspector lifecycle. Existing fixtures do not prove native Save-panel or filesystem-failure behavior.
 - [ ] **P8e ecosystem:** obtain Apple browser/password/passkey approvals and qualify the actual signed build. Verify extension grants/revocation, private opt-in, action UI, keyboard focus and supported API behavior. See [Apple browser requirements](docs/features/apple-browser.md).
+- [ ] **P8f automation:** qualify cross-process `read`, `outline`, `perform page action`, `wait` and `capture` replies from the signed build after granting Automation consent; Chromium DOM text on the Full build. Chromium outlines and actions need an SDK isolated-world script call. Adopt WebMCP when WebKit ships it; see [Automation](docs/features/automation.md).
 
 Deferred organization work also includes multiple-tab URL copying, URL QR codes,
 guided import and tab hover previews. Top-toolbar auto-hide is outside the chosen

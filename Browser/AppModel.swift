@@ -554,7 +554,11 @@ final class AppModel {
 
     func undoOrganization() {
         guard deletingProfiles.isEmpty, let state = undoStates.popLast() else { return }
-        spaces = state.spaces
+        // Agents spaces are created without an undo step, so an older snapshot must not delete them.
+        let agentSpaces = spaces.filter { space in
+            space.id == Self.agentSpaceID(for: space.profileID) && !state.spaces.contains { $0.id == space.id }
+        }
+        spaces = state.spaces + agentSpaces
         folders = state.folders
         savedItems = state.savedItems
         for window in windows {
@@ -586,6 +590,31 @@ final class AppModel {
         rememberOrganization()
         spaces.append(Space(profileID: profileID, name: name, icon: Space.validatedIcon(icon)))
         persist()
+    }
+
+    /// The space automation opens new tabs in. The ID derives from the profile, so synced Macs share one space.
+    static func agentSpaceID(for profileID: UUID) -> UUID {
+        var bytes = profileID.uuid
+        withUnsafeMutableBytes(of: &bytes) { raw in
+            for (i, mask) in [0xC0, 0xBB, 0x1E, 0xA6].enumerated() { raw[i] ^= UInt8(mask) }
+        }
+        return UUID(uuid: bytes)
+    }
+
+    /// Creates the Agents space when needed. Not an undoable organization change: the user did not make it.
+    func agentSpace(for profileID: UUID) -> UUID? {
+        let id = Self.agentSpaceID(for: profileID)
+        if spaces.contains(where: { $0.id == id }) { return id }
+        guard !isDeletingProfile(profileID), profiles.contains(where: { $0.id == profileID }) else { return nil }
+        spaces.append(Space(id: id, profileID: profileID, name: String(localized: "Agents"), icon: "🤖"))
+        persist()
+        return id
+    }
+
+    /// The sidebar's quick stop: refuses every app until the user turns automation back on in Settings.
+    func stopAutomation() {
+        preferences.stopAutomation()
+        windows.forEach { $0.clearAutomationIndicators() }
     }
 
     func updateSpace(id: UUID, name: String, icon: String?) {
