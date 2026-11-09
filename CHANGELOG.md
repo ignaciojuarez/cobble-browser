@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Keyboard Privacy now also hides ⌘ and ⌃ when the pointer enters or leaves
+  a WebKit page, moves over the page under the sidebar or command bar, and in
+  a full-screen page that opened another tab. Japanese and other input methods
+  keep their ⌃ shortcuts while composing.
+- A site blocked from camera, microphone or screen sharing can no longer ask
+  again through a frame it embeds.
+- In WebKit tabs, a frame can no longer reuse its own saved camera or
+  microphone permission inside another site while that site navigates away.
+- Turning off Camera or Microphone in the site menu now works when the tab's
+  page is unloaded or still loading.
 - Chromium tabs run Chromium 157 (from 153), with its security fixes.
 - Closing a Chromium private window while a download is running no longer
   crashes Cobble.

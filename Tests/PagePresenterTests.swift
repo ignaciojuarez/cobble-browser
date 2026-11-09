@@ -202,6 +202,30 @@ import XCTest
         }
     }
 
+    func testBlockedSiteCannotAskThroughAnEmbeddedFrame() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePermissionPresenter-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SiteSettingsStore(directory: directory)
+        let page = "https://blocked.example", frame = URL(string: "https://cdn.example")!
+        var setting = SiteSetting(profileID: Profile.defaultID, origin: page, camera: .deny)
+        setting.screenSharing = .deny
+        XCTAssertTrue(store.update(setting))
+        for (privateWindowID, asks) in [(nil as UUID?, false), (UUID(), true)] {
+            let context = BrowsingContextID(engineID: .webKit, profileID: Profile.defaultID, privateWindowID: privateWindowID)
+            var windowLookups = 0
+            var decisions: [SitePermission] = []
+            var choices: [PageDisplaySurface?] = []
+            let presenter = PagePresenter(window: { windowLookups += 1; return nil })
+            presenter.requestMedia(kinds: [.camera], origin: frame, topLevelOrigin: page, sameOrigin: false,
+                tabID: UUID(), contextID: context, store: store, isCurrent: { true }) { decisions.append($0) }
+            presenter.requestDisplayCapture(origin: frame, topLevelOrigin: page, sameOrigin: false,
+                tabID: UUID(), contextID: context, store: store, isCurrent: { true }) { choices.append($0) }
+            XCTAssertEqual(decisions, [.deny])
+            XCTAssertEqual(choices, [nil])
+            XCTAssertEqual(windowLookups > 0, asks, "A blocked page's frames never prompt; private windows ask")
+        }
+    }
+
     func testDisplayNoticeComesFromTheDisplayCountOnly() {
         XCTAssertNil(PagePresenter.displayNotice(count: 1))
         XCTAssertEqual(PagePresenter.displayNotice(count: 3), String(format: String(localized: "%lld displays are connected."), 3))

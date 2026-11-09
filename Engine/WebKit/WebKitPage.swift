@@ -18,6 +18,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
     private var observations: [NSKeyValueObservation] = []
     private var activeNavigation: WKNavigation?
     private var committedNavigation: WKNavigation?
+    private var committedOrigin: String?
     private var committedSafeToReload = false
     private var downloadHandoffNavigation: WKNavigation?
     private var visitedNavigation: WKNavigation?
@@ -545,6 +546,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         storedWebView = nil
         activeNavigation = nil
         committedNavigation = nil
+        committedOrigin = nil
         downloadHandoffNavigation = nil
         supersededNavigations.removeAll()
         pendingRequest = nil
@@ -682,6 +684,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         guard !closed, navigation === activeNavigation else { return }
         state.grantedMediaKinds.removeAll()
         committedNavigation = navigation
+        committedOrigin = webView.url.flatMap(AddressResolver.canonicalOrigin)
         hasCommittedPage = true
         pageIdentity = UUID()
         releaseLocalFileAccess(unlessCurrentURL: webView.url)
@@ -1102,6 +1105,13 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         return super.responds(to: selector)
     }
 
+    /// The origin of the document on screen. While a navigation is pending, `webView.url` already shows
+    /// the next site but the current document and its frames can still ask; nil when the two disagree.
+    private func topLevelOrigin(of webView: WKWebView) -> String? {
+        let shown = webView.url.flatMap(AddressResolver.canonicalOrigin)
+        return shown == committedOrigin ? shown : nil
+    }
+
     /// getDisplayMedia. Cobble asks with the page origin; WebKit then opens the macOS picker.
     @objc(_webView:requestDisplayCapturePermissionForOrigin:initiatedByFrame:withSystemAudio:decisionHandler:)
     func requestDisplayCapture(_ webView: WKWebView, origin: WKSecurityOrigin, frame: WKFrameInfo,
@@ -1110,7 +1120,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         guard !closed, displayCapture == .full else { decisionHandler(deny); return }
         let originURL = securityOriginURL(origin)
         let requestOrigin = originURL.flatMap(AddressResolver.canonicalOrigin)
-        let topLevelOrigin = webView.url.flatMap(AddressResolver.canonicalOrigin)
+        let topLevelOrigin = self.topLevelOrigin(of: webView)
         let navigation = activeNavigation
         prompts.requestDisplayCapture(origin: originURL, topLevelOrigin: topLevelOrigin,
             sameOrigin: frame.isMainFrame || (requestOrigin != nil && requestOrigin == topLevelOrigin),
@@ -1144,7 +1154,7 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         }
         let originURL = securityOriginURL(origin)
         let requestOrigin = originURL.flatMap(AddressResolver.canonicalOrigin)
-        let topLevelOrigin = webView.url.flatMap(AddressResolver.canonicalOrigin)
+        let topLevelOrigin = self.topLevelOrigin(of: webView)
         let sameOrigin = frame.isMainFrame || (requestOrigin != nil && requestOrigin == topLevelOrigin)
         let navigation = activeNavigation
         prompts.requestMedia(kinds: kinds, origin: originURL, topLevelOrigin: topLevelOrigin, sameOrigin: sameOrigin,

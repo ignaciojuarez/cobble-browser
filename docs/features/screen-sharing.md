@@ -30,7 +30,8 @@ not suppress or rewrite `fullscreenchange` or `fullscreenElement`.
 - Embedded and private-window requests are never remembered.
 - Screen sharing grants are never saved; the specification forbids it. Each
   request asks, and choosing a window or screen in the macOS picker is the final
-  consent. A blocked site gets `NotAllowedError` with no prompt.
+  consent. A blocked site gets `NotAllowedError` with no prompt, including
+  from frames it embeds.
 - The site menu's Screen sharing switch lets the site ask (on) or blocks it
   (off). Blocking also stops current sharing. **Stop** ends sharing without blocking.
 - The screen sharing and window-management prompts note when two or more
@@ -86,7 +87,7 @@ Each step reports exactly what the engine returned.
 | Evidence | Covers |
 | --- | --- |
 | `WebKitPageTests.testPermissionFlowHonorsSavedDecisionsAndFailsClosed` | Saved allow, revoke, deny; real screen size; block; refusal without a prompt |
-| `WebKitPageTests.testPermissionFlowAsksWithTheOriginAndKeepsFullscreenEvents` | Cobble prompts, remembered allow, never-saved sharing, fullscreen events `[true, false]`; foreground only, presses prompts by keyboard shortcut |
+| `WebKitPageTests.testPermissionFlowAsksWithTheOriginAndKeepsFullscreenEvents` | Cobble prompts, remembered allow, never-saved sharing, fullscreen events `[true, false]`; foreground only, presses prompts through accessibility (Return never allows) |
 | `WebKitPageTests.testDisplayCaptureFailsClosedWithoutTheCheckedWebKitDelegate` | Missing delegate, including blank frames |
 | `PagePresenterTests`, `EngineBoundaryTests` | Block before prompt, display note, window-management storage and revocation |
 | SDK smoke `display*`, `stopAllEndsDisplayCapture`, `windowManagement*` | ABI 19 request metadata, click-gated request, saved decisions answering quiet checks, reset, stored-nothing denial |
