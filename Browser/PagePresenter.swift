@@ -63,6 +63,8 @@ import UniformTypeIdentifiers
     static var readOnlyTextWindows: [NSWindow] { textWindows.compactMap(\.window) }
     private let window: () -> NSWindow?
     private let pendingChanged: (Bool) -> Void
+    /// Shows the site control an origin prompt points at (a hidden sidebar) before the prompt looks for it.
+    var revealSiteControl: () -> Void = {}
     private var cancellations: [UUID: () -> Void] = [:] {
         didSet { pendingChanged(!cancellations.isEmpty) }
     }
@@ -182,6 +184,7 @@ import UniformTypeIdentifiers
         let decision = kinds.contains(where: { embedder?[$0] == .deny }) ? .deny
             : SiteSettingsStore.mediaDecision(kinds: kinds, setting: setting, isPrivate: contextID.isPrivate, sameOrigin: sameOrigin)
         guard decision == .ask else { completion(decision); return }
+        revealSiteControl()
         guard let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
               let anchor = SiteControlAnchorView.find(in: window.contentView, tabID: tabID, contextID: contextID),
               anchor.isEligible(tabID: tabID, contextID: contextID) else { completion(.deny); return }
@@ -218,8 +221,9 @@ import UniformTypeIdentifiers
               contextID.isPrivate || store?.setting(origin: origin, profileID: contextID.profileID,
                                                     engineID: contextID.engineID).screenSharing != .deny,
               Self.embedderSetting(topLevelOrigin, sameOrigin: sameOrigin, contextID: contextID, store: store)?
-                  .screenSharing != .deny,
-              let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
+                  .screenSharing != .deny else { completion(nil); return }
+        revealSiteControl()
+        guard let window = window(), NSApp.isActive, window.isKeyWindow, window.attachedSheet == nil,
               let anchor = SiteControlAnchorView.find(in: window.contentView, tabID: tabID, contextID: contextID),
               anchor.isEligible(tabID: tabID, contextID: contextID) else { completion(nil); return }
         var surface: PageDisplaySurface?

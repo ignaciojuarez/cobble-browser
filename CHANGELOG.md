@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Video calls in Chromium tabs (Zoom, Meet, Teams) can list and pick your
+  camera and microphone after you allow them. Before, Chromium pages saw
+  unnamed devices and an unanswered permission, so meeting sites reported no
+  camera or microphone.
+- Camera, microphone and screen sharing prompts now appear when the sidebar is
+  hidden. Before, they were refused without asking.
+- If macOS blocks Cobble from the camera or microphone, allowing a site now
+  says where to turn it on instead of failing silently.
 - Keyboard Privacy is on by default for settings that have not explicitly chosen otherwise, hides Option/Alt alongside Command and Control, and keeps orphaned key-up events from global hotkeys away from pages.
 - AI agents and scripts can work with Cobble through the bundled `cobble`
   command (JSON output) or `cobble mcp` (an MCP server). Settings › Browsing ›

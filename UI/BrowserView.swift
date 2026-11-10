@@ -18,7 +18,7 @@ struct BrowserView: View {
             let maximumWidth = min(440.0, max(260.0, Double(geometry.size.width) - 360))
             let sidebarWidth = min(maximumWidth, max(260, window.record.sidebarWidth ?? 280))
             let pinned = window.sidebarVisible
-            let showing = pinned || window.sidebarPeeked
+            let showing = pinned || window.sidebarPeeked || !window.sidebarHeldForPrompts.isEmpty
             let overlaying = showing && !pinned
             let windowStyle = window.app.preferences.windowStyle
             ZStack(alignment: .leading) {

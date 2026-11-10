@@ -3,8 +3,9 @@
 <title>Permission flow</title>
 <!--
   One origin, the order permission-heavy sites use: camera and microphone,
-  screen details, screen sharing, fullscreen. Each step only reports what the
-  engine returned; nothing here changes what the page can read.
+  the device list a meeting site reads next, screen details, screen sharing,
+  fullscreen. Each step only reports what the engine returned; nothing here
+  changes what the page can read.
   Automated: CobbleTests/WebKitPageTests testPermissionFlow*.
   Manual and Full builds: docs/features/screen-sharing.md.
 -->
@@ -14,6 +15,7 @@
   pre { white-space: pre-wrap; }
 </style>
 <button data-step="media">1. Camera and microphone</button>
+<button data-step="devices">1b. Devices</button>
 <button data-step="screens">2. Read screens</button>
 <button data-step="share">3. Share a screen</button>
 <button data-step="fullscreen">4. Fullscreen</button>
@@ -37,6 +39,15 @@ flow.steps = {
       flow.tracks.push(...stream.getTracks());
       return { ok: true, kinds: stream.getTracks().map(track => track.kind).sort() };
     } catch (error) { return failure(error); }
+  },
+  // After a grant, meeting sites (Zoom, Meet, Teams) read permission state and
+  // pick a device by ID; without IDs and labels they report no camera or mic.
+  async devices() {
+    const state = name => navigator.permissions.query({ name }).then(status => status.state, error => error.name);
+    const list = await navigator.mediaDevices.enumerateDevices();
+    const named = kind => list.some(device => device.kind === kind && device.deviceId && device.label);
+    return { ok: true, camera: await state("camera"), microphone: await state("microphone"),
+             videoinput: named("videoinput"), audioinput: named("audioinput") };
   },
   async screens() {
     const basic = { width: screen.width, height: screen.height, isExtended: screen.isExtended ?? null };

@@ -2086,6 +2086,10 @@ final class WebKitPageTests: XCTestCase {
         let media = try await fixture.run("media")
         XCTAssertEqual(media.kinds, ["audio", "video"], "\(media)")
         try await waitFor { page.state.camera == .active && page.state.microphone == .active }
+        // 1b. Meeting sites then pick a device by ID and label.
+        let devices = try await fixture.run("devices")
+        XCTAssertEqual(devices.videoinput, true, "\(devices)")
+        XCTAssertEqual(devices.audioinput, true, "\(devices)")
         // 2. WebKit keeps its stock screen API; the values come from the real display.
         let screens = try await fixture.run("screens")
         XCTAssertEqual(screens.api, false, "WebKit has no window-management API")
@@ -2355,6 +2359,7 @@ private final class LocalPageHandler: NSObject, WKURLSchemeHandler {
     struct FlowResult: Decodable, Sendable {
         var ok: Bool?, error: String?, kinds: [String]?, api: Bool?, width: Double?, height: Double?
         var surface: String?, entered: Bool?, exited: Bool?, events: [Bool]?
+        var camera: String?, microphone: String?, videoinput: Bool?, audioinput: Bool?
     }
 
     /// Runs one Tests/Fixtures/PermissionFlow step and returns what the engine reported.

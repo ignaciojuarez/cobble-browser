@@ -1263,7 +1263,9 @@ private struct SitePermissionsView: View {
                             permissionPicker("Microphone", .microphone, entry)
                             Button("Forget") {
                                 if confirm(), app.siteSettings.forget(origin: entry.origin, profileID: profileID) {
-                                    app.engines.resetPermission(.windowManagement, origin: entry.origin, profileID: profileID)
+                                    for kind in [PermissionKind.camera, .microphone, .windowManagement] {
+                                        app.engines.resetPermission(kind, origin: entry.origin, profileID: profileID)
+                                    }
                                     unloadPages()
                                 }
                             }

@@ -59,11 +59,14 @@ streams.
 
 Window management (`getScreenDetails`, cross-screen placement) arrives as the
 `windowManagement` media-request kind. Every other prompt-backed permission
-stays denied. Cobble's saved decision answers every status check through
-`ChromiumContext.permissionResolver`, including quiet checks on load. Chromium
-keeps only a session grant for unsaved answers and stores no denial.
-`ChromiumContext.resetPermission(_:origin:)` clears that grant; Cobble calls it
-whenever its saved decision stops allowing. See `docs/features/screen-sharing.md`.
+stays denied. Cobble's saved decision answers every camera, microphone and
+window-management status check through `ChromiumContext.permissionResolver`,
+including quiet checks on load, `permissions.query` and whether
+`enumerateDevices` names devices. Chromium keeps only a session grant for
+unsaved answers (a one-time grant for camera and microphone, so meeting sites
+can pick a device) and stores no denial. `ChromiumContext.resetPermission(_:origin:)`
+clears that grant; Cobble calls it whenever its saved decision stops allowing.
+See `docs/features/screen-sharing.md`.
 The SDK harness covers display metadata, window and screen grants, state, stop,
 stop-all and denial. For window management it covers metadata, saved decisions
 answering quiet checks, reset and stored-nothing denial. It uses fake devices
@@ -291,3 +294,15 @@ ordinary-launch privacy or release resource costs.
 The earlier sandboxed-host XPC broker experiment is historical. It did not
 qualify real Chromium child launch in that topology and does not gate the
 current unsandboxed host design.
+
+## Camera and microphone state (2026-11-10)
+
+The SDK smoke gained device-list checks for camera and microphone. On the beta
+14 runtime it failed: after Allow, `permissions.query` reported `prompt` and
+`enumerateDevices` named no devices. With the SDK fix
+([chrome-sdk#21](https://github.com/ignaciojuarez/chrome-sdk/pull/21), `77ab40e`:
+status resolver for camera/microphone, one-time grant after Allow, reset for
+both), the rebuilt development runtime passed 256 of 256 native checks,
+including picking a device by ID. Cobble pins `77ab40e`. Fake devices skip
+macOS camera/microphone permission, so real hardware, a Developer ID release
+and real meeting sites remain to be checked.

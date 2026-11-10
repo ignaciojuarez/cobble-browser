@@ -37,9 +37,15 @@ Do not infer native interaction, hardware, signing, or seven-day use from a buil
 
 ### W17 — Media permission UI
 
-Owned media prompts and capture indicators are implemented. Native camera/mic
-success, TCC denial/retry, cross-origin frames, background tabs, revocation and
-navigation/close cancellation still need hardware qualification.
+Owned media prompts and capture indicators are implemented. Chromium pages see
+Cobble's camera/microphone decisions in `permissions.query` and get device IDs
+and labels from `enumerateDevices` after an allow (one-time grant) or a saved
+allow; the SDK smoke checks this, including picking a device by ID. Prompts
+show a hidden sidebar instead of refusing. Native camera/mic success on real
+hardware, TCC denial/retry, a Developer ID release build, real meeting sites
+(Zoom, Meet, Teams), cross-origin frames, background tabs, revocation and
+navigation/close cancellation still need hardware qualification; see
+`docs/features/screen-sharing.md`.
 
 ### W19 — Screen sharing
 
