@@ -737,6 +737,34 @@ final class UITests: XCTestCase {
         }
     }
 
+    func testHiddenSidebarShowsTheSiteControlWhileAPromptIsPending() async throws {
+        try await withWindow(isPrivate: false) { model, nativeWindow, hosting in
+            let tab = Tab(urlString: "https://hidden-anchor.example.test/", title: "Hidden anchor")
+            model.record.tabs = [tab]
+            model.select(tab.id)
+            let deadline = ContinuousClock.now.advanced(by: .seconds(5))
+            while model.selectedPage == nil, ContinuousClock.now < deadline {
+                try await Task.sleep(for: .milliseconds(20))
+            }
+            let host = try XCTUnwrap(model.selectedPage)
+            model.sidebarVisible = false
+            hosting.layoutSubtreeIfNeeded()
+            XCTAssertNil(SiteControlAnchorView.find(in: hosting, tabID: tab.id, contextID: host.contextID),
+                         "A hidden sidebar has no site control, so a prompt would have no anchor")
+            let prompt = UUID()
+            // The prompt looks for its anchor right after this call, in the same pass.
+            model.holdSidebar(forPrompt: prompt, in: nativeWindow)
+            XCTAssertNotNil(SiteControlAnchorView.find(in: hosting, tabID: tab.id, contextID: host.contextID))
+            model.releaseSidebar(forPrompt: prompt)
+            hosting.layoutSubtreeIfNeeded()
+            XCTAssertNil(SiteControlAnchorView.find(in: hosting, tabID: tab.id, contextID: host.contextID))
+            // A visible sidebar is left alone.
+            model.sidebarVisible = true
+            model.holdSidebar(forPrompt: prompt, in: nativeWindow)
+            XCTAssertTrue(model.sidebarHeldForPrompts.isEmpty)
+        }
+    }
+
     func testCaptureBadgesShowBackgroundSavedTabsAndClearWhenUnloaded() async throws {
         try await withWindow(isPrivate: false) { model, nativeWindow, hosting in
             let enhanced = NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface")

@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import Observation
 import QuartzCore
 
@@ -237,6 +238,15 @@ final class BrowserWindowModel: Identifiable {
     }
     var visibleTabs: [Tab] { record.tabs.filter { $0.spaceID == record.selectedSpaceID && $0.savedItemID == nil } }
     var sidebarPeeked = false
+    /// Origin prompts point at the site control, so a hidden sidebar stays shown while one is pending.
+    private(set) var sidebarHeldForPrompts: Set<UUID> = []
+    /// Shows a hidden sidebar now, so the prompt finds its anchor in this pass.
+    func holdSidebar(forPrompt id: UUID, in nativeWindow: NSWindow?) {
+        guard !sidebarVisible else { return }
+        sidebarHeldForPrompts.insert(id)
+        nativeWindow?.contentView?.layoutSubtreeIfNeeded()
+    }
+    func releaseSidebar(forPrompt id: UUID) { sidebarHeldForPrompts.remove(id) }
     var sidebarVisible: Bool {
         get { record.sidebarVisible }
         set {
@@ -506,6 +516,9 @@ final class BrowserWindowModel: Identifiable {
             host?.setAppPromptPending(pending)
         }
         promptPresenters[requestID] = (host.tabID, presenter)
+        presenter.revealSiteControl = { [weak self, weak host] in
+            self?.holdSidebar(forPrompt: requestID, in: host?.nativeView.window)
+        }
         return presenter
     }
 
@@ -534,8 +547,22 @@ final class BrowserWindowModel: Identifiable {
                     && URL(string: host.state.urlString).flatMap(AddressResolver.canonicalOrigin) == embeddingOrigin
             }) { [weak self] decision in
                 self?.promptPresenters.removeValue(forKey: request.id)
+                self?.releaseSidebar(forPrompt: request.id)
+                if decision == .allow, !Self.systemBlockedKinds(request.kinds).isEmpty {
+                    self?.addressError = String(localized: "macOS is blocking Cobble from your camera or microphone. Turn on Cobble in System Settings › Privacy & Security › Camera and Microphone.")
+                }
                 request.resolve(decision)
             }
+    }
+
+    /// macOS privacy can still refuse a request Cobble allowed; the page then only sees NotAllowedError.
+    static func systemBlockedKinds(_ kinds: Set<PermissionKind>,
+                                   status: (AVMediaType) -> AVAuthorizationStatus = AVCaptureDevice.authorizationStatus(for:))
+        -> Set<PermissionKind> {
+        kinds.filter { kind in
+            let type: AVMediaType? = kind == .camera ? .video : kind == .microphone ? .audio : nil
+            return type.map { [.denied, .restricted].contains(status($0)) } ?? false
+        }
     }
 
     private func presentDisplayCapture(_ request: PageDisplayCaptureRequest, from host: any BrowserPage,
@@ -555,6 +582,7 @@ final class BrowserWindowModel: Identifiable {
                 return self.promptIsCurrent(identity, host: host, generation: generation)
             }) { [weak self] surface in
                 self?.promptPresenters.removeValue(forKey: request.id)
+                self?.releaseSidebar(forPrompt: request.id)
                 request.resolve(surface)
             }
     }
@@ -1879,9 +1907,10 @@ final class BrowserWindowModel: Identifiable {
         if let host = selectedPage, host.state.isCapturing(kind) { stopCapture(kind, in: host) }
     }
 
-    /// Chromium keeps its own session grant for window management; Cobble's setting stays authoritative.
+    /// Chromium keeps its own session grants for camera, microphone and window management;
+    /// Cobble's setting stays authoritative.
     private func revokeEngineGrant(_ kind: PermissionKind, for url: URL) {
-        guard kind == .windowManagement, let origin = AddressResolver.canonicalOrigin(url) else { return }
+        guard kind != .screenSharing, let origin = AddressResolver.canonicalOrigin(url) else { return }
         app.engines.resetPermission(kind, origin: origin, profileID: record.profileID)
     }
 

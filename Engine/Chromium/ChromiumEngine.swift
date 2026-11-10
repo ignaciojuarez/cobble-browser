@@ -850,10 +850,16 @@ extension SiteBrowserIdentity {
         }
     }
 
-    /// Chromium keeps a window-management grant for the browsing session; nothing else.
+    /// Chromium keeps one-time grants for camera, microphone and window management.
     func resetPermission(_ kind: PermissionKind, origin: String) {
-        guard kind == .windowManagement else { return }
-        context?.resetPermission(.windowManagement, origin: origin)
+        let native: ChromiumMediaPermissionKinds
+        switch kind {
+        case .camera: native = .camera
+        case .microphone: native = .microphone
+        case .windowManagement: native = .windowManagement
+        case .screenSharing: return
+        }
+        context?.resetPermission(native, origin: origin)
     }
 
     func close() async {
@@ -921,12 +927,19 @@ extension SiteBrowserIdentity {
                     guard let self, let siteSettings = self.siteSettings else { return .standard }
                     return siteSettings.browserIdentity(for: url, profileID: self.id.profileID).chromiumIdentity
                 }
-                // Saved decisions answer Chromium's quiet window-management checks; private windows ask.
+                // Saved decisions answer Chromium's quiet checks (permissions.query, enumerateDevices
+                // device details, window management); private windows ask.
                 opened.permissionResolver = { [weak self] kind, requesting, embedding in
-                    guard let self, !self.isPrivate, kind == .windowManagement, let siteSettings = self.siteSettings,
+                    let shared: PermissionKind? = switch kind {
+                    case .camera: .camera
+                    case .microphone: .microphone
+                    case .windowManagement: .windowManagement
+                    default: nil
+                    }
+                    guard let self, !self.isPrivate, let shared, let siteSettings = self.siteSettings,
                           let url = URL(string: requesting) else { return .ask }
                     let setting = siteSettings.setting(origin: url, profileID: self.id.profileID, engineID: self.id.engineID)
-                    switch SiteSettingsStore.mediaDecision(kinds: [.windowManagement], setting: setting,
+                    switch SiteSettingsStore.mediaDecision(kinds: [shared], setting: setting,
                                                            isPrivate: false, sameOrigin: requesting == embedding) {
                     case .allow: return .allow
                     case .deny: return .deny

@@ -209,6 +209,16 @@
         }
       }
     },
+    "macOS is blocking Cobble from your camera or microphone. Turn on Cobble in System Settings › Privacy & Security › Camera and Microphone." : {
+      "localizations" : {
+        "es" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "macOS impide que Cobble use la cámara o el micrófono. Activa Cobble en Ajustes del Sistema › Privacidad y seguridad › Cámara y Micrófono."
+          }
+        }
+      }
+    },
     "A page was unloaded because camera or microphone capture could not be stopped safely. Unsaved page content may be lost." : {
       "localizations" : {
         "es" : {

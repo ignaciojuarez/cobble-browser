@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Video calls in Chromium tabs (Zoom, Meet, Teams) can list and pick your
+  camera and microphone after you allow them. Before, Chromium pages saw
+  unnamed devices and an unanswered permission, so meeting sites reported no
+  camera or microphone.
+- Camera, microphone and screen sharing prompts now appear when the sidebar is
+  hidden. Before, they were refused without asking.
+- If macOS blocks Cobble from the camera or microphone, allowing a site now
+  says where to turn it on instead of failing silently.
 - Links opened in new tabs from Chromium tabs (⌘-click, middle-click, Open
   Link in New Tab) now use Automatic engine selection, like WebKit tabs.
   Settings › Web Engine › Links opened in new tabs can keep the current tab's

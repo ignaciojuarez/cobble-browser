@@ -1,4 +1,5 @@
 import AppKit
+import AVFoundation
 import SwiftUI
 import XCTest
 @testable import Cobble
@@ -178,6 +179,44 @@ import XCTest
             isCurrent: { true }) { choices.append($0) }
         presenter.cancelAll()
         XCTAssertEqual(choices, [nil])
+    }
+
+    func testSystemPrivacyBlockIsReportedOnlyForBlockedDevices() {
+        let cameraDenied: (AVMediaType) -> AVAuthorizationStatus = { $0 == .video ? .denied : .authorized }
+        XCTAssertEqual(BrowserWindowModel.systemBlockedKinds([.camera, .microphone], status: cameraDenied), [.camera])
+        XCTAssertEqual(BrowserWindowModel.systemBlockedKinds([.microphone], status: cameraDenied), [])
+        // macOS asks on first use, so an undecided device is not blocked.
+        XCTAssertEqual(BrowserWindowModel.systemBlockedKinds([.camera], status: { _ in .notDetermined }), [])
+        XCTAssertEqual(BrowserWindowModel.systemBlockedKinds([.microphone], status: { _ in .restricted }), [.microphone])
+        XCTAssertEqual(BrowserWindowModel.systemBlockedKinds([.windowManagement], status: { _ in .denied }), [])
+    }
+
+    func testOriginPromptsRevealTheSiteControlOnlyWhenTheyAsk() throws {
+        let directory = FileManager.default.temporaryDirectory.appendingPathComponent("CobblePermissionReveal-\(UUID())")
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let store = SiteSettingsStore(directory: directory)
+        let origin = URL(string: "https://zoom.example")!
+        let contextID = BrowsingContextID(engineID: .chromium, profileID: Profile.defaultID, privateWindowID: nil)
+        var setting = SiteSetting(profileID: Profile.defaultID, origin: origin.absoluteString, engineID: .chromium)
+        setting.microphone = .deny
+        XCTAssertTrue(store.update(setting))
+        var reveals = 0
+        var decisions: [SitePermission] = []
+        var surfaces: [PageDisplaySurface?] = []
+        let presenter = PagePresenter(window: { nil })
+        presenter.revealSiteControl = { reveals += 1 }
+        // A saved decision answers without a prompt, so nothing is revealed.
+        presenter.requestMedia(kinds: [.microphone], origin: origin, topLevelOrigin: origin.absoluteString,
+            sameOrigin: true, tabID: UUID(), contextID: contextID, store: store, isCurrent: { true }) { decisions.append($0) }
+        XCTAssertEqual(reveals, 0)
+        // Asking reveals the site control first; with no window the request still fails closed.
+        presenter.requestMedia(kinds: [.camera], origin: origin, topLevelOrigin: origin.absoluteString,
+            sameOrigin: true, tabID: UUID(), contextID: contextID, store: store, isCurrent: { true }) { decisions.append($0) }
+        presenter.requestDisplayCapture(origin: origin, topLevelOrigin: origin.absoluteString, sameOrigin: true,
+            tabID: UUID(), contextID: contextID, store: store, isCurrent: { true }) { surfaces.append($0) }
+        XCTAssertEqual(reveals, 2)
+        XCTAssertEqual(decisions, [.deny, .deny])
+        XCTAssertEqual(surfaces, [nil])
     }
 
     func testBlockedScreenSharingDeniesBeforeAnyPrompt() throws {

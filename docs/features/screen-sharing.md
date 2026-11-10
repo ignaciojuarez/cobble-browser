@@ -40,13 +40,22 @@ not suppress or rewrite `fullscreenchange` or `fullscreenElement`.
   the request.
 - As in stock Chromium, a site can prompt for window management only after a
   click. Without one, `getScreenDetails` checks quietly.
-- Chromium asks Cobble's saved decision on every window-management status
-  check, quiet checks and `permissions.query` included. So a remembered allow
-  or deny holds on page load and reports `granted` or `denied`.
-- An unsaved grant (embedded, private, or before saving) lasts for Chromium's
-  browsing session. Like Chrome's "Allow this time", it reports `prompt`.
-- Turning the switch off, choosing Ask or Deny in Settings, or Forget clears that
-  session grant. A denial stores nothing in Chromium.
+- Chromium asks Cobble's saved decision on every camera, microphone and
+  window-management status check, quiet checks and `permissions.query`
+  included. So a remembered allow or deny holds on page load and reports
+  `granted` or `denied`. For camera and microphone this also decides whether
+  `enumerateDevices` returns device IDs and labels; meeting sites (Zoom, Meet,
+  Teams) need them to pick a device. Chromium asks with the top-level origin.
+- Allowing camera or microphone without saving (embedded, private) leaves a
+  one-time grant for the top-level origin, like Chrome's "Allow this time": it
+  reports `granted` and exposes devices while the site stays open. Every
+  `getUserMedia` call still asks Cobble.
+- An unsaved window-management grant lasts for Chromium's browsing session and
+  reports `prompt`.
+- Turning the switch off, choosing Ask or Deny in Settings, or Forget clears
+  those grants. A denial stores nothing in Chromium.
+- Prompts point at the site control in the sidebar. A hidden sidebar is shown
+  while a prompt is pending.
 
 ## Stopping
 
@@ -60,7 +69,10 @@ not suppress or rewrite `fullscreenchange` or `fullscreenElement`.
 A site gets a clean `NotAllowedError`, never a silent platform-only consent, when:
 
 - the user chooses Not Now, cancels the macOS picker, or the site is blocked;
-- Cobble cannot show its prompt (inactive app, background tab, sheet, navigation);
+- macOS privacy blocks Cobble from the camera or microphone. Cobble then says
+  where to turn it on (System Settings › Privacy & Security);
+- Cobble cannot show its prompt (inactive app, background tab, sheet, navigation,
+  page full screen);
 - WebKit lacks the checked private delegate. With only the request delegate, it
   is refused there. With none, `WebKitDisplayCapture.failClosedScript` makes
   page-world `getDisplayMedia` reject before WebKit's stock picker can open;
@@ -78,18 +90,35 @@ requires choosing a source.
 permission-heavy sites use:
 
 1. camera and microphone
+   1b. devices: `permissions.query` state and whether `enumerateDevices` names
+   a camera and microphone, which meeting sites read next
 2. screen details
 3. screen sharing
 4. fullscreen
 
 Each step reports exactly what the engine returned.
 
+### What each layer proves
+
+| Layer | Proves | Cannot prove |
+| --- | --- | --- |
+| Hosted tests (`xcodebuild … test`) | Cobble's decisions, prompts, storage and revocation; WebKit with mock devices | Chromium, real devices, macOS privacy (TCC), signing |
+| SDK smoke (`chrome-sdk/scripts/smoke.mjs`) | Chromium bridge with fake devices: requests, metadata, grants, device list and permission state, stop, cancellation | Real devices, TCC, Cobble UI, signing; fake devices skip the macOS camera/microphone check |
+| `local full` with the fixture | Cobble UI on Chromium; real screen picker | Developer ID signing, notarization, update path |
+| Release build on a Mac with a camera and microphone | The shipped path: TCC prompt, hardware, real meeting sites | — |
+
+A Mac without a camera or microphone (such as a Mac mini) gives
+`NotFoundError` before any prompt; meeting sites then report no devices. That
+is not a Cobble failure, and it cannot qualify camera or microphone.
+
 | Evidence | Covers |
 | --- | --- |
-| `WebKitPageTests.testPermissionFlowHonorsSavedDecisionsAndFailsClosed` | Saved allow, revoke, deny; real screen size; block; refusal without a prompt |
+| `WebKitPageTests.testPermissionFlowHonorsSavedDecisionsAndFailsClosed` | Saved allow, device names after a grant, revoke, deny; real screen size; block; refusal without a prompt |
 | `WebKitPageTests.testPermissionFlowAsksWithTheOriginAndKeepsFullscreenEvents` | Cobble prompts, remembered allow, never-saved sharing, fullscreen events `[true, false]`; foreground only, presses prompts through accessibility (Return never allows) |
 | `WebKitPageTests.testDisplayCaptureFailsClosedWithoutTheCheckedWebKitDelegate` | Missing delegate, including blank frames |
-| `PagePresenterTests`, `EngineBoundaryTests` | Block before prompt, display note, window-management storage and revocation |
+| `PagePresenterTests`, `EngineBoundaryTests` | Block before prompt, display note, window-management storage and revocation, site control revealed only when asking |
+| `UITests.testHiddenSidebarShowsTheSiteControlWhileAPromptIsPending` | A hidden sidebar shows the prompt's anchor in the same pass |
+| SDK smoke `media*` | Camera/microphone grant, one-time grant exposing device IDs and labels with `granted`, picking a device by ID, reset, saved allow/deny answering quiet checks |
 | SDK smoke `display*`, `stopAllEndsDisplayCapture`, `windowManagement*` | ABI 19 request metadata, click-gated request, saved decisions answering quiet checks, reset, stored-nothing denial |
 | `local full`, 2026-11-04 (`CHROMIUM.md`) | Real picker Cancel, real screen share and Stop, remembered decisions, revoke and block, stop-all, fullscreen events and window exit; one display, fake camera and microphone |
 
@@ -108,7 +137,9 @@ Each step reports exactly what the engine returned.
    `python3 -m http.server 8765 --bind 127.0.0.1 --directory Tests/Fixtures/PermissionFlow`.
    Then open `http://localhost:8765/` in a Chromium tab of `./Scripts/run.sh local full`.
 2. Run steps 1–4 with the buttons. Check each prompt names
-   `http://localhost:8765`.
+   `http://localhost:8765`. After step 1, step 1b reports `granted` and
+   `true` for both devices. Repeat step 1 with the sidebar hidden: the
+   sidebar shows and the prompt points at it.
 3. In step 3, check the macOS picker opens and Cancel gives `NotAllowedError`.
 4. Check that step 4 reports `entered`, `exited` and events `[true, false]`, and
    that the window leaves full screen too.
@@ -118,5 +149,19 @@ Each step reports exactly what the engine returned.
 6. With camera and screen sharing both live, turn off Camera. **Live tracks**
    then reports none.
 
-Real-site calls (Meet, Zoom, Teams), background tabs and navigation while the
-picker is open still need manual qualification.
+### Release gate (manual, real hardware)
+
+Before calling camera, microphone or screen sharing working in a release, on
+the notarized release build and a Mac with a camera and microphone:
+
+1. First use asks macOS for camera and microphone access for Cobble; allowing
+   it continues the same request. Denying it in System Settings gives
+   `NotAllowedError`.
+2. The fixture's steps 1, 1b and 3 pass in a Chromium tab and a WebKit tab.
+3. Join a Zoom test meeting (`https://zoom.us/test`) with **Join from your
+   browser**, then a Meet call: preview shows video, the device menus list the
+   camera and microphone by name, audio meters move, and screen sharing works
+   and stops from the site menu.
+
+Background tabs and navigation while the picker is open still need manual
+qualification.
