@@ -45,6 +45,8 @@ final class BrowserWindowModel: Identifiable {
     @ObservationIgnored private(set) var isClosed = false
     @ObservationIgnored private var generations: [UUID: UUID] = [:]
     @ObservationIgnored private(set) var closedTabs: [Tab] = []
+    /// When the newest undoable tab close was registered.
+    @ObservationIgnored private(set) var lastClosedTabAt: Date?
     @ObservationIgnored private var loads: [UUID: UUID] = [:]
     @ObservationIgnored private var deferredPageActivation: UUID?
     @ObservationIgnored private var switches: [UUID: UUID] = [:]
@@ -414,13 +416,15 @@ final class BrowserWindowModel: Identifiable {
                   !self.record.tabs.contains(where: { $0.id == child.tabID }),
                   let parent = self.record.tabs.first(where: { $0.id == tabID }),
                   let url = request.url else { return false }
-            let engineID = self.app.preferences.engine(for: url)
-            guard self.app.engines.effectiveID(engineID) == contextID.engineID else {
-                self.addTab(url: url, activate: activate)
+            // Settings choose Automatic (default) or the opener tab's engine for link tabs.
+            let keepsEngine = self.app.preferences.linkTabsKeepEngine
+            let engineID = keepsEngine ? parent.engineID : self.app.preferences.engine(for: url)
+            guard keepsEngine || self.app.engines.effectiveID(engineID) == contextID.engineID else {
+                self.addTab(url: url, activate: activate, spaceID: parent.spaceID)
                 return false
             }
             let tab = Tab(id: child.tabID, spaceID: parent.spaceID, title: "Opening…",
-                          engineID: engineID)
+                          engineID: engineID, engineOverride: keepsEngine ? parent.engineOverride : nil)
             self.insertNewTemporaryTab(tab)
             self.adopt(child)
             if activate { self.select(tab.id) }
@@ -1308,6 +1312,7 @@ final class BrowserWindowModel: Identifiable {
         if temporaryTabSelectionAnchorID == id { temporaryTabSelectionAnchorID = selectedTemporaryTabs.first?.id }
         if !isPrivate && registerUndo {
             closedTabs.append(tab)
+            lastClosedTabAt = Date()
             if closedTabs.count > 30 { closedTabs.removeFirst() }
             nativeWindow?.undoManager?.registerUndo(withTarget: self) { window in
                 window.reopenClosedTab(id: id)
