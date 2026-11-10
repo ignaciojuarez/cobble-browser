@@ -190,6 +190,25 @@ final class TabCommandTests: XCTestCase {
         }
     }
 
+    func testLinkTabsCanKeepTheOpenerEngine() async throws {
+        let parent = Tab(urlString: "https://example.com/", title: "Parent",
+                         engineID: .webKit, engineOverride: .webKit)
+        try await withTestAppEngines(SessionSnapshot(windows: [WindowRecord(selectedTabID: parent.id, tabs: [parent])])) { app, _, automatic in
+            XCTAssertTrue(app.preferences.setDefaultEngine(automatic.id))
+            XCTAssertTrue(app.preferences.setLinkTabsKeepEngine(true))
+            let window = try XCTUnwrap(app.windows.first)
+            window.select(parent.id)
+            let opener = try XCTUnwrap(window.selectedPage)
+            let child = TestPage(tabID: UUID(), contextID: opener.contextID)
+            let destination = URL(string: "https://example.com/child")!
+
+            XCTAssertTrue(opener.events.onCreatePageForRequest?(child, URLRequest(url: destination), true) == true)
+            XCTAssertEqual(window.selectedTab?.id, child.tabID)
+            XCTAssertEqual(window.selectedTab?.engineID, .webKit)
+            XCTAssertEqual(window.selectedTab?.engineOverride, .webKit)
+        }
+    }
+
     func testAddressModifiersOpenForegroundAndLoadedBackgroundTabs() async throws {
         let tab = Tab(urlString: "https://example.com/", title: "Parent")
         try await withTestApp(SessionSnapshot(windows: [WindowRecord(selectedTabID: tab.id, tabs: [tab])])) { app, engine in

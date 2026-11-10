@@ -723,6 +723,8 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     private var hiddenKeyCodes: Set<UInt16> = []
     /// Keys the page saw pressed and not yet released.
     private var pressedKeys: [UInt16: NSEvent] = [:]
+    /// Last keystroke into a focused Chromium text field, which Chromium can undo itself.
+    private var chromiumTextEditedAt: Date?
     init(model: BrowserWindowModel, onClose: @escaping (UUID) -> Void) {
         self.model = model; self.onClose = onClose
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1200, height: 800), styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
@@ -792,8 +794,19 @@ final class BrowserWindowController: NSWindowController, NSWindowDelegate {
     }
 
     private func performChromiumEditShortcut(_ event: NSEvent) -> Bool {
-        guard let firstResponder = chromiumPageFirstResponder(),
-              let action = Self.editAction(for: event) else { return false }
+        guard let firstResponder = chromiumPageFirstResponder() else { return false }
+        let action = Self.editAction(for: event)
+        let isUndo = action == Selector(("undo:")), isRedo = action == Selector(("redo:"))
+        // Chromium's view takes undo: itself, so the window's Undo Close Tab never runs.
+        // Chromium has no input context unless a non-password text field is focused.
+        let editable = firstResponder.inputContext != nil
+        if isUndo, let undoManager = window?.undoManager, undoManager.canUndo,
+           !editable || (model.lastClosedTabAt ?? .distantPast) > (chromiumTextEditedAt ?? .distantPast) {
+            undoManager.undo()
+            return true
+        }
+        if event.type == .keyDown, editable, !isUndo, !isRedo { chromiumTextEditedAt = Date() }
+        guard let action else { return false }
         return firstResponder.tryToPerform(action, with: event)
     }
 
