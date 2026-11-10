@@ -72,7 +72,7 @@ extension SiteBrowserIdentity {
         self.runtime = runtime
         extensionDirectory = directory
         runtime.onPopupWithDisposition = { [weak self] parent, child, disposition in
-            self?.receivePopup(parent: parent, child: child, activate: Self.activatesPopup(disposition))
+            self?.receivePopup(parent: parent, child: child, disposition: disposition)
         }
         runtime.extensionInstallRequested = { [weak self] request in
             self?.receiveExtensionInstall(request)
@@ -245,8 +245,27 @@ extension SiteBrowserIdentity {
         disposition != .newBackgroundTab
     }
 
+    /// Background tabs come from ⌘-click, middle-click or Open Link in New Tab, so they
+    /// choose an engine like WebKit link tabs. Other popups stay with their opener.
+    static func isLinkTab(_ disposition: ChromiumPopupRequest.Disposition) -> Bool {
+        disposition == .newBackgroundTab
+    }
+
     private func receivePopup(parent: CobbleChromium.ChromiumPage?, child: CobbleChromium.ChromiumPage,
-                              activate: Bool) {
+                              disposition: ChromiumPopupRequest.Disposition) {
+        guard Self.isLinkTab(disposition) else {
+            presentPopup(parent: parent, child: child, activate: Self.activatesPopup(disposition), linkTab: false)
+            return
+        }
+        // The SDK reports the child's address right after this callback returns.
+        Task { @MainActor [weak self] in
+            guard let self else { child.forceClose(); return }
+            self.presentPopup(parent: parent, child: child, activate: false, linkTab: true)
+        }
+    }
+
+    private func presentPopup(parent: CobbleChromium.ChromiumPage?, child: CobbleChromium.ChromiumPage,
+                              activate: Bool, linkTab: Bool) {
         guard let parent, let parentHost = pages[ObjectIdentifier(parent)],
               parentHost.state.lifecycle == .ready, !parentHost.closing else {
             // There is no Cobble page host to restore if a before-unload
@@ -269,8 +288,14 @@ extension SiteBrowserIdentity {
         }
         let host = ChromiumPage(tabID: UUID(), context: parentHost.context,
                                     windowID: parentHost.windowID, engine: self)
-        guard parentHost.state.lifecycle == .ready, !parentHost.closing,
-              parentHost.events.onCreatePage?(host, activate) == true else {
+        // A link tab for another engine opens there; this Chromium child is then closed.
+        let linkURL = linkTab ? URL(string: child.urlString).flatMap {
+            ["http", "https"].contains($0.scheme?.lowercased()) ? $0 : nil
+        } : nil
+        let accepted = if let linkURL, let create = parentHost.events.onCreatePageForRequest {
+            create(host, URLRequest(url: linkURL), activate)
+        } else { parentHost.events.onCreatePage?(host, activate) == true }
+        guard accepted else {
             child.forceClose()
             return
         }

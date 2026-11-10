@@ -32,6 +32,8 @@ final class BrowserPreferences {
         var defaultEngine: EngineID?
         var engineRules: [EngineRule]?
         var experimentalLoginSharing: Bool?
+        /// Link tabs (⌘-click, middle-click, Open Link in New Tab) keep the opener's engine. This Mac only.
+        var linkTabsKeepEngine: Bool?
         var newTabsNextToActive: Bool?
         var cycleAllRecentTabs: Bool?
         var webInspectorEnabled: Bool?
@@ -63,6 +65,7 @@ final class BrowserPreferences {
             defaultEngine = try container.decodeIfPresent(EngineID.self, forKey: .defaultEngine)
             engineRules = try container.decodeIfPresent([EngineRule].self, forKey: .engineRules)
             experimentalLoginSharing = try container.decodeIfPresent(Bool.self, forKey: .experimentalLoginSharing)
+            linkTabsKeepEngine = try container.decodeIfPresent(Bool.self, forKey: .linkTabsKeepEngine)
             newTabsNextToActive = try container.decodeIfPresent(Bool.self, forKey: .newTabsNextToActive)
             cycleAllRecentTabs = try container.decodeIfPresent(Bool.self, forKey: .cycleAllRecentTabs)
             webInspectorEnabled = try container.decodeIfPresent(Bool.self, forKey: .webInspectorEnabled)
@@ -148,6 +151,8 @@ final class BrowserPreferences {
     }
     var defaultEngine: EngineID { record.defaultEngine ?? .webKit }
     var experimentalLoginSharing: Bool { record.experimentalLoginSharing ?? false }
+    /// False: link tabs use Automatic (website choice or default). True: the opener tab's engine.
+    var linkTabsKeepEngine: Bool { record.linkTabsKeepEngine ?? false }
     var downloadFolderName: String? {
         Self.validDownloadFolder(bookmark: record.downloadFolderBookmark, name: record.downloadFolderName) ? record.downloadFolderName : nil
     }
@@ -362,6 +367,9 @@ final class BrowserPreferences {
     @discardableResult func setDefaultEngine(_ id: EngineID) -> Bool {
         guard !id.rawValue.isEmpty else { errorMessage = String(localized: "Choose an available browser engine."); return false }
         var next = record; next.defaultEngine = id; return save(next)
+    }
+    @discardableResult func setLinkTabsKeepEngine(_ enabled: Bool) -> Bool {
+        var next = record; next.linkTabsKeepEngine = enabled; return save(next)
     }
     @discardableResult func setExperimentalLoginSharing(_ enabled: Bool) -> Bool {
         var next = record; next.experimentalLoginSharing = enabled; return save(next)

@@ -190,6 +190,17 @@ struct SettingsView: View {
                 .padding(.top, 6)
             }
             .font(.callout)
+            SettingsRow("Links opened in new tabs", detail: "⌘-click, middle-click and Open Link in New Tab. Automatic uses the website’s choice or the default; Current Tab keeps the engine of the tab you opened it from.") {
+                Picker("Links opened in new tabs", selection: Binding(
+                    get: { app.preferences.linkTabsKeepEngine },
+                    set: { app.preferences.setLinkTabsKeepEngine($0) }
+                )) {
+                    Text("Automatic").tag(false)
+                    Text("Current Tab").tag(true)
+                }
+                .labelsHidden().pickerStyle(.segmented).fixedSize()
+                .disabled(app.preferences.readError != nil)
+            }
             Divider()
             VStack(alignment: .leading, spacing: 3) {
                 Text("Websites").font(.body.weight(.medium))

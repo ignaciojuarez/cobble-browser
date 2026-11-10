@@ -22,7 +22,9 @@ import CobbleChromium
         XCTAssertFalse(ChromiumEngine.activatesPopup(.newBackgroundTab))
         for disposition: ChromiumPopupRequest.Disposition in [.newForegroundTab, .newWindow, .newPopup, .unknown] {
             XCTAssertTrue(ChromiumEngine.activatesPopup(disposition))
+            XCTAssertFalse(ChromiumEngine.isLinkTab(disposition))
         }
+        XCTAssertTrue(ChromiumEngine.isLinkTab(.newBackgroundTab))
     }
 
     func testExtensionSiteGrantsRejectInvalidPorts() throws {

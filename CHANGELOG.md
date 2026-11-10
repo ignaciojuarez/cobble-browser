@@ -10,6 +10,12 @@
   hidden. Before, they were refused without asking.
 - If macOS blocks Cobble from the camera or microphone, allowing a site now
   says where to turn it on instead of failing silently.
+- Links opened in new tabs from Chromium tabs (⌘-click, middle-click, Open
+  Link in New Tab) now use Automatic engine selection, like WebKit tabs.
+  Settings › Web Engine › Links opened in new tabs can keep the current tab's
+  engine instead.
+- ⌘Z reopens a closed tab while a Chromium page is focused, unless you typed
+  in one of its text fields after closing the tab.
 - Keyboard Privacy is on by default for settings that have not explicitly chosen otherwise, hides Option/Alt alongside Command and Control, and keeps orphaned key-up events from global hotkeys away from pages.
 - AI agents and scripts can work with Cobble through the bundled `cobble`
   command (JSON output) or `cobble mcp` (an MCP server). Settings › Browsing ›
