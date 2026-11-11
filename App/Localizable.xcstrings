@@ -25,8 +25,14 @@
     "Window management" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Gestión de ventanas"}}}
     },
+    "Window style" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Estilo de ventana"}}}
+    },
     "Window…" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ventana…"}}}
+    },
+    "Keyboard" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Teclado"}}}
     },
     "Keyboard Privacy" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Privacidad del teclado"}}}
@@ -87,6 +93,9 @@
     },
     "After 30 minutes" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Después de 30 minutos"}}}
+    },
+    "Advanced" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Avanzado"}}}
     },
     "After 1 hour" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Después de 1 hora"}}}
@@ -159,6 +168,9 @@
         }
       }
     },
+    "Reset zoom for %@" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Restablecer zoom de %@"}}}
+    },
     "Restart to update": {
       "localizations": {
         "es": {
@@ -179,6 +191,9 @@
         }
       }
     },
+    "Automatic uses the website’s engine or the default. Current Tab keeps the engine of the tab you opened it from." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Automático usa el motor del sitio web o el predeterminado. Pestaña actual mantiene el motor de la pestaña desde la que lo abriste."}}}
+    },
     "Automatically check for updates": {
       "localizations": {
         "es": {
@@ -198,6 +213,9 @@
           }
         }
       }
+    },
+    "Automatic (%@)" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Automático (%@)"}}}
     },
     "Automatic updates are available in Full release builds.": {
       "localizations": {
@@ -619,6 +637,9 @@
         }
       }
     },
+    "A small original list that blocks three common third-party tracking or ad hosts. Not broad ad filtering." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Una lista original y pequeña que bloquea tres hosts habituales de rastreo o publicidad de terceros. No es un filtrado amplio de anuncios."}}}
+    },
     "A sync record was removed from iCloud outside Cobble." : {
       "localizations" : {
         "es" : {
@@ -628,6 +649,12 @@
           }
         }
       }
+    },
+    "Android Phone" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Teléfono Android"}}}
+    },
+    "Android Tablet" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Tableta Android"}}}
     },
     "Another download in this window is waiting for a location." : {
       "localizations" : {
@@ -728,6 +755,12 @@
           }
         }
       }
+    },
+    "Passwords" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Contraseñas"}}}
+    },
+    "Passwords and Passkeys" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Contraseñas y llaves de acceso"}}}
     },
     "Passwords, cookies, private tabs, and downloads stay on this Mac." : {
       "localizations" : {
@@ -958,6 +991,9 @@
           }
         }
       }
+    },
+    "Repeated visits update the last visit. Bookmarks are preserved." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las visitas repetidas actualizan la última visita. Los marcadores se conservan."}}}
     },
     "Replace Cookies" : {
       "localizations" : {
@@ -1228,6 +1264,9 @@
         }
       }
     },
+    "accounts work personal" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "cuentas trabajo personal accounts work personal"}}}
+    },
     "activating a retained extension tab" : {
       "localizations" : {
         "es" : {
@@ -1267,6 +1306,9 @@
           }
         }
       }
+    },
+    "Add Search Engine…" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Añadir motor de búsqueda…"}}}
     },
     "Add search engine" : {
       "localizations" : {
@@ -1388,6 +1430,9 @@
           }
         }
       }
+    },
+    "Appearance" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Apariencia"}}}
     },
     "Apple Passwords AutoFill is not available on WebKit pages in third-party macOS browsers. Cobble does not store passwords." : {
       "localizations" : {
@@ -1520,6 +1565,9 @@
         }
       }
     },
+    "Bang" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Bang"}}}
+    },
     "Bang (for example, g)" : {
       "localizations" : {
         "es" : {
@@ -1539,6 +1587,9 @@
           }
         }
       }
+    },
+    "Block" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Bloquear"}}}
     },
     "Blocked" : {
       "localizations" : {
@@ -1611,6 +1662,12 @@
         }
       }
     },
+    "Browser identity" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Identidad del navegador"}}}
+    },
+    "Browser identity rules are unavailable in %@." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las reglas de identidad del navegador no están disponibles en %@."}}}
+    },
     "Browser interface" : {
       "localizations" : {
         "es" : {
@@ -1640,6 +1697,9 @@
           }
         }
       }
+    },
+    "Browser Identity" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Identidad del navegador"}}}
     },
     "Browser Settings Recovery" : {
       "localizations" : {
@@ -1762,6 +1822,9 @@
         }
       }
     },
+    "bookmarks import export retention clear" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "marcadores importar exportar conservar borrar bookmarks import export retention clear"}}}
+    },
     "camera" : {
       "localizations" : {
         "es" : {
@@ -1831,6 +1894,9 @@
           }
         }
       }
+    },
+    "Carries login cookies when you switch engines in the same profile. Existing cookies are kept unless you replace them. Private windows are excluded. Requires a compatible Full build." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Lleva las cookies de inicio de sesión al cambiar de motor en el mismo perfil. Las cookies existentes se conservan salvo que las sustituyas. Las ventanas privadas quedan excluidas. Requiere una compilación Full compatible."}}}
     },
     "Certificate" : {
       "localizations" : {
@@ -1952,6 +2018,9 @@
         }
       }
     },
+    "Choose a browser identity for an exact HTTP or HTTPS origin. Changes apply on the next navigation or reload. Page width stays unchanged." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Elige una identidad del navegador para un origen HTTP o HTTPS exacto. Los cambios se aplican en la próxima navegación o recarga. El ancho de la página no cambia."}}}
+    },
     "Choose a client certificate" : {
       "localizations" : {
         "es" : {
@@ -1961,6 +2030,9 @@
           }
         }
       }
+    },
+    "Choose a compatible web extension folder, app extension bundle, or ZIP file." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Elige una carpeta de extensión web compatible, un paquete de extensión de app o un archivo ZIP."}}}
     },
     "Choose a folder for downloads." : {
       "localizations" : {
@@ -2112,6 +2184,9 @@
           }
         }
       }
+    },
+    "Check for updates automatically" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Buscar actualizaciones automáticamente"}}}
     },
     "Choose Destination" : {
       "localizations" : {
@@ -2271,6 +2346,9 @@
           }
         }
       }
+    },
+    "Chromium is not included in this build. Chromium choices use WebKit for now and are remembered." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Chromium no está incluido en esta compilación. Las opciones de Chromium usan WebKit por ahora y se recuerdan."}}}
     },
     "Chromium is not included in this build. Chromium tabs use WebKit temporarily; your engine preferences are remembered." : {
       "localizations" : {
@@ -2510,6 +2588,9 @@
         }
       }
     },
+    "Clear history" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Borrar historial"}}}
+    },
     "Clear history from the last %@ hours?" : {
       "localizations" : {
         "es" : {
@@ -2655,6 +2736,9 @@
         }
       }
     },
+    "Cobble remembers zoom for each site in normal windows. A reset applies the next time the site loads." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cobble recuerda el zoom de cada sitio en las ventanas normales. Al restablecerlo, se aplica la próxima vez que se cargue el sitio."}}}
+    },
     "Cobble — Private" : {
       "localizations" : {
         "es" : {
@@ -2665,6 +2749,12 @@
         }
       }
     },
+    "Cobble %@ (%@)" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cobble %@ (%@)"}}}
+    },
+    "Cobble Basic Tracker Rules" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Reglas básicas de rastreadores de Cobble"}}}
+    },
     "Cobble Basic Tracker Rules block three common third-party tracking or ad hosts. They are a limited original baseline, not broad ad or annoyance filtering. Reload open pages after changing rules." : {
       "localizations" : {
         "es" : {
@@ -2674,6 +2764,9 @@
           }
         }
       }
+    },
+    "Cobble asks where to save each download, starting in this folder." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cobble pregunta dónde guardar cada descarga, empezando en esta carpeta."}}}
     },
     "Cobble can read only the file you choose. Linked local assets are not granted." : {
       "localizations" : {
@@ -2734,6 +2827,9 @@
           }
         }
       }
+    },
+    "Cobble is your default browser" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cobble es tu navegador predeterminado"}}}
     },
     "Cobble no longer has permission to open this local file. Choose it again with File > Open File…" : {
       "localizations" : {
@@ -2828,6 +2924,9 @@
           }
         }
       }
+    },
+    "Compare Engines" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Comparar motores"}}}
     },
     "Connection details unavailable: %@" : {
       "localizations" : {
@@ -3020,6 +3119,9 @@
         }
       }
     },
+    "Controls the page corners and the space around the page." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Controla las esquinas de la página y el espacio que la rodea."}}}
+    },
     "Cookies and Site Storage…" : {
       "localizations" : {
         "es" : {
@@ -3029,6 +3131,9 @@
           }
         }
       }
+    },
+    "Cookies and website data" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Cookies y datos de sitios web"}}}
     },
     "Cookies, site storage, and cached resources will be removed. " : {
       "localizations" : {
@@ -3301,6 +3406,9 @@
         }
       }
     },
+    "Cross-engine login sharing" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Compartir inicio de sesión entre motores"}}}
+    },
     "Current Page DOM" : {
       "localizations" : {
         "es" : {
@@ -3362,6 +3470,9 @@
         }
       }
     },
+    "Default engine" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Motor predeterminado"}}}
+    },
     "Default folder" : {
       "localizations" : {
         "es" : {
@@ -3381,6 +3492,9 @@
           }
         }
       }
+    },
+    "Default web browser" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Navegador web predeterminado"}}}
     },
     "Default web engine" : {
       "localizations" : {
@@ -3461,6 +3575,9 @@
           }
         }
       }
+    },
+    "Developer" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Desarrollo"}}}
     },
     "Developer Tools" : {
       "localizations" : {
@@ -3896,6 +4013,15 @@
         }
       }
     },
+    "cookies website data cache clear content blocking trackers ads passwords passkeys keyboard" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "cookies datos sitios web caché borrar bloqueo contenido rastreadores anuncios contraseñas llaves de acceso teclado website data cache clear content blocking trackers ads passwords passkeys keyboard"}}}
+    },
+    "default browser downloads folder updates version" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "navegador predeterminado descargas carpeta actualizaciones versión default browser downloads folder updates version"}}}
+    },
+    "developer tools inspector diagnostics backup restore workspace reset" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "herramientas desarrollo inspector diagnóstico copia de seguridad restaurar espacio de trabajo restablecer developer tools diagnostics backup restore workspace reset"}}}
+    },
     "example.com" : {
       "localizations" : {
         "es" : {
@@ -3915,6 +4041,9 @@
           }
         }
       }
+    },
+    "Experimental" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Experimental"}}}
     },
     "Experimental cross-engine login sharing" : {
       "localizations" : {
@@ -3945,6 +4074,9 @@
           }
         }
       }
+    },
+    "Extension action" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Acción de la extensión"}}}
     },
     "Extension changes are disabled." : {
       "localizations" : {
@@ -4232,6 +4364,9 @@
         }
       }
     },
+    "Flat" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Plano"}}}
+    },
     "Folder" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4438,6 +4573,9 @@
         }
       }
     },
+    "HTML bookmark files from Safari, Chrome and other browsers." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Archivos HTML de marcadores de Safari, Chrome y otros navegadores."}}}
+    },
     "HTTPS JSON URL" : {
       "localizations" : {
         "es" : {
@@ -4488,6 +4626,9 @@
           }
         }
       }
+    },
+    "Icon" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Icono"}}}
     },
     "Import Rules…" : {
       "localizations" : {
@@ -4570,6 +4711,9 @@
         }
       }
     },
+    "Install a compatible web extension from a folder, bundle, or ZIP file." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Instala una extensión web compatible desde una carpeta, un paquete o un archivo ZIP."}}}
+    },
     "Install a compatible web extension from an unpacked folder." : {
       "localizations" : {
         "es" : {
@@ -4579,6 +4723,9 @@
           }
         }
       }
+    },
+    "Install" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Instalar"}}}
     },
     "Install Cobble Basic Tracker Rules" : {
       "localizations" : {
@@ -4619,6 +4766,9 @@
           }
         }
       }
+    },
+    "Install or import rules first." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Primero instala o importa reglas."}}}
     },
     "Invalid HTTP(S) site." : {
       "extractionState" : "stale",
@@ -4962,6 +5112,15 @@
         }
       }
     },
+    "iPad" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "iPad"}}}
+    },
+    "iPhone" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "iPhone"}}}
+    },
+    "icloud devices" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "icloud dispositivos devices"}}}
+    },
     "loaded" : {
       "localizations" : {
         "es" : {
@@ -4971,6 +5130,12 @@
           }
         }
       }
+    },
+    "Links opened in new tabs" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Enlaces abiertos en pestañas nuevas"}}}
+    },
+    "Loading indicator" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Indicador de carga"}}}
     },
     "Loading…" : {
       "localizations" : {
@@ -5043,6 +5208,9 @@
         }
       }
     },
+    "Manage Website Data…" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Gestionar datos de sitios web…"}}}
+    },
     "Match found" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5063,6 +5231,9 @@
           }
         }
       }
+    },
+    "Memory" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Memoria"}}}
     },
     "Microphone" : {
       "localizations" : {
@@ -5134,6 +5305,9 @@
           }
         }
       }
+    },
+    "More actions for %@" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Más acciones para %@"}}}
     },
     "Move Selected to" : {
       "localizations" : {
@@ -5459,6 +5633,12 @@
         }
       }
     },
+    "No Matches" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Sin coincidencias"}}}
+    },
+    "No Website Data" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No hay datos de sitios web"}}}
+    },
     "No application could open this link." : {
       "localizations" : {
         "es" : {
@@ -5468,6 +5648,9 @@
           }
         }
       }
+    },
+    "No bookmarks" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No hay marcadores"}}}
     },
     "No camera" : {
       "localizations" : {
@@ -5510,6 +5693,9 @@
         }
       }
     },
+    "No history" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No hay historial"}}}
+    },
     "No matches" : {
       "localizations" : {
         "es" : {
@@ -5549,6 +5735,12 @@
           }
         }
       }
+    },
+    "No sites are allowed through the blocker." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ningún sitio está permitido por el bloqueador."}}}
+    },
+    "No sites have a custom zoom." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ningún sitio tiene un zoom personalizado."}}}
     },
     "No supported HTTP or HTTPS bookmarks found. Skipped %@ links." : {
       "localizations" : {
@@ -5629,6 +5821,9 @@
           }
         }
       }
+    },
+    "new tab control tab recent sleep memory" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "nueva pestaña control tab recientes suspender memoria new tab recent sleep memory"}}}
     },
     "not secure" : {
       "localizations" : {
@@ -5863,6 +6058,9 @@
         }
       }
     },
+    "Open links from other apps in Cobble." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Abre en Cobble los enlaces de otras apps."}}}
+    },
     "Open matching websites with a specific engine. Rules apply to the exact host and take effect on the next navigation." : {
       "localizations" : {
         "es" : {
@@ -5882,6 +6080,9 @@
           }
         }
       }
+    },
+    "Open Settings" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Abrir Ajustes"}}}
     },
     "Open Settings from a loaded browser tab to use this extension." : {
       "localizations" : {
@@ -5953,6 +6154,9 @@
         }
       }
     },
+    "Optional permissions" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Permisos opcionales"}}}
+    },
     "Orange" : {
       "localizations" : {
         "es" : {
@@ -6002,6 +6206,9 @@
           }
         }
       }
+    },
+    "Passkeys" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Llaves de acceso"}}}
     },
     "Passkeys for arbitrary websites need Apple’s macOS browser passkey entitlement on a signed Cobble. This build cannot use iCloud Keychain passkeys." : {
       "localizations" : {
@@ -6222,6 +6429,9 @@
         }
       }
     },
+    "Privacy & Security" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Privacidad y seguridad"}}}
+    },
     "Privacy area" : {
       "localizations" : {
         "es" : {
@@ -6251,6 +6461,9 @@
           }
         }
       }
+    },
+    "permissions camera microphone screen sharing pop-ups browser identity user agent zoom" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "permisos cámara micrófono compartir pantalla ventanas emergentes identidad navegador user agent zoom permissions camera microphone screen sharing pop-ups browser identity"}}}
     },
     "private extensions" : {
       "extractionState" : "stale",
@@ -6303,6 +6516,9 @@
           }
         }
       }
+    },
+    "Private windows keep their data only until they close." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las ventanas privadas conservan sus datos solo hasta que se cierran."}}}
     },
     "Profile" : {
       "localizations" : {
@@ -6393,6 +6609,9 @@
           }
         }
       }
+    },
+    "Profile: %@" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Perfil: %@"}}}
     },
     "Profile: %@. " : {
       "localizations" : {
@@ -6585,6 +6804,9 @@
         }
       }
     },
+    "Reload open pages after changing rules." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Recarga las páginas abiertas después de cambiar las reglas."}}}
+    },
     "Reload this page?" : {
       "localizations" : {
         "es" : {
@@ -6735,6 +6957,9 @@
           }
         }
       }
+    },
+    "Removes pages last visited in that period. Library bookmarks, pins and website data stay." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Elimina las páginas visitadas por última vez en ese periodo. Los marcadores de la biblioteca, los fijados y los datos de sitios web se conservan."}}}
     },
     "Rename" : {
       "localizations" : {
@@ -7147,6 +7372,9 @@
         }
       }
     },
+    "Saved decisions apply to normal windows. Private windows ask separately. Changing camera, microphone or screen decisions unloads normal pages to stop capture. Blocked sites still open pop-ups you click." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las decisiones guardadas se aplican a las ventanas normales. Las ventanas privadas preguntan por separado. Cambiar decisiones de cámara, micrófono o pantalla descarga las páginas normales para detener la captura. Los sitios bloqueados siguen abriendo las ventanas emergentes en las que haces clic."}}}
+    },
     "Saved decisions apply to normal windows. Private windows ask separately. The address-bar site control can mute or stop capture on the current page without unloading it. Changing a remembered decision here unloads normal pages to stop capture; unsaved page content may be lost." : {
       "localizations" : {
         "es" : {
@@ -7338,6 +7566,9 @@
         }
       }
     },
+    "Search URL" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "URL de búsqueda"}}}
+    },
     "Search URL template" : {
       "localizations" : {
         "es" : {
@@ -7348,6 +7579,9 @@
         }
       }
     },
+    "Search websites" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Buscar sitios web"}}}
+    },
     "Search, URL, or open tab" : {
       "localizations" : {
         "es" : {
@@ -7357,6 +7591,9 @@
           }
         }
       }
+    },
+    "See which sites store data, remove one site, or clear data by type and time range." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Consulta qué sitios guardan datos, elimina un sitio o borra datos por tipo y periodo."}}}
     },
     "Select All" : {
       "extractionState" : "stale",
@@ -7419,6 +7656,15 @@
           }
         }
       }
+    },
+    "Set as Default" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Establecer como predeterminado"}}}
+    },
+    "Settings" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Ajustes"}}}
+    },
+    "Settings below apply to this profile." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Los ajustes de abajo se aplican a este perfil."}}}
     },
     "Settings…" : {
       "extractionState" : "stale",
@@ -7492,6 +7738,9 @@
         }
       }
     },
+    "Shown on a tab while its page loads." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Se muestra en una pestaña mientras carga su página."}}}
+    },
     "Shows or hides this folder’s contents" : {
       "localizations" : {
         "es" : {
@@ -7501,6 +7750,9 @@
           }
         }
       }
+    },
+    "Shows the 100 most recent matching pages." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Muestra las 100 páginas coincidentes más recientes."}}}
     },
     "Shows the 100 most recent matching pages. Repeated visits update the last visit. Clearing a period removes pages last visited in that period; library bookmarks, pins and website data stay." : {
       "localizations" : {
@@ -7592,6 +7844,9 @@
         }
       }
     },
+    "Site rules require a valid HTTP or HTTPS origin." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las reglas de sitio requieren un origen HTTP o HTTPS válido."}}}
+    },
     "Site settings" : {
       "localizations" : {
         "es" : {
@@ -7671,6 +7926,9 @@
           }
         }
       }
+    },
+    "Software Update" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Actualización de software"}}}
     },
     "Some available certificates could not be listed." : {
       "localizations" : {
@@ -7947,6 +8205,12 @@
           }
         }
       }
+    },
+    "search engine bang address bar" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "motor de búsqueda bang barra de direcciones search engine address bar"}}}
+    },
+    "shortcuts keys hotkeys" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "atajos teclas combinaciones shortcuts keys hotkeys"}}}
     },
     "tab audio muting" : {
       "localizations" : {
@@ -8858,6 +9122,9 @@
         }
       }
     },
+    "theme design window style accent color font loading dark" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "tema diseño estilo de ventana color de acento tipo de letra carga oscuro theme design window style accent color font loading dark"}}}
+    },
     "unknown expiration" : {
       "localizations" : {
         "es" : {
@@ -8949,6 +9216,9 @@
         }
       }
     },
+    "Unloads tabs you haven’t looked at to save memory. They reload, with their history, when you return." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Descarga las pestañas que no has mirado para ahorrar memoria. Se recargan, con su historial, cuando vuelves."}}}
+    },
     "Unmute %@" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9030,6 +9300,9 @@
           }
         }
       }
+    },
+    "Updates run only when you select Update Now. A failed update keeps the current rules." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las actualizaciones solo se ejecutan al seleccionar Actualizar ahora. Si una actualización falla, se conservan las reglas actuales."}}}
     },
     "Updates run only when you select Update Now. HTTPS JSON only; a failed update keeps the current rules." : {
       "localizations" : {
@@ -9208,6 +9481,9 @@
         }
       }
     },
+    "Very Rounded" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Muy redondeada"}}}
+    },
     "View" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -9289,6 +9565,9 @@
           }
         }
       }
+    },
+    "Web Engines" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Motores web"}}}
     },
     "Web Inspector" : {
       "extractionState" : "stale",
@@ -9391,6 +9670,9 @@
         }
       }
     },
+    "Website" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Sitio web"}}}
+    },
     "Website Data" : {
       "localizations" : {
         "es" : {
@@ -9480,6 +9762,15 @@
           }
         }
       }
+    },
+    "Websites" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Sitios web"}}}
+    },
+    "Websites can't see or block ⌘, ⌃ or ⌥ shortcuts. Cobble shortcuts and text fields keep working; Option characters and site shortcuts are hidden from pages." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Los sitios web no pueden ver ni bloquear los atajos con ⌘, ⌃ o ⌥. Los atajos de Cobble y los campos de texto siguen funcionando; los caracteres con Opción y los atajos del sitio se ocultan a las páginas."}}}
+    },
+    "Websites set to Automatic open with this engine. Each Mac keeps its own choice." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Los sitios web en Automático se abren con este motor. Cada Mac guarda su propia elección."}}}
     },
     "When a pin or favorite is selected, new tabs go at the end of the temporary tabs." : {
       "localizations" : {
@@ -9603,6 +9894,9 @@
         }
       }
     },
+    "Current Tab" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Pestaña actual"}}}
+    },
     "Custom" : {
       "localizations" : {
         "es" : {
@@ -9612,6 +9906,9 @@
           }
         }
       }
+    },
+    "Custom rules" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Reglas personalizadas"}}}
     },
     "Custom, based on %@" : {
       "localizations" : {
@@ -9672,6 +9969,9 @@
           }
         }
       }
+    },
+    "Tabs playing audio or using the camera or microphone stay awake. When memory runs low, Cobble also sleeps hidden tabs. Unsaved form input in a sleeping tab is lost." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las pestañas que reproducen audio o usan la cámara o el micrófono siguen activas. Cuando queda poca memoria, Cobble también suspende las pestañas ocultas. Lo escrito sin guardar en un formulario de una pestaña suspendida se pierde."}}}
     },
     "Tabs, pins, previews, and hover states derive from this color." : {
       "localizations" : {
@@ -9783,6 +10083,9 @@
     "Agents" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Agentes"}}}
     },
+    "Also set from a website’s site menu in the address bar. Covers subdomains and applies on the next load." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "También se puede elegir desde el menú del sitio en la barra de direcciones. Incluye los subdominios y se aplica en la próxima carga."}}}
+    },
     "An app is using this tab. Click to stop all apps; turn them back on in Settings › Browsing." : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Una app está usando esta pestaña. Haz clic para detener todas las apps; vuelve a activarlas en Ajustes › Navegación."}}}
     },
@@ -9813,6 +10116,9 @@
     "Apps can't read or use these sites or their subdomains, and see only their address. Use it for banking, mail and health sites." : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Las apps no pueden leer ni usar estos sitios ni sus subdominios, y solo ven su dirección. Úsalo para sitios de banca, correo y salud."}}}
     },
+    "apple events applescript agents mcp cli scripts" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "eventos apple applescript agentes mcp cli scripts apple events agents"}}}
+    },
     "bank.example" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "bank.example"}}}
     },
@@ -9824,6 +10130,12 @@
     },
     "Open Privacy Settings…" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Abrir ajustes de privacidad…"}}}
+    },
+    "web extensions add-ons" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "extensiones web complementos web extensions add-ons"}}}
+    },
+    "webkit chromium engine per site login sharing" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "webkit chromium motor por sitio compartir inicio de sesión engine per site login sharing"}}}
     }
   },
   "version" : "1.0"

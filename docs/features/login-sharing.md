@@ -4,7 +4,7 @@ Default off. When a normal tab switches between WebKit and Chromium, Cobble can 
 
 ## Behavior and limits
 
-- Settings → General → Browser enables the experiment. Only the same normal profile participates; private contexts are excluded in the coordinator and both adapters.
+- Settings → Web Engines → Experimental enables the experiment. Only the same normal profile participates; private contexts are excluded in the coordinator and both adapters.
 - The destination is HTTPS on port 443. Domain and path matching include parent-domain cookies. A narrow Google group includes `google.com`, `accounts.google.com`, and `www.google.com` without broadening cookie scope. Other identity providers are not grouped.
 - The source snapshot and destination scopes are checked before mutation. Empty source snapshots preserve destination cookies. Conflicts require an explicit **Replace Cookies** choice; **Keep Existing** is the default.
 - Known partitioned cookies are omitted. Incomplete or ambiguous unpartitioned snapshots fail closed. WebKit may narrow ambiguous SameSite policies to `Lax`, which can prevent a login. Chromium uses the cookie bridge in the pinned ABI 16 SDK.

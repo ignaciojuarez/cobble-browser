@@ -2,92 +2,99 @@ import SwiftUI
 
 struct SearchSettingsView: View {
     @Bindable var preferences: BrowserPreferences
-    @State private var managing = false
+    @State private var editor: SearchEngineEditor.Target?
 
     var body: some View {
-        SettingsGroup("Search") {
-            SettingsRow("Default search engine", detail: "Search text stays local until you press Return.") {
-                Picker("Default search engine", selection: Binding(
-                    get: { preferences.defaultSearchEngine.id }, set: { preferences.setDefaultSearchEngine($0) }
-                )) {
+        Form {
+            Section {
+                Picker(selection: Binding(get: { preferences.defaultSearchEngine.id },
+                                          set: { preferences.setDefaultSearchEngine($0) })) {
                     ForEach(preferences.searchEngines) { engine in Text(engine.name).tag(engine.id) }
+                } label: {
+                    Text("Default search engine")
+                    Text("Search text stays local until you press Return.")
                 }
-                .labelsHidden().frame(width: 190)
-                .accessibilityLabel("Default search engine")
             }
-            SettingsRow("Search engines", detail: "Use !bang followed by search terms to choose an engine for one search.") {
-                Button("Manage Search Engines…") { managing = true }
+            Section {
+                ForEach(preferences.searchEngines) { engine in
+                    LabeledContent {
+                        if isCustom(engine) {
+                            Button("Edit") { editor = .init(engine: engine) }
+                            RemoveButton(String(format: String(localized: "Remove %@"), engine.name)) {
+                                preferences.removeSearchEngine(engine.id)
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Text(verbatim: engine.name)
+                            Text(verbatim: "!\(engine.bang)")
+                                .font(.caption.monospaced()).foregroundStyle(.secondary)
+                                .padding(.horizontal, 5).padding(.vertical, 1)
+                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 4))
+                        }
+                        Text(verbatim: engine.template).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+                HStack {
+                    Spacer()
+                    Button("Add Search Engine…") { editor = .init(engine: nil) }
+                }
+            } header: {
+                Text("Search Engines")
+            } footer: {
+                Text("Use !bang followed by search terms to choose an engine for one search.")
             }
         }
-        .sheet(isPresented: $managing) { SearchEngineEditor(preferences: preferences) }
+        .disabled(preferences.readError != nil)
+        .sheet(item: $editor) { target in SearchEngineEditor(preferences: preferences, engine: target.engine) }
     }
+
+    private func isCustom(_ engine: SearchEngine) -> Bool { !SearchEngine.builtIns.contains(where: { $0.id == engine.id }) }
 }
 
 private struct SearchEngineEditor: View {
+    struct Target: Identifiable {
+        let id = UUID()
+        let engine: SearchEngine?
+    }
     @Bindable var preferences: BrowserPreferences
+    let engine: SearchEngine?
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
     @State private var template = ""
     @State private var bang = ""
-    @State private var editingID: String?
 
     var body: some View {
         VStack(spacing: 0) {
-            HStack {
-                Text("Search Engines").font(.title2.weight(.semibold))
-                Spacer()
-                Button("Done") { dismiss() }
-            }
-            .padding(.horizontal, SettingsStyle.pageInset)
-            .padding(.vertical, 16)
-            Divider()
-            SettingsPage(topPadding: 24) {
-                SettingsGroup("Engines") {
-                    ForEach(preferences.searchEngines) { engine in
-                        engineRow(engine)
-                        Divider()
-                    }
-                }
-                SettingsGroup(editingID == nil ? "Add search engine" : "Edit search engine") {
+            Form {
+                Section(engine == nil ? "Add search engine" : "Edit search engine") {
                     TextField("Name", text: $name)
-                        .textFieldStyle(.roundedBorder)
                         .accessibilityLabel("Search engine name")
-                    TextField("https://example.com/search?q={searchTerms}", text: $template)
-                        .textFieldStyle(.roundedBorder)
+                    TextField("Search URL", text: $template, prompt: Text(verbatim: "https://example.com/search?q={searchTerms}"))
                         .accessibilityLabel("Search URL template")
-                    HStack {
-                        TextField("Bang (for example, g)", text: $bang)
-                            .textFieldStyle(.roundedBorder)
-                            .accessibilityLabel("Search engine bang")
-                        Button(editingID == nil ? "Add" : "Save") { save() }
-                        if editingID != nil { Button("Cancel") { clear() } }
-                    }
-                    if let error = preferences.errorMessage { Text(error).font(.callout).foregroundStyle(.orange) }
+                    TextField("Bang", text: $bang, prompt: Text("Bang (for example, g)"))
+                        .accessibilityLabel("Search engine bang")
+                    if let error = preferences.errorMessage { Text(error).foregroundStyle(.orange) }
                 }
             }
-        }
-        .frame(width: 760, height: 680)
-    }
-
-    @ViewBuilder private func engineRow(_ engine: SearchEngine) -> some View {
-        SettingsRow(verbatim: engine.name, detail: "!\(engine.bang) · \(engine.template)") {
-            if isCustom(engine) {
-                Button("Edit") { edit(engine) }
-                Button("Remove", systemImage: "minus.circle") { preferences.removeSearchEngine(engine.id) }
-                    .labelStyle(.iconOnly).buttonStyle(.borderless)
-                    .accessibilityLabel(String(format: String(localized: "Remove %@"), engine.name))
+            .formStyle(.grouped)
+            HStack {
+                Spacer()
+                Button("Cancel") { preferences.errorMessage = nil; dismiss() }.keyboardShortcut(.cancelAction)
+                Button(engine == nil ? "Add" : "Save", action: save).keyboardShortcut(.defaultAction)
             }
+            .padding([.horizontal, .bottom], 20)
+        }
+        .frame(width: 520)
+        .onAppear {
+            preferences.errorMessage = nil
+            name = engine?.name ?? ""; template = engine?.template ?? ""; bang = engine?.bang ?? ""
         }
     }
 
-    private func isCustom(_ engine: SearchEngine) -> Bool { !SearchEngine.builtIns.contains(where: { $0.id == engine.id }) }
-    private func edit(_ engine: SearchEngine) {
-        editingID = engine.id; name = engine.name; template = engine.template; bang = engine.bang; preferences.errorMessage = nil
-    }
     private func save() {
-        let saved = editingID.map { preferences.updateSearchEngine(id: $0, name: name, template: template, bang: bang) }
+        let saved = engine.map { preferences.updateSearchEngine(id: $0.id, name: name, template: template, bang: bang) }
             ?? preferences.addSearchEngine(name: name, template: template, bang: bang)
-        if saved { clear() }
+        if saved { dismiss() }
     }
-    private func clear() { editingID = nil; name = ""; template = ""; bang = ""; preferences.errorMessage = nil }
 }

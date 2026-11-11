@@ -198,7 +198,11 @@ final class SiteSettingsStore {
         let value = zoom == 1 ? nil : zoom
         guard next.zoom != value else { return }
         next.zoom = value
-        update(next)
+        if value == nil && !next.hasPermissions && next.browserIdentity == .standard {
+            if canSave { save(entries.filter { $0.id != next.id }) }
+        } else {
+            update(next)
+        }
     }
 
     func syncItems(profileIDs: Set<UUID>) -> [SyncItem] {
@@ -282,6 +286,8 @@ final class SiteSettingsStore {
         /// nil when engines disagree; absent kinds no engine supports.
         let permissions: [PermissionKind: SitePermission?]
         let browserIdentity: SiteBrowserIdentity
+        /// Outer nil: no engine has a pop-up policy. Inner nil: engines disagree.
+        let popups: SitePermission??
         var id: String { origin }
         var camera: SitePermission? { permissions[.camera] ?? nil }
         var microphone: SitePermission? { permissions[.microphone] ?? nil }
@@ -292,31 +298,42 @@ final class SiteSettingsStore {
         }.map(\.origin))
         return origins.sorted().compactMap { origin in
             guard let url = URL(string: origin) else { return nil }
-            @MainActor func value(_ kind: PermissionKind) -> SitePermission? {
-                var values = engines.filter { $0.capabilities.permissions.contains(kind) }.map {
-                    setting(origin: url, profileID: profileID, engineID: $0.id)[kind]
-                }
-                values += entries.filter { entry in entry.profileID == profileID && entry.origin == origin && !engines.contains(where: { engine in engine.id == entry.engineID }) }.map { $0[kind] }
+            @MainActor func value(supported: (any BrowserEngine) -> Bool, _ read: (SiteSetting) -> SitePermission) -> SitePermission? {
+                var values = engines.filter(supported).map { read(setting(origin: url, profileID: profileID, engineID: $0.id)) }
+                values += entries.filter { entry in entry.profileID == profileID && entry.origin == origin && !engines.contains(where: { engine in engine.id == entry.engineID }) }.map(read)
                 return Set(values).count == 1 ? values.first : nil
             }
             var permissions: [PermissionKind: SitePermission?] = [:]
             for kind in [PermissionKind.camera, .microphone, .windowManagement, .screenSharing]
             where engines.contains(where: { $0.capabilities.permissions.contains(kind) }) {
-                permissions[kind] = value(kind)
+                permissions[kind] = value(supported: { $0.capabilities.permissions.contains(kind) }) { $0[kind] }
             }
+            let popups: SitePermission?? = engines.contains(where: { $0.capabilities.supportsPopupPolicy })
+                ? .some(value(supported: { $0.capabilities.supportsPopupPolicy }) { $0.popups }) : nil
             return Summary(origin: origin, permissions: permissions,
-                           browserIdentity: browserIdentity(for: url, profileID: profileID))
+                           browserIdentity: browserIdentity(for: url, profileID: profileID), popups: popups)
         }
     }
     @discardableResult
     func update(origin: String, profileID: UUID, _ kind: PermissionKind, _ value: SitePermission,
                 engines: [any BrowserEngine]) -> Bool {
+        update(origin: origin, profileID: profileID,
+               engines: engines.filter { $0.capabilities.permissions.contains(kind) }) { $0[kind] = value }
+    }
+    /// Pages read the pop-up decision when a pop-up opens, so no reload is needed.
+    @discardableResult
+    func updatePopups(origin: String, profileID: UUID, _ value: SitePermission, engines: [any BrowserEngine]) -> Bool {
+        update(origin: origin, profileID: profileID,
+               engines: engines.filter { $0.capabilities.supportsPopupPolicy }) { $0.popups = value }
+    }
+    private func update(origin: String, profileID: UUID, engines: [any BrowserEngine],
+                        change: (inout SiteSetting) -> Void) -> Bool {
         guard beginMutation(), canSave, let url = URL(string: origin),
               let normalized = AddressResolver.canonicalOrigin(url) else { return false }
         var next = entries
-        for engine in engines where engine.capabilities.permissions.contains(kind) {
+        for engine in engines {
             var entry = setting(origin: url, profileID: profileID, engineID: engine.id)
-            entry[kind] = value
+            change(&entry)
             next.removeAll { $0.profileID == profileID && $0.origin == normalized && $0.engineID == engine.id }
             next.append(entry)
         }

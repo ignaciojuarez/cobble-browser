@@ -9,7 +9,7 @@ import CobbleChromium
 @main
 #endif
 @MainActor
-final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate, NSToolbarDelegate {
+final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NSMenuDelegate {
     private var workspaceLock: WorkspaceLock?
     private static var dataDirectory: URL {
         ProcessInfo.processInfo.environment["COBBLE_DATA_DIRECTORY"].map { URL(fileURLWithPath: $0, isDirectory: true) }
@@ -643,56 +643,14 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
         }
     }
     private func showSettings(section: SettingsSection = .general) {
-        let extensionActionPage = activeWindow?.selectedPage
         model.settingsSection = section
-        if settingsWindow == nil {
-            let window = SettingsWindow(contentRect: NSRect(x: 0, y: 0, width: 780, height: 620), styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
-            let toolbar = NSToolbar(identifier: "settings")
-            toolbar.delegate = self
-            toolbar.displayMode = .iconAndLabel
-            toolbar.sizeMode = .regular
-            toolbar.allowsUserCustomization = false
-            window.title = String(localized: "Cobble Settings")
-            window.titleVisibility = .hidden
-            window.toolbarStyle = .preference
-            window.toolbar = toolbar
-            window.minSize = NSSize(width: 760, height: 540)
-            window.isReleasedWhenClosed = false
-            window.center(); settingsWindow = window
+        let view = SettingsView(app: model, extensionActionPage: activeWindow?.selectedPage)
+        if let host = settingsWindow?.contentViewController as? NSHostingController<SettingsView> {
+            host.rootView = view
+        } else {
+            settingsWindow = SettingsWindow(rootView: view)
         }
-        settingsWindow?.contentView = NSHostingView(rootView: SettingsView(app: model, extensionActionPage: extensionActionPage))
-        let destination = section.toolbarSection
-        settingsWindow?.toolbar?.selectedItemIdentifier = toolbarIdentifier(for: destination)
         settingsWindow?.makeKeyAndOrderFront(nil)
-    }
-
-    private func toolbarIdentifier(for section: SettingsSection) -> NSToolbarItem.Identifier {
-        NSToolbarItem.Identifier("settings.\(section.rawValue)")
-    }
-    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace] + SettingsSection.toolbarSections.map(toolbarIdentifier) + [.flexibleSpace]
-    }
-    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        [.flexibleSpace, .space] + SettingsSection.toolbarSections.map(toolbarIdentifier)
-    }
-    func toolbarSelectableItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
-        SettingsSection.toolbarSections.map(toolbarIdentifier)
-    }
-    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
-                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard let section = SettingsSection.toolbarSections.first(where: { toolbarIdentifier(for: $0) == itemIdentifier }) else { return nil }
-        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
-        item.label = section.title
-        item.paletteLabel = section.title
-        item.image = NSImage(systemSymbolName: section.symbol, accessibilityDescription: section.title)
-        item.target = self
-        item.action = #selector(selectSettingsSection(_:))
-        item.tag = section.rawValue
-        return item
-    }
-    @objc private func selectSettingsSection(_ sender: NSToolbarItem) {
-        if let section = SettingsSection(rawValue: sender.tag) { model.settingsSection = section }
-        settingsWindow?.toolbar?.selectedItemIdentifier = sender.itemIdentifier
     }
 }
 
@@ -700,6 +658,24 @@ final class CobbleApp: NSObject, NSApplicationDelegate, NSMenuItemValidation, NS
 /// BookmarkMenuBridge when a second window becomes main (settings close).
 final class SettingsWindow: NSWindow {
     override var canBecomeMain: Bool { false }
+
+    /// System Settings layout: a full-height sidebar under a unified toolbar that shows the pane title.
+    convenience init(rootView: SettingsView) {
+        self.init(contentRect: NSRect(x: 0, y: 0, width: 880, height: 640),
+                  styleMask: [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView],
+                  backing: .buffered, defer: false)
+        title = String(localized: "Settings")
+        let host = NSHostingController(rootView: rootView)
+        host.sceneBridgingOptions = [.toolbars, .title]
+        host.sizingOptions = []
+        contentViewController = host
+        setContentSize(NSSize(width: 880, height: 640))
+        toolbar = NSToolbar(identifier: "settings")
+        toolbarStyle = .unified
+        minSize = NSSize(width: 760, height: 520)
+        isReleasedWhenClosed = false
+        center()
+    }
 }
 
 #if COBBLE_CHROMIUM_CLIENT

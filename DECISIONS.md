@@ -12,7 +12,7 @@ Current product and engineering choices. Update a decision in place when it chan
 ## Interface and organization
 
 - **AppKit owns each window; SwiftUI owns its presentation.** Persist geometry and close/quit behavior through native window controllers. Keep navigation and address entry in the sidebar; its pinning and hover behavior must not shift the webpage. The command overlay searches destinations and current-space tabs, and is not an assistant.
-- **Settings use a native toolbar and reusable page/group/row layout.** Preferences store semantic choices; SwiftUI maps them to browser chrome, not webpage content. Show only supported controls.
+- **Settings use a System Settings–style icon sidebar and grouped native forms.** Preferences store semantic choices; SwiftUI maps them to browser chrome, not webpage content. Show only supported controls.
 - **Saved organization is shared; browsing is window-local.** Favorites belong to a profile, pins to a space, and temporary tabs to one window. A saved item may have a separate live tab in multiple windows; no native page is shared between windows. Unloading preserves the saved destination but discards page memory.
 - **Spaces organize; profiles isolate.** A space belongs to one profile. Same-profile spaces share website storage. Folder parents stay within their space and cannot cycle. Deleting a folder promotes its immediate contents; never delete the last space.
 - **History and bookmarks are distinct.** History defaults to 90 days and records committed normal visits; bookmark titles are independent of page titles. Clearing one does not silently delete the other. Temporary tabs survive restart, while new windows and empty spaces start without tab records. There is no automatic archive.

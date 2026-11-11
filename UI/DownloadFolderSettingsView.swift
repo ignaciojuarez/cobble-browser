@@ -5,17 +5,22 @@ struct DownloadFolderSettingsView: View {
     @Bindable var preferences: BrowserPreferences
 
     var body: some View {
-        SettingsGroup("Download Folder") {
-            SettingsRow("Default folder", detailVerbatim: preferences.downloadFolderName.map {
-                String(format: String(localized: "Downloads open in %@ until you choose another location."), $0)
-            } ?? String(localized: "Each download opens Save Download in Downloads.")) {
-                Button("Choose Folder…") { chooseFolder() }
+        Section("Downloads") {
+            LabeledContent {
                 if preferences.downloadFolderName != nil {
                     Button("Use Downloads") { preferences.setDownloadFolder(nil) }
                 }
+                Button("Choose Folder…", action: chooseFolder)
+            } label: {
+                Label {
+                    Text(verbatim: preferences.downloadFolderName ?? String(localized: "Downloads"))
+                    Text("Cobble asks where to save each download, starting in this folder.")
+                } icon: {
+                    Image(systemName: "folder.fill").foregroundStyle(.blue)
+                }
             }
-            if let error = preferences.errorMessage { Text(error).font(.callout).foregroundStyle(.orange) }
         }
+        .disabled(preferences.readError != nil)
     }
 
     private func chooseFolder() {

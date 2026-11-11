@@ -1,316 +1,544 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// System Settings–style window: an icon sidebar of panes and a grouped form for the selected pane.
 struct SettingsView: View {
     static let defaultBrowserSchemes = ["http", "https"]
     @Bindable var app: AppModel
     var extensionActionPage: (any BrowserPage)? = nil
-    @State private var siteData: [WebsiteDataGroup] = []
-    @State private var selectedWebsiteDataProfile: UUID?
-    @State private var siteDataRequest = 0
-    @State private var clearing = false
+    @State private var query = ""
+    @State private var selectedProfile: UUID?
+
+    var body: some View {
+        NavigationSplitView {
+            List(selection: Binding<SettingsSection?>(
+                get: { app.settingsSection },
+                set: { if let section = $0 { app.settingsSection = section } }
+            )) {
+                ForEach(SettingsSection.groups, id: \.self) { group in
+                    let matches = group.filter(matches)
+                    if !matches.isEmpty {
+                        Section {
+                            ForEach(matches) { section in
+                                Label { Text(section.title) } icon: { SettingsIcon(section: section) }
+                            }
+                        }
+                    }
+                }
+            }
+            .frame(minWidth: 220)
+            .navigationSplitViewColumnWidth(220)
+            .searchable(text: $query, placement: .sidebar, prompt: Text("Search"))
+            .toolbar(removing: .sidebarToggle)
+        } detail: {
+            pane
+                .navigationTitle(app.settingsSection.title)
+                .safeAreaInset(edge: .top, spacing: 0) { SettingsRecoveryBanner(preferences: app.preferences) }
+        }
+        .formStyle(.grouped)
+        .toggleStyle(.switch)
+        .frame(minWidth: 760, minHeight: 520)
+    }
+
+    @ViewBuilder private var pane: some View {
+        switch app.settingsSection {
+        case .general: GeneralSettings(app: app)
+        case .appearance: DesignSettingsView(preferences: app.preferences)
+        case .tabs: TabSettingsView(preferences: app.preferences)
+        case .search: SearchSettingsView(preferences: app.preferences)
+        case .privacy: PrivacySettings(app: app, profileID: profileID)
+        case .websites: WebsiteSettings(app: app, profileID: profileID)
+        case .history: LibraryView(app: app, profileID: profileID) { url, profileID in
+            _ = app.newWindow(url: url, profileID: profileID)
+        }
+        case .engines: EngineSettings(app: app)
+        case .extensions: ExtensionSettingsView(app: app, actionPage: extensionActionPage, profileID: profileID)
+        case .profiles: ProfileSettingsView(app: app)
+        case .sync: SyncSettingsView(app: app)
+        case .shortcuts: ShortcutSettingsView(preferences: app.preferences)
+        case .automation: AutomationSettings(app: app)
+        case .advanced: AdvancedSettings(app: app)
+        }
+    }
+
+    /// One profile choice shared by every profile-scoped pane.
+    private var profileID: Binding<UUID> {
+        Binding(get: {
+            if let selectedProfile, app.profiles.contains(where: { $0.id == selectedProfile }) { return selectedProfile }
+            if let page = extensionActionPage?.contextID.profileID,
+               app.profiles.contains(where: { $0.id == page }) { return page }
+            return app.profiles[0].id
+        }, set: { selectedProfile = $0 })
+    }
+
+    private func matches(_ section: SettingsSection) -> Bool {
+        let text = query.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty || section.title.localizedCaseInsensitiveContains(text)
+            || section.keywords.localizedCaseInsensitiveContains(text)
+    }
+}
+
+extension SettingsSection {
+    var tint: Color {
+        switch self {
+        case .general, .shortcuts, .advanced: .gray
+        case .appearance: .purple
+        case .tabs: .orange
+        case .search: .teal
+        case .privacy, .sync: .blue
+        case .websites: .cyan
+        case .history: .indigo
+        case .engines: .red
+        case .extensions: .green
+        case .profiles: .pink
+        case .automation: .mint
+        }
+    }
+
+    /// Extra words the sidebar search matches.
+    var keywords: String {
+        switch self {
+        case .general: String(localized: "default browser downloads folder updates version")
+        case .appearance: String(localized: "theme design window style accent color font loading dark")
+        case .tabs: String(localized: "new tab control tab recent sleep memory")
+        case .search: String(localized: "search engine bang address bar")
+        case .privacy: String(localized: "cookies website data cache clear content blocking trackers ads passwords passkeys keyboard")
+        case .websites: String(localized: "permissions camera microphone screen sharing pop-ups browser identity user agent zoom")
+        case .history: String(localized: "bookmarks import export retention clear")
+        case .engines: String(localized: "webkit chromium engine per site login sharing")
+        case .extensions: String(localized: "web extensions add-ons")
+        case .profiles: String(localized: "accounts work personal")
+        case .sync: String(localized: "icloud devices")
+        case .shortcuts: String(localized: "shortcuts keys hotkeys")
+        case .automation: String(localized: "apple events applescript agents mcp cli scripts")
+        case .advanced: String(localized: "developer tools inspector diagnostics backup restore workspace reset")
+        }
+    }
+}
+
+/// The colored rounded-square icon used by System Settings.
+struct SettingsIcon: View {
+    let section: SettingsSection
+    var body: some View {
+        Image(systemName: section.symbol)
+            .font(.system(size: 11.5, weight: .semibold))
+            .foregroundStyle(.white)
+            .frame(width: 22, height: 22)
+            .background(section.tint.gradient, in: .rect(cornerRadius: 6, style: .continuous))
+            .accessibilityHidden(true)
+    }
+}
+
+/// The profile picker for profile-scoped panes. Hidden with a single profile.
+struct ProfileSection: View {
+    let app: AppModel
+    @Binding var profileID: UUID
+    var body: some View {
+        if app.profiles.count > 1 {
+            Section {
+                Picker(selection: $profileID) {
+                    ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
+                } label: {
+                    Text("Profile")
+                    Text("Settings below apply to this profile.")
+                }
+            }
+        }
+    }
+}
+
+/// A status or error line at the end of a form.
+struct SettingsMessage: View {
+    let text: String?
+    var isError = true
+    var body: some View {
+        if let text, !text.isEmpty {
+            Section { Text(verbatim: text).foregroundStyle(isError ? Color.orange : Color.secondary) }
+        }
+    }
+}
+
+// MARK: - General
+
+private struct GeneralSettings: View {
+    @Bindable var app: AppModel
     @State private var message: String?
     @State private var settingDefaultBrowser = false
+    @State private var isDefaultBrowser = false
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent {
+                    if isDefaultBrowser {
+                        Label("Cobble is your default browser", systemImage: "checkmark.circle.fill")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Button("Set as Default", action: makeDefaultBrowser).disabled(settingDefaultBrowser)
+                    }
+                } label: {
+                    Text("Default web browser")
+                    Text("Open links from other apps in Cobble.")
+                }
+            }
+            DownloadFolderSettingsView(preferences: app.preferences)
+            Section("Software Update") {
+                if app.updates.isEnabled {
+                    Toggle(isOn: Binding(get: { app.updates.automaticChecks },
+                                         set: { app.updates.setAutomaticChecks($0) })) {
+                        Text("Check for updates automatically")
+                        Text("Updates download from GitHub. You choose when to install and restart.")
+                    }
+                }
+                LabeledContent {
+                    Button("Check for Updates…", action: app.updates.checkForUpdates)
+                        .disabled(!app.updates.canCheck)
+                } label: {
+                    Text(verbatim: Self.version)
+                    if !app.updates.isEnabled, app.updates.errorMessage == nil {
+                        Text("Automatic updates are available in Full release builds.")
+                    }
+                }
+                if let error = app.updates.errorMessage { Text(error).foregroundStyle(.orange) }
+            }
+            SettingsMessage(text: app.persistenceMessage)
+            SettingsMessage(text: message, isError: false)
+        }
+        .onAppear(perform: refreshDefaultBrowser)
+    }
+
+    static var version: String {
+        let info = Bundle.main.infoDictionary
+        return String(format: String(localized: "Cobble %@ (%@)"),
+                      info?["CFBundleShortVersionString"] as? String ?? "–",
+                      info?["CFBundleVersion"] as? String ?? "–")
+    }
+
+    private func refreshDefaultBrowser() {
+        guard let url = URL(string: "https://example.com"),
+              let handler = NSWorkspace.shared.urlForApplication(toOpen: url) else { isDefaultBrowser = false; return }
+        isDefaultBrowser = handler.standardizedFileURL == Bundle.main.bundleURL.standardizedFileURL
+    }
+
+    private func makeDefaultBrowser() {
+        message = nil
+        settingDefaultBrowser = true
+        Task {
+            defer { settingDefaultBrowser = false; refreshDefaultBrowser() }
+            for scheme in SettingsView.defaultBrowserSchemes {
+                do {
+                    try await NSWorkspace.shared.setDefaultApplication(at: Bundle.main.bundleURL, toOpenURLsWithScheme: scheme)
+                } catch {
+                    message = String(format: String(localized: "Could not set Cobble for %@ links: %@"),
+                                     scheme.uppercased(), error.localizedDescription)
+                    return
+                }
+            }
+        }
+    }
+}
+
+/// Shown above every pane when the preferences file cannot be read; settings stay disabled until reset.
+private struct SettingsRecoveryBanner: View {
+    let preferences: BrowserPreferences
+    @State private var message: String?
+    var body: some View {
+        if let readError = preferences.readError {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: "exclamationmark.triangle.fill").font(.title2).foregroundStyle(.orange)
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Browser Settings Recovery").font(.headline)
+                    Text(readError).font(.callout)
+                    Text("Reset browser preferences to restore settings changes. Cobble backs up the original settings file first.")
+                        .font(.callout).foregroundStyle(.secondary)
+                    if let error = preferences.errorMessage, error != readError {
+                        Text(error).font(.callout).foregroundStyle(.orange)
+                    }
+                }
+                Spacer(minLength: 12)
+                Button("Back Up and Reset Settings") {
+                    if let backup = preferences.resetUnreadableSettings() {
+                        message = String(format: String(localized: "Browser settings were reset. Original settings were backed up to %@."), backup.path)
+                    } else {
+                        message = preferences.errorMessage
+                    }
+                }
+            }
+            .padding(14)
+            .background(.orange.opacity(0.12), in: .rect(cornerRadius: 12))
+            .padding([.horizontal, .top], 20)
+        } else if let message {
+            Label(message, systemImage: "checkmark.circle.fill")
+                .font(.callout).foregroundStyle(.secondary)
+                .padding([.horizontal, .top], 20)
+        }
+    }
+}
+
+// MARK: - Web engines
+
+private struct EngineSettings: View {
+    @Bindable var app: AppModel
     @State private var ruleHost = ""
     @State private var ruleEngine: EngineID?
 
     var body: some View {
-        Group {
-            switch app.settingsSection {
-            case .privacy, .blockers, .permissions: privacy
-            case .history: LibraryView(app: app, openURL: { url, profileID in
-                _ = app.newWindow(url: url, profileID: profileID)
-            })
-            case .shortcuts: ShortcutSettingsView(preferences: app.preferences)
-            case .browsing: browsing
-            case .design: DesignSettingsView(preferences: app.preferences)
-            case .extensions: ExtensionSettingsView(app: app, actionPage: extensionActionPage)
-            case .profiles: ProfileSettingsView(app: app)
-            case .sync: SyncSettingsView(app: app)
-            case .general: general
-            }
-        }
-        .frame(minWidth: 760, minHeight: 540)
-        .background(SettingsStyle.canvas)
-    }
-
-    private var general: some View {
-        SettingsPage {
-            if let readError = app.preferences.readError {
-                SettingsGroup("Browser Settings Recovery") {
-                    Text(readError).font(.callout).foregroundStyle(.orange)
-                    Text("Reset browser preferences to restore settings changes. Cobble backs up the original settings file first.")
-                        .font(.callout).foregroundStyle(.secondary)
-                    Button("Back Up and Reset Settings") {
-                        if let backup = app.preferences.resetUnreadableSettings() {
-                            message = String(format: String(localized: "Browser settings were reset. Original settings were backed up to %@."), backup.path)
-                        } else {
-                            message = app.preferences.errorMessage
-                        }
-                    }
-                    if let error = app.preferences.errorMessage, error != readError {
-                        Text(error).font(.callout).foregroundStyle(.orange)
-                    }
-                }
-            }
-            SettingsGroup("Updates") {
-                if app.updates.isEnabled {
-                    Toggle("Automatically check for updates", isOn: Binding(
-                        get: { app.updates.automaticChecks },
-                        set: { app.updates.setAutomaticChecks($0) }
-                    ))
-                    Text("Updates download from GitHub. You choose when to install and restart.")
-                        .font(.caption).foregroundStyle(.secondary)
-                } else if app.updates.errorMessage != nil {
-                    Text("The updater could not start.")
-                        .font(.callout).foregroundStyle(.secondary)
-                } else {
-                    Text("Automatic updates are available in Full release builds.")
-                        .font(.callout).foregroundStyle(.secondary)
-                }
-                Button("Check for Updates…", action: app.updates.checkForUpdates)
-                    .disabled(!app.updates.canCheck)
-                if let error = app.updates.errorMessage {
-                    Text(error).font(.callout).foregroundStyle(.orange)
-                }
-            }
-            SettingsGroup("Browser") {
-                SettingsRow("Default browser", detail: "Open web links from other apps in Cobble.") {
-                    Button("Make Cobble the Default Browser") {
-                        message = nil
-                        settingDefaultBrowser = true
-                        Task {
-                            defer { settingDefaultBrowser = false }
-                            for scheme in Self.defaultBrowserSchemes {
-                                do {
-                                    try await NSWorkspace.shared.setDefaultApplication(
-                                        at: Bundle.main.bundleURL, toOpenURLsWithScheme: scheme)
-                                } catch {
-                                    message = String(format: String(localized: "Could not set Cobble for %@ links: %@"),
-                                        scheme.uppercased(), error.localizedDescription)
-                                    return
-                                }
-                            }
-                            message = String(localized: "Cobble is the default for HTTP and HTTPS links.")
-                        }
-                    }.disabled(settingDefaultBrowser)
-                }
-            }
-            engineSettings
-            SettingsGroup("Workspace") {
-                SettingsRow("Backup and restore", detail: "Includes normal windows, tabs, spaces, pins, and favorites. Website data and private windows stay on this Mac.") {
-                    Button("Export…") { exportWorkspace() }
-                    Button("Restore…") { restoreWorkspace() }
-                }
-            }
-            DownloadFolderSettingsView(preferences: app.preferences)
-            SettingsGroup("Diagnostics") {
-                SettingsRow("Redacted diagnostics", detail: "Saves app and OS versions, the local data directory, the last persistence error, and registered engine names. No page URLs, cookies, or browsing history.") {
-                    Button("Export…") { exportDiagnostics() }
-                }
-            }
-            if let text = app.persistenceMessage { Text(text).font(.callout).foregroundStyle(.orange) }
-            else if let message { Text(message).font(.callout).foregroundStyle(.secondary) }
-        }
-    }
-
-    private var browsing: some View {
-        SettingsPage {
-            SettingsGroup("Page Zoom") {
-                Text("WebKit remembers zoom for each site in normal windows. Actual Size resets that site to 100%. Private-window zoom stays local. Forgetting permissions keeps zoom and browser identity.")
-                    .font(.callout).foregroundStyle(.secondary)
-                if let error = app.siteSettings.lastError {
-                    Text(error).font(.callout).foregroundStyle(.orange)
-                }
-            }
-            SearchSettingsView(preferences: app.preferences)
-            TabSettingsView(preferences: app.preferences)
-            SettingsGroup("Page Tools") {
-                SettingsRow("Developer Tools", detail: "WebKit pages appear in Safari’s Develop menu. Chromium pages open from View > Open Developer Tools. Enable this only while debugging.") {
-                    Toggle("Enable Developer Tools", isOn: Binding(
-                        get: { app.preferences.webInspectorEnabled },
-                        set: { app.setWebInspectorEnabled($0) }
-                    )).labelsHidden().toggleStyle(.switch)
-                        .disabled(!app.engines.engines.contains {
-                            !$0.capabilities.pageOperations.intersection([.inspect, .openDevTools]).isEmpty
-                        })
-                }
-            }
-            AutomationSettings(app: app)
-            SettingsGroup("Keyboard Privacy") {
-                SettingsRow("Hide Command, Control and Option keys from websites", detail: "Pages receive plain typing without modifier chords. Cobble shortcuts and text fields keep working, but websites can't see or block ⌘, ⌃ or ⌥. Option-based special characters and site shortcuts are hidden from pages.") {
-                    Toggle("Hide Command, Control and Option keys from websites", isOn: Binding(
-                        get: { app.preferences.hidesCommandKeysFromPages },
-                        set: { app.preferences.setHidesCommandKeysFromPages($0) }
-                    )).labelsHidden().toggleStyle(.switch)
-                        .disabled(app.preferences.readError != nil)
-                }
-            }
-            SettingsGroup("Browser Identity") {
-                SiteIdentityRulesView(app: app)
-            }
-        }
-    }
-
-    /// This Mac's default plus one Automatic/engine choice per website.
-    private var engineSettings: some View {
-        SettingsGroup("Web Engine") {
-            SettingsRow("Default on this Mac", detail: "Websites set to Automatic open with this engine. Each Mac keeps its own choice.") {
-                let choices = app.engines.engines.map(\.id) + (app.engines.engine(app.preferences.defaultEngine) == nil ? [app.preferences.defaultEngine] : [])
+        let preferences = app.preferences
+        Form {
+            Section {
+                let choices = app.engines.engines.map(\.id) + (app.engines.engine(preferences.defaultEngine) == nil ? [preferences.defaultEngine] : [])
                 if choices.count > 1 {
-                    Picker("Default web engine", selection: Binding(
-                        get: { app.preferences.defaultEngine },
-                        set: { app.preferences.setDefaultEngine($0) }
-                    )) {
+                    Picker(selection: Binding(get: { preferences.defaultEngine }, set: { preferences.setDefaultEngine($0) })) {
                         ForEach(choices, id: \.self) { Text(app.engines.name(for: $0)).tag($0) }
+                    } label: {
+                        Text("Default engine")
+                        Text("Websites set to Automatic open with this engine. Each Mac keeps its own choice.")
                     }
-                    .labelsHidden().pickerStyle(.segmented).fixedSize()
-                    .disabled(app.preferences.readError != nil)
                 } else {
-                    Text(app.engines.name(for: app.preferences.defaultEngine)).foregroundStyle(.secondary)
-                }
-            }
-            if app.engines.effectiveID(.chromium) == .webKit {
-                Text("Chromium is not included in this build. Chromium choices use WebKit for now and are remembered.")
-                    .font(.caption).foregroundStyle(.secondary)
-            }
-            DisclosureGroup("Compare engines") {
-                VStack(alignment: .leading, spacing: 8) {
-                    ForEach(app.engines.engines, id: \.id) { engine in
-                        HStack(alignment: .top, spacing: 8) {
-                            TabEngineIcon(engine: engine)
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(engine.name).font(.callout.weight(.medium))
-                                Text(capabilitySummary(engine)).font(.caption).foregroundStyle(.secondary)
-                                    .fixedSize(horizontal: false, vertical: true)
-                            }
-                        }
+                    LabeledContent {
+                        Text(app.engines.name(for: preferences.defaultEngine))
+                    } label: {
+                        Text("Default engine")
+                        Text("Websites set to Automatic open with this engine. Each Mac keeps its own choice.")
                     }
                 }
-                .padding(.top, 6)
-            }
-            .font(.callout)
-            SettingsRow("Links opened in new tabs", detail: "⌘-click, middle-click and Open Link in New Tab. Automatic uses the website’s choice or the default; Current Tab keeps the engine of the tab you opened it from.") {
-                Picker("Links opened in new tabs", selection: Binding(
-                    get: { app.preferences.linkTabsKeepEngine },
-                    set: { app.preferences.setLinkTabsKeepEngine($0) }
-                )) {
+                Picker(selection: Binding(get: { preferences.linkTabsKeepEngine }, set: { preferences.setLinkTabsKeepEngine($0) })) {
                     Text("Automatic").tag(false)
                     Text("Current Tab").tag(true)
+                } label: {
+                    Text("Links opened in new tabs")
+                    Text("Automatic uses the website’s engine or the default. Current Tab keeps the engine of the tab you opened it from.")
                 }
-                .labelsHidden().pickerStyle(.segmented).fixedSize()
-                .disabled(app.preferences.readError != nil)
+            } footer: {
+                if app.engines.effectiveID(.chromium) == .webKit {
+                    Text("Chromium is not included in this build. Chromium choices use WebKit for now and are remembered.")
+                }
             }
-            Divider()
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Websites").font(.body.weight(.medium))
-                Text("Choose an engine from a website’s site menu in the address bar, or add one here. Covers subdomains and applies on the next load.")
-                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            ForEach(app.preferences.engineRules, id: \.host) { rule in
-                HStack(spacing: 10) {
-                    TabEngineIcon.image(for: rule.engineID)
-                        .resizable().scaledToFit().frame(width: 16, height: 16)
-                        .accessibilityHidden(true)
-                    Text(verbatim: rule.host).lineLimit(1).truncationMode(.middle)
-                    Spacer(minLength: 12)
-                    Picker(rule.host, selection: Binding<EngineID?>(
-                        get: { rule.engineID },
-                        set: { setRule($0, host: rule.host) }
-                    )) {
-                        Text(String(format: String(localized: "Automatic (%@)"),
-                            app.engines.name(for: app.engines.effectiveID(app.preferences.defaultEngine)))).tag(EngineID?.none)
-                        Divider()
-                        ForEach(app.engines.engines, id: \.id) { Text($0.name).tag(Optional($0.id)) }
-                        if app.engines.engine(rule.engineID) == nil {
-                            Text(app.engines.name(for: rule.engineID)).tag(Optional(rule.engineID))
+            Section {
+                ForEach(preferences.engineRules, id: \.host) { rule in
+                    HStack(spacing: 10) {
+                        TabEngineIcon.image(for: rule.engineID)
+                            .resizable().scaledToFit().frame(width: 16, height: 16)
+                            .accessibilityHidden(true)
+                        Picker(selection: Binding<EngineID?>(get: { rule.engineID }, set: { setRule($0, host: rule.host) })) {
+                            Text(String(format: String(localized: "Automatic (%@)"),
+                                        app.engines.name(for: app.engines.effectiveID(preferences.defaultEngine)))).tag(EngineID?.none)
+                            Divider()
+                            ForEach(app.engines.engines, id: \.id) { Text($0.name).tag(Optional($0.id)) }
+                            if app.engines.engine(rule.engineID) == nil {
+                                Text(app.engines.name(for: rule.engineID)).tag(Optional(rule.engineID))
+                            }
+                        } label: {
+                            Text(verbatim: rule.host).lineLimit(1).truncationMode(.middle)
                         }
+                        RemoveButton(String(format: String(localized: "Remove %@"), rule.host)) { setRule(nil, host: rule.host) }
                     }
-                    .labelsHidden().frame(width: 200, alignment: .trailing)
-                    Button("Remove", systemImage: "minus.circle") { setRule(nil, host: rule.host) }
-                        .labelStyle(.iconOnly).buttonStyle(.borderless)
-                        .help("Use Automatic")
                 }
-                .accessibilityElement(children: .contain)
-            }
-            HStack {
-                TextField("example.com", text: $ruleHost)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit { addRule() }
-                Picker("Engine", selection: Binding(
-                    get: { ruleEngine.flatMap { app.engines.engine($0)?.id } ?? app.engines.engines.first?.id ?? .webKit },
-                    set: { ruleEngine = $0 }
-                )) {
-                    ForEach(app.engines.engines, id: \.id) { Text($0.name).tag($0.id) }
+                HStack {
+                    TextField("Website", text: $ruleHost, prompt: Text(verbatim: "example.com"))
+                        .labelsHidden().textFieldStyle(.roundedBorder)
+                        .onSubmit(addRule)
+                    Picker("Engine", selection: Binding(
+                        get: { ruleEngine.flatMap { app.engines.engine($0)?.id } ?? app.engines.engines.first?.id ?? .webKit },
+                        set: { ruleEngine = $0 }
+                    )) {
+                        ForEach(app.engines.engines, id: \.id) { Text($0.name).tag($0.id) }
+                    }
+                    .labelsHidden().fixedSize()
+                    Button("Add", action: addRule)
+                        .disabled(ruleHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
-                .labelsHidden().frame(width: 200, alignment: .trailing)
-                Button("Add") { addRule() }
-                    .disabled(ruleHost.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            } header: {
+                Text("Websites")
+            } footer: {
+                Text("Also set from a website’s site menu in the address bar. Covers subdomains and applies on the next load.")
             }
-            if let error = app.preferences.errorMessage {
-                Text(error).font(.callout).foregroundStyle(.orange)
+            Section("Compare Engines") {
+                ForEach(app.engines.engines, id: \.id) { engine in
+                    LabeledContent {
+                        EmptyView()
+                    } label: {
+                        Label {
+                            Text(engine.name)
+                            Text(capabilitySummary(engine))
+                        } icon: { TabEngineIcon(engine: engine) }
+                    }
+                }
             }
-            Divider()
-            SettingsRow("Experimental cross-engine login sharing", detail: "Attempts to carry login cookies when switching engines within the same profile. Existing cookies are kept unless you choose to replace them. Private windows are excluded. Some sites still require sign-in. Requires a compatible Full build.") {
-                Toggle("Experimental cross-engine login sharing", isOn: Binding(
-                    get: { app.preferences.experimentalLoginSharing },
-                    set: { app.preferences.setExperimentalLoginSharing($0) }
-                )).labelsHidden().toggleStyle(.switch)
-                    .disabled(app.preferences.readError != nil)
+            Section {
+                Toggle(isOn: Binding(get: { preferences.experimentalLoginSharing },
+                                     set: { preferences.setExperimentalLoginSharing($0) })) {
+                    Text("Cross-engine login sharing")
+                    Text("Carries login cookies when you switch engines in the same profile. Existing cookies are kept unless you replace them. Private windows are excluded. Requires a compatible Full build.")
+                }
+                if preferences.experimentalLoginSharing, let status = app.loginSharingMessage {
+                    Text(status).font(.callout).foregroundStyle(.secondary)
+                        .accessibilityLabel(String(format: String(localized: "Login sharing status: %@"), status))
+                }
+            } header: {
+                Text("Experimental")
             }
-            if app.preferences.experimentalLoginSharing, let status = app.loginSharingMessage {
-                Text(status).font(.caption).foregroundStyle(.secondary)
-                    .accessibilityLabel(String(format: String(localized: "Login sharing status: %@"), status))
-            }
+            SettingsMessage(text: preferences.errorMessage)
         }
+        .disabled(preferences.readError != nil)
     }
 
-    private var privacy: some View {
-        VStack(spacing: 0) {
-            Picker("Privacy area", selection: $app.settingsSection) {
-                Text("Website Data").tag(SettingsSection.privacy)
-                Text("Content Blocking").tag(SettingsSection.blockers)
-                Text("Permissions").tag(SettingsSection.permissions)
-            }
-            .pickerStyle(.segmented)
-            .labelsHidden()
-            .frame(width: 420)
-            .padding(.top, 24)
-            .padding(.bottom, 8)
-            Group {
-                switch app.settingsSection {
-                case .blockers: ContentBlockingSettings(app: app)
-                case .permissions: SitePermissionsView(app: app)
-                default: websiteData
-                }
-            }
-        }
-        .background(SettingsStyle.canvas)
+    private func capabilitySummary(_ engine: any BrowserEngine) -> String {
+        let capabilities = engine.capabilities
+        var values: [String] = []
+        if capabilities.pageOperations.contains(.find) { values.append(String(localized: "Find")) }
+        if capabilities.pageOperations.contains(.zoom) { values.append(String(localized: "Zoom")) }
+        values.append(capabilities.pageOperations.contains(.printPage) ? String(localized: "Print") : String(localized: "No printing"))
+        values.append(capabilities.permissions.contains(.camera) ? String(localized: "Camera") : String(localized: "No camera"))
+        values.append(capabilities.permissions.contains(.microphone) ? String(localized: "Microphone") : String(localized: "No microphone"))
+        values.append(engine.contentBlocker == nil ? String(localized: "No content blocking") : String(localized: "Content blocking"))
+        if capabilities.supportsWebsiteDataRemoval(categories: [.siteData, .cache], scope: .recordsAllTime) { values.append(String(localized: "Site data")) }
+        if capabilities.supportsWebsiteDataRemoval(categories: [.cache], scope: .profileAllTime) { values.append(String(localized: "Cache clearing")) }
+        if capabilities.pageOperations.contains(.muteAudio) { values.append(String(localized: "Tab mute")) }
+        return values.isEmpty ? String(localized: "Basic browsing") : values.joined(separator: " · ")
     }
+    private func addRule() {
+        let host = ruleHost.trimmingCharacters(in: .whitespacesAndNewlines)
+        let engineID = ruleEngine.flatMap { app.engines.engine($0)?.id } ?? app.engines.engines.first?.id ?? .webKit
+        guard let url = URL(string: host.contains("://") ? host : "https://\(host)"),
+              app.preferences.setEngineRule(for: url, engineID: engineID) else { return }
+        ruleHost = ""
+    }
+    private func setRule(_ engineID: EngineID?, host: String) {
+        guard let url = URL(string: "https://\(host)") else { return }
+        app.preferences.setEngineRule(for: url, engineID: engineID)
+    }
+}
 
-    private var websiteData: some View {
-        SettingsGroup("Website Data") {
-            if app.profiles.count > 1 {
-                Picker("Profile", selection: Binding(
-                    get: { websiteDataProfileID },
-                    set: { selectedWebsiteDataProfile = $0 }
-                )) {
-                    ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
+/// A borderless minus button for removing a list row.
+struct RemoveButton: View {
+    let label: String
+    let action: () -> Void
+    init(_ label: String, action: @escaping () -> Void) { self.label = label; self.action = action }
+    var body: some View {
+        Button(action: action) { Image(systemName: "minus.circle.fill").foregroundStyle(.secondary) }
+            .buttonStyle(.borderless)
+            .help(label)
+            .accessibilityLabel(label)
+    }
+}
+
+// MARK: - Privacy & Security
+
+private struct PrivacySettings: View {
+    @Bindable var app: AppModel
+    @Binding var profileID: UUID
+    @State private var managingData = false
+
+    var body: some View {
+        Form {
+            ProfileSection(app: app, profileID: $profileID)
+            Section {
+                LabeledContent {
+                    Button("Manage Website Data…") { managingData = true }
+                } label: {
+                    Text("Cookies and website data")
+                    Text("See which sites store data, remove one site, or clear data by type and time range.")
                 }
-                .frame(width: 220)
-                .disabled(clearing)
+                let unavailable = app.engines.engines.filter {
+                    !$0.capabilities.supportsWebsiteDataRemoval(categories: [.siteData, .cache], scope: .recordsAllTime)
+                }
+                if !unavailable.isEmpty {
+                    Text(String(format: String(localized: "Website data controls are unavailable for %@. Their cookies and site storage are not shown or removed here."), unavailable.map(\.name).joined(separator: ", ")))
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Website Data")
+            } footer: {
+                Text("Private windows keep their data only until they close.")
             }
-            Text("Website records are grouped by site. A registrable domain includes its subdomains; an IP address or internal hostname matches only itself. Remove clears cookies and site storage for that site, plus cached resources associated with it. Engines may also clear shared transient caches; some process-wide cached resources require all-sites clearing. Clear Data can remove profile data by category and time range. History visits are deleted in History settings. Cobble unloads affected pages first.")
-                .font(.callout).foregroundStyle(.secondary)
-            let unavailable = app.engines.engines.filter {
-                !$0.capabilities.supportsWebsiteDataRemoval(categories: [.siteData, .cache], scope: .recordsAllTime)
+            ContentBlockingSettings(app: app, profileID: profileID)
+            Section {
+                Toggle(isOn: Binding(get: { app.preferences.hidesCommandKeysFromPages },
+                                     set: { app.preferences.setHidesCommandKeysFromPages($0) })) {
+                    Text("Hide Command, Control and Option keys from websites")
+                    Text("Websites can't see or block ⌘, ⌃ or ⌥ shortcuts. Cobble shortcuts and text fields keep working; Option characters and site shortcuts are hidden from pages.")
+                }
+                .disabled(app.preferences.readError != nil)
+            } header: {
+                Text("Keyboard")
             }
-            if !unavailable.isEmpty {
-                Text(String(format: String(localized: "Website data controls are unavailable for %@. Their cookies and site storage are not shown or removed here."), unavailable.map(\.name).joined(separator: ", ")))
+            PasswordSection(chromium: app.engines.engine(.chromium) != nil)
+        }
+        .sheet(isPresented: $managingData) {
+            WebsiteDataSheet(app: app, profileID: profileID)
+        }
+    }
+}
+
+private struct PasswordSection: View {
+    let chromium: Bool
+    var body: some View {
+        let passkeys = ApplePasskeys.status
+        Section {
+            LabeledContent {
+                if passkeys == .denied {
+                    Link("Open Settings", destination: ApplePasskeys.settingsURL)
+                }
+            } label: {
+                Text("Passkeys")
+                Text(statusText(passkeys))
+            }
+            LabeledContent {
+                EmptyView()
+            } label: {
+                Text("Passwords")
+                Text("Apple Passwords AutoFill is not available on WebKit pages in third-party macOS browsers. Cobble does not store passwords.")
+            }
+            if chromium {
+                Text("Chromium Sign in with Apple uses the system WebKit sheet. Chromium password AutoFill still needs an SDK path. Cobble does not store passwords.")
                     .font(.callout).foregroundStyle(.secondary)
             }
-            List(siteData) { site in
+        } header: {
+            Text("Passwords and Passkeys")
+        }
+    }
+
+    private func statusText(_ status: ApplePasskeys.Status) -> LocalizedStringKey {
+        switch status {
+        case .unentitled: "Passkeys for arbitrary websites need Apple’s macOS browser passkey entitlement on a signed Cobble. This build cannot use iCloud Keychain passkeys."
+        case .notDetermined: "macOS asks whether Cobble may use passkeys when the first page opens."
+        case .denied: "Passkey access is off for Cobble. Turn it on in System Settings to use iCloud Keychain passkeys."
+        case .notConfigured: "This Mac has no passkey provider. Turn on iCloud Keychain or another provider in System Settings → General → AutoFill & Passwords."
+        case .ready: "This signed Cobble can use iCloud Keychain passkeys on WebKit pages."
+        }
+    }
+}
+
+/// Safari-style Manage Website Data sheet: searchable sites, per-site removal and bulk clearing.
+private struct WebsiteDataSheet: View {
+    @Bindable var app: AppModel
+    let profileID: UUID
+    @Environment(\.dismiss) private var dismiss
+    @State private var siteData: [WebsiteDataGroup] = []
+    @State private var request = 0
+    @State private var clearing = false
+    @State private var loading = true
+    @State private var message: String?
+    @State private var query = ""
+
+    var body: some View {
+        VStack(spacing: 0) {
+            HStack {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Website Data").font(.headline)
+                    Text(String(format: String(localized: "Profile: %@"), profileName))
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                Spacer()
+                TextField("Search", text: $query, prompt: Text("Search websites"))
+                    .textFieldStyle(.roundedBorder).frame(width: 200)
+            }
+            .padding(16)
+            Divider()
+            List(filtered) { site in
                 HStack {
+                    Image(systemName: "globe").foregroundStyle(.secondary).accessibilityHidden(true)
                     VStack(alignment: .leading, spacing: 2) {
                         Text(site.displayName)
                         Text(siteEngineNames(site)).font(.caption).foregroundStyle(.secondary)
@@ -318,9 +546,17 @@ struct SettingsView: View {
                     Spacer()
                     Button("Remove") { remove(site) }.disabled(clearing)
                 }
-            }.listStyle(.inset).clipShape(RoundedRectangle(cornerRadius: 10))
+                .padding(.vertical, 2)
+            }
+            .listStyle(.inset)
+            .overlay {
+                if loading { ProgressView() }
+                else if filtered.isEmpty {
+                    ContentUnavailableView(query.isEmpty ? "No Website Data" : "No Matches", systemImage: "globe")
+                }
+            }
+            Divider()
             HStack {
-                Button("Refresh") { refreshSites() }.disabled(clearing)
                 Menu("Clear Data…") {
                     Button("Cookies and Site Storage…") {
                         clear(categories: [.siteData], title: String(localized: "Clear Cookies and Site Storage?"),
@@ -350,67 +586,40 @@ struct SettingsView: View {
                               title: String(localized: "Clear Cached Resources from the Last 7 Days?"),
                               action: String(localized: "Clear Recent Cached Resources"))
                     }.disabled(!canRemove(categories: [.cache], scope: .profileSince))
-                }.disabled(clearing)
+                }
+                .fixedSize()
+                .disabled(clearing)
+                if let message { Text(message).font(.callout).foregroundStyle(.orange).lineLimit(2) }
                 Spacer()
-                Text("Private browsing data is not listed.").font(.caption).foregroundStyle(.secondary)
+                Button("Done") { dismiss() }.keyboardShortcut(.defaultAction)
             }
-            if let message { Text(message).foregroundStyle(.orange) }
+            .padding(16)
         }
-        .settingsPane()
-        .onAppear { refreshSites(profileID: websiteDataProfileID) }
-        .onChange(of: websiteDataProfileID) { _, profileID in
-            siteData = []
-            message = nil
-            refreshSites(profileID: profileID)
-        }
+        .frame(width: 600, height: 520)
+        .onAppear(perform: refresh)
     }
 
-    private func capabilitySummary(_ engine: any BrowserEngine) -> String {
-        let capabilities = engine.capabilities
-        var values: [String] = []
-        if capabilities.pageOperations.contains(.find) { values.append(String(localized: "Find")) }
-        if capabilities.pageOperations.contains(.zoom) { values.append(String(localized: "Zoom")) }
-        values.append(capabilities.pageOperations.contains(.printPage) ? String(localized: "Print") : String(localized: "No printing"))
-        values.append(capabilities.permissions.contains(.camera) ? String(localized: "Camera") : String(localized: "No camera"))
-        values.append(capabilities.permissions.contains(.microphone) ? String(localized: "Microphone") : String(localized: "No microphone"))
-        values.append(engine.contentBlocker == nil ? String(localized: "No content blocking") : String(localized: "Content blocking"))
-        if capabilities.supportsWebsiteDataRemoval(categories: [.siteData, .cache], scope: .recordsAllTime) { values.append(String(localized: "Site data")) }
-        if capabilities.supportsWebsiteDataRemoval(categories: [.cache], scope: .profileAllTime) { values.append(String(localized: "Cache clearing")) }
-        if capabilities.pageOperations.contains(.muteAudio) { values.append(String(localized: "Tab mute")) }
-        return values.isEmpty ? String(localized: "Basic browsing") : values.joined(separator: " · ")
+    private var filtered: [WebsiteDataGroup] {
+        let text = query.trimmingCharacters(in: .whitespaces)
+        return text.isEmpty ? siteData : siteData.filter { $0.displayName.localizedCaseInsensitiveContains(text) }
     }
-    private func addRule() {
-        let host = ruleHost.trimmingCharacters(in: .whitespacesAndNewlines)
-        let engineID = ruleEngine.flatMap { app.engines.engine($0)?.id } ?? app.engines.engines.first?.id ?? .webKit
-        guard let url = URL(string: host.contains("://") ? host : "https://\(host)"),
-              app.preferences.setEngineRule(for: url, engineID: engineID) else { return }
-        ruleHost = ""
-    }
-    private func setRule(_ engineID: EngineID?, host: String) {
-        guard let url = URL(string: "https://\(host)") else { return }
-        app.preferences.setEngineRule(for: url, engineID: engineID)
+    private var profileName: String {
+        app.profiles.first(where: { $0.id == profileID })?.displayedName ?? String(localized: "Profile")
     }
     private func siteEngineNames(_ site: WebsiteDataGroup) -> String {
         let ids = Set(site.members.map { $0.contextID.engineID })
         return app.engines.engines.filter { ids.contains($0.id) }.map(\.name).joined(separator: ", ")
     }
-    private var websiteDataProfileID: UUID {
-        if let selectedWebsiteDataProfile,
-           app.profiles.contains(where: { $0.id == selectedWebsiteDataProfile }) {
-            return selectedWebsiteDataProfile
-        }
-        return app.profiles[0].id
-    }
-    private func refreshSites(profileID: UUID? = nil) {
+    private func refresh() {
         guard !clearing else { return }
-        let profileID = profileID ?? websiteDataProfileID
-        siteDataRequest += 1
-        let request = siteDataRequest
+        request += 1
+        let current = request
         Task {
             let result = await app.websiteData(profileID: profileID)
-            guard request == siteDataRequest, profileID == websiteDataProfileID else { return }
+            guard current == request else { return }
             siteData = result.sites
             message = result.error
+            loading = false
         }
     }
     private func remove(_ site: WebsiteDataGroup) {
@@ -426,8 +635,6 @@ struct SettingsView: View {
     }
     private func clear(site: WebsiteDataGroup? = nil, categories: Set<WebsiteDataCategory>, modifiedSince: Date? = nil,
                        title: String, action: String) {
-        let profileID = websiteDataProfileID
-        let profileName = app.profiles.first(where: { $0.id == profileID })?.displayedName ?? String(localized: "Profile")
         let categoryMessage: String
         if categories == [.cache] { categoryMessage = String(localized: "Cached resources will be removed. Cookies and site storage are preserved. ") }
         else if categories == [.siteData] { categoryMessage = String(localized: "Cookies and site storage will be removed. Cached resources are preserved. ") }
@@ -439,22 +646,459 @@ struct SettingsView: View {
             buttons: [action, String(localized: "Cancel")])
         guard alert.runModal() == .alertFirstButtonReturn else { return }
         clearing = true
-        siteDataRequest += 1
-        let request = siteDataRequest
+        request += 1
+        let current = request
         Task {
             let removalMessage = await app.removeWebsiteData(profileID: profileID, site: site,
                 categories: categories, modifiedSince: modifiedSince)
             let result = await app.websiteData(profileID: profileID)
-            guard request == siteDataRequest, profileID == websiteDataProfileID else {
-                if request == siteDataRequest { clearing = false }
-                return
+            if current == request {
+                siteData = result.sites
+                message = [removalMessage, result.error].compactMap { $0 }.joined(separator: "\n")
+                if message?.isEmpty == true { message = nil }
             }
-            siteData = result.sites
-            message = [removalMessage, result.error].compactMap { $0 }.joined(separator: "\n")
-            if message?.isEmpty == true { message = nil }
             clearing = false
         }
     }
+}
+
+private struct ContentBlockingSettings: View {
+    let app: AppModel
+    let profileID: UUID
+    @State private var selected: EngineID?
+    var body: some View {
+        let providers = app.engines.engines.filter { $0.contentBlocker != nil }
+        if let provider = providers.first(where: { $0.id == selected }) ?? providers.first,
+           let blocker = provider.contentBlocker {
+            ContentBlockerSection(app: app, blocker: blocker, profileID: profileID,
+                                  providers: providers, selected: Binding(get: { provider.id }, set: { selected = $0 }))
+                .id(ContentBlockerIdentity(profileID: profileID, blocker: ObjectIdentifier(blocker)))
+        } else {
+            Section("Content Blocking") {
+                Text("Content Blocking Unavailable").foregroundStyle(.secondary)
+            }
+        }
+    }
+}
+
+private struct ContentBlockerIdentity: Hashable {
+    let profileID: UUID
+    let blocker: ObjectIdentifier
+}
+
+private struct ContentBlockerSection: View {
+    @Bindable var app: AppModel
+    let blocker: any EngineContentBlocker
+    let profileID: UUID
+    let providers: [any BrowserEngine]
+    @Binding var selected: EngineID
+    @State private var working = false
+    @State private var message: String?
+    @State private var source = ""
+
+    var body: some View {
+        let hasRules = blocker.hasRules(profileID: profileID)
+        Section {
+            if providers.count > 1 {
+                Picker("Rule format", selection: $selected) {
+                    ForEach(providers, id: \.id) { provider in
+                        Text(String(format: String(localized: "%@ — %@"), provider.name, provider.contentBlocker!.formatName)).tag(provider.id)
+                    }
+                }
+            }
+            Toggle(isOn: Binding(get: { blocker.isEnabled(profileID: profileID) }, set: { enabled in
+                let targetProfile = profileID
+                working = true
+                Task { await blocker.setEnabled(enabled, profileID: targetProfile); working = false }
+            })) {
+                Text("Enable rules")
+                Text(hasRules ? "Reload open pages after changing rules." : "Install or import rules first.")
+            }
+            .disabled(working || !hasRules)
+            LabeledContent {
+                Button("Install") { installBundledRules() }.disabled(working || hasRules)
+            } label: {
+                Text("Cobble Basic Tracker Rules")
+                Text("A small original list that blocks three common third-party tracking or ad hosts. Not broad ad filtering.")
+            }
+            LabeledContent {
+                Button("Import Rules…") { importRules() }.disabled(working)
+            } label: {
+                Text("Custom rules")
+                Text(String(format: String(localized: "Import a local %@ rule file to replace the current rules."), blocker.formatName))
+            }
+            TextField(text: $source, prompt: Text("HTTPS JSON URL")) {
+                Text("Update source")
+                Text("Updates run only when you select Update Now. A failed update keeps the current rules.")
+            }
+            HStack {
+                Spacer()
+                Button("Save Source") { saveSource() }.disabled(working || !hasRules)
+                Button("Update Now") { updateRules() }.disabled(working || source.isEmpty || !hasRules)
+            }
+        } header: {
+            Text("Content Blocking")
+        }
+        Section {
+            let exceptions = blocker.exceptions(profileID: profileID)
+            if exceptions.isEmpty {
+                Text("No sites are allowed through the blocker.").foregroundStyle(.secondary)
+            }
+            ForEach(exceptions, id: \.self) { origin in
+                LabeledContent(origin) {
+                    RemoveButton(String(localized: "Remove Exception")) {
+                        guard let url = URL(string: origin) else { return }
+                        let targetProfile = profileID
+                        working = true
+                        Task { await blocker.setException(origin: url, enabled: false, profileID: targetProfile); working = false }
+                    }
+                    .disabled(working)
+                }
+            }
+            if let error = blocker.lastError ?? message { Text(error).foregroundStyle(.orange) }
+        } header: {
+            Text("Sites allowed through the blocker")
+        } footer: {
+            Text("Use Page Actions to allow a site through the blocker. Exceptions match an exact origin, including its port.")
+        }
+        .onAppear { source = blocker.updateSource(profileID: profileID)?.absoluteString ?? "" }
+    }
+
+    private func importRules() {
+        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_000_000 else { message = String(localized: "Choose a rule file smaller than 1 MB."); return }
+            let json = try String(contentsOf: url, encoding: .utf8)
+            let targetProfile = profileID
+            working = true
+            Task { await blocker.importRules(json: json, profileID: targetProfile); working = false }
+        } catch { message = error.localizedDescription }
+    }
+    private func installBundledRules() {
+        let targetProfile = profileID
+        working = true
+        Task { await blocker.installBundledRules(profileID: targetProfile); working = false }
+    }
+    private func saveSource() {
+        let targetProfile = profileID
+        let text = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard text.isEmpty || URL(string: text) != nil else {
+            message = String(localized: "Enter an HTTPS JSON address or clear the field.")
+            return
+        }
+        let url = text.isEmpty ? nil : URL(string: text)
+        working = true
+        Task { await blocker.setUpdateSource(url, profileID: targetProfile); working = false }
+    }
+    private func updateRules() {
+        let targetProfile = profileID
+        working = true
+        Task { await blocker.updateRules(profileID: targetProfile); working = false }
+    }
+}
+
+// MARK: - Websites
+
+private struct WebsiteSettings: View {
+    @Bindable var app: AppModel
+    @Binding var profileID: UUID
+    @State private var newOrigin = ""
+    @State private var newIdentity: SiteBrowserIdentity = .iPhone
+
+    var body: some View {
+        Form {
+            ProfileSection(app: app, profileID: $profileID)
+            Section {
+                let entries = app.siteSettings.summaries(profileID: profileID, engines: app.engines.engines)
+                if entries.isEmpty {
+                    Text("No remembered permissions").foregroundStyle(.secondary)
+                }
+                ForEach(entries) { entry in
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text(verbatim: entry.origin).font(.body.weight(.medium)).lineLimit(1).truncationMode(.middle)
+                            Spacer()
+                            Button("Forget") {
+                                if confirm(), app.siteSettings.forget(origin: entry.origin, profileID: profileID) {
+                                    for kind in [PermissionKind.camera, .microphone, .windowManagement] {
+                                        app.engines.resetPermission(kind, origin: entry.origin, profileID: profileID)
+                                    }
+                                    unloadPages()
+                                }
+                            }
+                        }
+                        HStack(spacing: 14) {
+                            permissionPicker("Camera", symbol: "camera", .camera, entry)
+                            permissionPicker("Microphone", symbol: "mic", .microphone, entry)
+                            permissionPicker("Window management", symbol: "macwindow.on.rectangle", .windowManagement, entry)
+                            permissionPicker("Screen sharing", symbol: "rectangle.on.rectangle", .screenSharing, entry)
+                            if case .some(let popups) = entry.popups { popupPicker(popups, entry) }
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    .padding(.vertical, 2)
+                }
+                if let error = app.siteSettings.lastError { Text(error).foregroundStyle(.orange) }
+            } header: {
+                Text("Permissions")
+            } footer: {
+                Text("Saved decisions apply to normal windows. Private windows ask separately. Changing camera, microphone or screen decisions unloads normal pages to stop capture. Blocked sites still open pop-ups you click.")
+            }
+            Section {
+                let unsupported = app.engines.engines.filter { !$0.capabilities.supportsBrowserIdentity }
+                ForEach(unsupported, id: \.id) { engine in
+                    Text("Browser identity rules are unavailable in \(engine.name).")
+                        .font(.callout).foregroundStyle(.secondary)
+                }
+                ForEach(app.siteSettings.summaries(profileID: profileID, engines: app.engines.engines, includeIdentity: true)
+                            .filter { $0.browserIdentity != .standard }) { entry in
+                    Picker(selection: Binding(get: { entry.browserIdentity }, set: { setIdentity($0, for: entry.origin) })) {
+                        ForEach(SiteBrowserIdentity.allCases, id: \.self) { Text($0.title).tag($0) }
+                    } label: {
+                        Text(verbatim: entry.origin).lineLimit(1).truncationMode(.middle)
+                    }
+                }
+                HStack {
+                    TextField("Website", text: $newOrigin, prompt: Text(verbatim: "https://example.com"))
+                        .labelsHidden().textFieldStyle(.roundedBorder)
+                        .onSubmit(addIdentity)
+                    Picker("Browser identity", selection: $newIdentity) {
+                        ForEach(SiteBrowserIdentity.allCases, id: \.self) { Text($0.title).tag($0) }
+                    }
+                    .labelsHidden().fixedSize()
+                    Button("Add", action: addIdentity)
+                        .disabled(newOrigin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || newIdentity == .standard)
+                }
+            } header: {
+                Text("Browser Identity")
+            } footer: {
+                Text("Choose a browser identity for an exact HTTP or HTTPS origin. Changes apply on the next navigation or reload. Page width stays unchanged.")
+            }
+            Section {
+                let zooms = app.siteSettings.entries.filter { $0.profileID == profileID && $0.zoom != nil }
+                    .sorted { ($0.origin, $0.engineID.rawValue) < ($1.origin, $1.engineID.rawValue) }
+                if zooms.isEmpty {
+                    Text("No sites have a custom zoom.").foregroundStyle(.secondary)
+                }
+                ForEach(zooms) { entry in
+                    LabeledContent {
+                        Text((entry.zoom ?? 1).formatted(.percent.precision(.fractionLength(0))))
+                            .monospacedDigit().foregroundStyle(.secondary)
+                        RemoveButton(String(format: String(localized: "Reset zoom for %@"), entry.origin)) {
+                            if let url = URL(string: entry.origin) {
+                                app.siteSettings.setZoom(nil, origin: url, profileID: profileID, engineID: entry.engineID)
+                            }
+                        }
+                    } label: {
+                        Text(verbatim: entry.origin).lineLimit(1).truncationMode(.middle)
+                        if app.engines.engines.count > 1 { Text(app.engines.name(for: entry.engineID)) }
+                    }
+                }
+            } header: {
+                Text("Page Zoom")
+            } footer: {
+                Text("Cobble remembers zoom for each site in normal windows. A reset applies the next time the site loads.")
+            }
+        }
+    }
+
+    /// Pop-ups are allowed or blocked; a blocked site still opens pop-ups you click.
+    private func popupPicker(_ value: SitePermission?, _ entry: SiteSettingsStore.Summary) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: "macwindow.badge.plus").foregroundStyle(.secondary).help(Text("Pop-ups")).accessibilityHidden(true)
+            Picker("Pop-ups", selection: Binding(
+                get: { value.map { $0 == .allow ? SitePermission.allow : .ask } },
+                set: { if let next = $0 { app.siteSettings.updatePopups(origin: entry.origin, profileID: profileID, next, engines: app.engines.engines) } }
+            )) {
+                Text("Allow").tag(Optional(SitePermission.allow))
+                Text("Block").tag(Optional(SitePermission.ask))
+                Text("Mixed").tag(nil as SitePermission?).disabled(true)
+            }
+            .labelsHidden().fixedSize()
+        }
+    }
+
+    @ViewBuilder private func permissionPicker(_ title: LocalizedStringKey, symbol: String, _ kind: PermissionKind,
+                                               _ entry: SiteSettingsStore.Summary) -> some View {
+        if let value = entry.permissions[kind] {
+            HStack(spacing: 4) {
+                Image(systemName: symbol).foregroundStyle(.secondary).help(Text(title)).accessibilityHidden(true)
+                // Screen sharing offers Ask and Deny only: its grants are never saved.
+                Picker(title, selection: Binding(get: { value }, set: { if let next = $0 { update(entry, kind, next) } })) {
+                    ForEach(SitePermission.allCases.filter { kind != .screenSharing || $0 != .allow }, id: \.self) {
+                        Text(permissionTitle($0)).tag(Optional($0))
+                    }
+                    Text("Mixed").tag(nil as SitePermission?).disabled(true)
+                }
+                .labelsHidden().fixedSize()
+            }
+        }
+    }
+    private func permissionTitle(_ value: SitePermission) -> String {
+        switch value {
+        case .ask: String(localized: "Ask")
+        case .allow: String(localized: "Allow")
+        case .deny: String(localized: "Deny")
+        }
+    }
+    private func confirm() -> Bool {
+        let alert = NSAlert(); alert.messageText = String(localized: "Change site permissions?")
+        alert.informativeText = String(localized: "Normal pages will be unloaded to stop active capture. Unsaved page content may be lost.")
+        alert.addButton(withTitle: String(localized: "Change and Unload")); alert.addButton(withTitle: String(localized: "Cancel"))
+        return alert.runModal() == .alertFirstButtonReturn
+    }
+    private func unloadPages() { app.windows.filter { !$0.isPrivate && $0.record.profileID == profileID }.forEach { $0.unloadPages() } }
+    private func update(_ original: SiteSettingsStore.Summary, _ kind: PermissionKind, _ value: SitePermission) {
+        guard confirm() else { return }
+        guard app.siteSettings.update(origin: original.origin, profileID: profileID, kind, value,
+                                      engines: app.engines.engines) else { return }
+        if value != .allow { app.engines.resetPermission(kind, origin: original.origin, profileID: profileID) }
+        unloadPages()
+    }
+    private func addIdentity() {
+        let text = newOrigin.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !text.isEmpty, newIdentity != .standard else { return }
+        setIdentity(newIdentity, for: text)
+        if app.siteSettings.lastError == nil { newOrigin = "" }
+    }
+    private func setIdentity(_ identity: SiteBrowserIdentity, for origin: String) {
+        guard let url = URL(string: origin) else {
+            app.siteSettings.lastError = String(localized: "Site rules require a valid HTTP or HTTPS origin.")
+            return
+        }
+        _ = app.siteSettings.setBrowserIdentity(identity, for: url, profileID: profileID)
+    }
+}
+
+// MARK: - Automation
+
+/// Apple Event automation: a master switch, page reading, page use, private sites and the command-line tool.
+private struct AutomationSettings: View {
+    @Bindable var app: AppModel
+    @State private var site = ""
+
+    var body: some View {
+        let preferences = app.preferences
+        Form {
+            Section {
+                Toggle(isOn: Binding(get: { preferences.automationTabAccess }, set: { preferences.setAutomationTabAccess($0) })) {
+                    Text("Let Apps Control Tabs")
+                    Text("Apps you allow in Privacy & Security › Automation can list, open, navigate and close tabs in normal windows. Agents using the cobble tool open new tabs in an Agents space. Private windows are never shared.")
+                }
+                Toggle(isOn: Binding(get: { preferences.automationPageAccess }, set: { preferences.setAutomationPageAccess($0) })) {
+                    Text("Let Apps Read Pages")
+                    Text("Also lets them read page text, page outlines and page errors, and take screenshots. Local files are never shared.")
+                }
+                .disabled(!preferences.automationTabAccess)
+                Toggle(isOn: Binding(get: { preferences.automationPageControl }, set: { preferences.setAutomationPageControl($0) })) {
+                    Text("Let Apps Use Pages")
+                    Text("Also lets them click, type, choose options and scroll in pages, as you would. Cobble marks tabs an app is using in the sidebar.")
+                }
+                .disabled(!preferences.automationPageAccess)
+            }
+            Section {
+                ForEach(preferences.automationExcludedHosts, id: \.self) { host in
+                    LabeledContent {
+                        RemoveButton(String(format: String(localized: "Remove %@"), host)) {
+                            if let url = URL(string: "https://\(host)") { preferences.setAutomationExcluded(url, excluded: false) }
+                        }
+                    } label: {
+                        Label { Text(verbatim: host) } icon: { Image(systemName: "lock.fill").foregroundStyle(.secondary) }
+                    }
+                }
+                HStack {
+                    TextField("Website", text: $site, prompt: Text(verbatim: "bank.example"))
+                        .labelsHidden().textFieldStyle(.roundedBorder)
+                        .onSubmit(addSite)
+                    Button("Add", action: addSite)
+                        .disabled(site.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            } header: {
+                Text("Private Sites")
+            } footer: {
+                Text("Apps can't read or use these sites or their subdomains, and see only their address. Use it for banking, mail and health sites.")
+            }
+            Section {
+                LabeledContent {
+                    Button("Open Privacy Settings…") {
+                        if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
+                            NSWorkspace.shared.open(url)
+                        }
+                    }
+                } label: {
+                    Text("Apps with access")
+                    Text("macOS lists the apps that may control Cobble.")
+                }
+                if let tool = Bundle.main.url(forResource: "cobble", withExtension: nil) {
+                    LabeledContent {
+                        Button("Copy Path") {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(tool.path, forType: .string)
+                        }
+                    } label: {
+                        Text("Command-line tool")
+                        Text("Scripts and AI agents can run cobble for JSON output, or “cobble mcp” as an MCP server.")
+                    }
+                }
+            }
+        }
+        .disabled(preferences.readError != nil)
+    }
+
+    private func addSite() {
+        let text = site.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: text.contains("://") ? text : "https://\(text)"),
+              app.preferences.setAutomationExcluded(url, excluded: true) else { return }
+        site = ""
+    }
+}
+
+// MARK: - Advanced
+
+private struct AdvancedSettings: View {
+    @Bindable var app: AppModel
+    @State private var message: String?
+
+    var body: some View {
+        Form {
+            Section {
+                Toggle(isOn: Binding(get: { app.preferences.webInspectorEnabled }, set: { app.setWebInspectorEnabled($0) })) {
+                    Text("Enable Developer Tools")
+                    Text("WebKit pages appear in Safari’s Develop menu. Chromium pages open from View > Open Developer Tools. Enable this only while debugging.")
+                }
+                .disabled(!app.engines.engines.contains {
+                    !$0.capabilities.pageOperations.intersection([.inspect, .openDevTools]).isEmpty
+                })
+            } header: {
+                Text("Developer")
+            }
+            Section {
+                LabeledContent {
+                    Button("Export…", action: exportWorkspace)
+                    Button("Restore…", action: restoreWorkspace)
+                } label: {
+                    Text("Backup and restore")
+                    Text("Includes normal windows, tabs, spaces, pins, and favorites. Website data and private windows stay on this Mac.")
+                }
+            } header: {
+                Text("Workspace")
+            }
+            Section {
+                LabeledContent {
+                    Button("Export…", action: exportDiagnostics)
+                } label: {
+                    Text("Redacted diagnostics")
+                    Text("Saves app and OS versions, the local data directory, the last persistence error, and registered engine names. No page URLs, cookies, or browsing history.")
+                }
+            } header: {
+                Text("Diagnostics")
+            }
+            SettingsMessage(text: app.persistenceMessage)
+            SettingsMessage(text: message, isError: false)
+        }
+    }
+
     private func restoreWorkspace() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
         guard panel.runModal() == .OK, let url = panel.url else { return }
@@ -490,197 +1134,13 @@ struct SettingsView: View {
     }
 }
 
-struct SettingsPage<Content: View>: View {
-    var topPadding: CGFloat = 20
-    let content: Content
-    init(topPadding: CGFloat = 20, @ViewBuilder content: () -> Content) {
-        self.topPadding = topPadding
-        self.content = content()
-    }
-
-    var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 28) { content }
-                .frame(maxWidth: SettingsStyle.contentWidth, alignment: .leading)
-                .padding(.horizontal, SettingsStyle.pageInset)
-                .padding(.top, topPadding)
-                .padding(.bottom, 44)
-                .frame(maxWidth: .infinity)
-        }
-        .background(SettingsStyle.canvas)
-    }
-}
-
-struct SettingsGroup<Content: View>: View {
-    let title: Text
-    let content: Content
-    init(_ title: LocalizedStringKey, @ViewBuilder content: () -> Content) {
-        self.title = Text(title)
-        self.content = content()
-    }
-    init(verbatim title: String, @ViewBuilder content: () -> Content) {
-        self.title = Text(verbatim: title)
-        self.content = content()
-    }
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            title
-                .font(.title3.weight(.semibold))
-                .padding(.leading, 4)
-                .accessibilityAddTraits(.isHeader)
-            VStack(alignment: .leading, spacing: 14) { content }
-                .padding(18)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(SettingsStyle.groupBackground, in: RoundedRectangle(cornerRadius: SettingsStyle.groupCornerRadius))
-                .overlay {
-                    RoundedRectangle(cornerRadius: SettingsStyle.groupCornerRadius)
-                        .stroke(SettingsStyle.groupBorder)
-                }
-        }
-    }
-}
-
-struct SettingsRow<Accessory: View>: View {
-    let title: Text
-    var detail: Text?
-    let accessory: Accessory
-    init(_ title: LocalizedStringKey, detail: LocalizedStringKey? = nil, @ViewBuilder accessory: () -> Accessory) {
-        self.title = Text(title)
-        self.detail = detail.map { Text($0) }
-        self.accessory = accessory()
-    }
-    init(_ title: LocalizedStringKey, detailVerbatim: String, @ViewBuilder accessory: () -> Accessory) {
-        self.title = Text(title)
-        self.detail = Text(verbatim: detailVerbatim)
-        self.accessory = accessory()
-    }
-    init(verbatim title: String, detail: String? = nil, @ViewBuilder accessory: () -> Accessory) {
-        self.title = Text(verbatim: title)
-        self.detail = detail.map { Text(verbatim: $0) }
-        self.accessory = accessory()
-    }
-    var body: some View {
-        HStack(alignment: detail == nil ? .center : .top, spacing: 24) {
-            VStack(alignment: .leading, spacing: 3) {
-                title.font(.body.weight(.medium))
-                if let detail {
-                    detail
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-                        .fixedSize(horizontal: false, vertical: true)
-                }
-            }
-            Spacer(minLength: 24)
-            HStack(spacing: 8) { accessory }
-                .controlSize(.regular)
-        }
-    }
-}
-
-enum SettingsStyle {
-    static let contentWidth: CGFloat = 680
-    static let pageInset: CGFloat = 32
-    static let groupCornerRadius: CGFloat = 14
-    static let canvas = Color(nsColor: .controlBackgroundColor)
-    static let groupBackground = Color(nsColor: .controlBackgroundColor)
-    static let groupBorder = Color.primary.opacity(0.10)
-}
-
-extension View {
-    func settingsPane() -> some View {
-        frame(maxWidth: SettingsStyle.contentWidth, maxHeight: .infinity, alignment: .topLeading)
-            .padding(.horizontal, SettingsStyle.pageInset)
-            .padding(.vertical, 24)
-            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
-            .background(SettingsStyle.canvas)
-    }
-}
-
-/// Apple Event automation: a master switch, page reading, page use, private sites and the command-line tool.
-private struct AutomationSettings: View {
-    @Bindable var app: AppModel
-    @State private var site = ""
-
-    var body: some View {
-        let preferences = app.preferences
-        SettingsGroup("Automation") {
-            SettingsRow("Let Apps Control Tabs", detail: "Apps you allow in Privacy & Security › Automation can list, open, navigate and close tabs in normal windows. Agents using the cobble tool open new tabs in an Agents space. Private windows are never shared.") {
-                Toggle("Let Apps Control Tabs", isOn: Binding(
-                    get: { preferences.automationTabAccess },
-                    set: { preferences.setAutomationTabAccess($0) }
-                )).labelsHidden().toggleStyle(.switch)
-            }
-            SettingsRow("Let Apps Read Pages", detail: "Also lets them read page text, page outlines and page errors, and take screenshots. Local files are never shared.") {
-                Toggle("Let Apps Read Pages", isOn: Binding(
-                    get: { preferences.automationPageAccess },
-                    set: { preferences.setAutomationPageAccess($0) }
-                )).labelsHidden().toggleStyle(.switch)
-                    .disabled(!preferences.automationTabAccess)
-            }
-            SettingsRow("Let Apps Use Pages", detail: "Also lets them click, type, choose options and scroll in pages, as you would. Cobble marks tabs an app is using in the sidebar.") {
-                Toggle("Let Apps Use Pages", isOn: Binding(
-                    get: { preferences.automationPageControl },
-                    set: { preferences.setAutomationPageControl($0) }
-                )).labelsHidden().toggleStyle(.switch)
-                    .disabled(!preferences.automationPageAccess)
-            }
-            Divider()
-            VStack(alignment: .leading, spacing: 3) {
-                Text("Private Sites").font(.body.weight(.medium))
-                Text("Apps can't read or use these sites or their subdomains, and see only their address. Use it for banking, mail and health sites.")
-                    .font(.callout).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            }
-            ForEach(preferences.automationExcludedHosts, id: \.self) { host in
-                HStack(spacing: 10) {
-                    Text(verbatim: host).lineLimit(1).truncationMode(.middle)
-                    Spacer(minLength: 12)
-                    Button("Remove", systemImage: "minus.circle") {
-                        if let url = URL(string: "https://\(host)") { preferences.setAutomationExcluded(url, excluded: false) }
-                    }
-                    .labelStyle(.iconOnly).buttonStyle(.borderless)
-                    .accessibilityLabel(String(format: String(localized: "Remove %@"), host))
-                }
-            }
-            HStack {
-                TextField("bank.example", text: $site)
-                    .textFieldStyle(.roundedBorder)
-                    .onSubmit(addSite)
-                Button("Add", action: addSite)
-                    .disabled(site.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-            }
-            Divider()
-            SettingsRow("Apps with access", detail: "macOS lists the apps that may control Cobble.") {
-                Button("Open Privacy Settings…") {
-                    if let url = URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation") {
-                        NSWorkspace.shared.open(url)
-                    }
-                }
-            }
-            if let tool = Bundle.main.url(forResource: "cobble", withExtension: nil) {
-                SettingsRow("Command-line tool", detail: "Scripts and AI agents can run cobble for JSON output, or “cobble mcp” as an MCP server.") {
-                    Button("Copy Path") {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(tool.path, forType: .string)
-                    }
-                }
-            }
-        }
-        .disabled(preferences.readError != nil)
-    }
-
-    private func addSite() {
-        let text = site.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let url = URL(string: text.contains("://") ? text : "https://\(text)"),
-              app.preferences.setAutomationExcluded(url, excluded: true) else { return }
-        site = ""
-    }
-}
+// MARK: - Extensions
 
 private struct ExtensionSettingsView: View {
     @Bindable var app: AppModel
     var actionPage: (any BrowserPage)?
+    @Binding var profileID: UUID
     @State private var selectedEngine: EngineID?
-    @State private var selectedProfile: UUID?
     @State private var working = false
     @State private var revision = 0
     @State private var message: String?
@@ -690,66 +1150,49 @@ private struct ExtensionSettingsView: View {
     private var engine: (any BrowserEngine)? {
         engines.first { $0.id == selectedEngine } ?? engines.first
     }
-    private var profileID: UUID {
-        if let selectedProfile, app.profiles.contains(where: { $0.id == selectedProfile }) {
-            return selectedProfile
-        }
-        if let actionProfile = actionPage?.contextID.profileID,
-           app.profiles.contains(where: { $0.id == actionProfile }) {
-            return actionProfile
-        }
-        return app.profiles[0].id
-    }
 
     var body: some View {
-        SettingsPage {
-            if engines.isEmpty {
-                ContentUnavailableView("Extensions Unavailable", systemImage: "puzzlepiece.extension",
-                                       description: Text("None of the installed web engines support extensions."))
-                    .frame(maxWidth: .infinity, minHeight: 360)
-            } else if let engine, let manager = engine.extensionManager {
-                HStack {
+        if let engine, let manager = engine.extensionManager {
+            Form {
+                Section {
                     if engines.count > 1 {
-                        Picker("Engine", selection: Binding(
-                            get: { selectedEngine ?? engine.id },
-                            set: { selectedEngine = $0 }
-                        )) {
+                        Picker("Engine", selection: Binding(get: { selectedEngine ?? engine.id }, set: { selectedEngine = $0 })) {
                             ForEach(engines, id: \.id) { Text($0.name).tag($0.id) }
-                        }.frame(width: 220).disabled(working)
-                    } else {
-                        Text(String(format: String(localized: "Extensions for %@"), engine.name)).font(.headline)
+                        }
+                        .disabled(working)
                     }
                     if app.profiles.count > 1 {
-                        Picker("Profile", selection: Binding(
-                            get: { profileID },
-                            set: { selectedProfile = $0 }
-                        )) {
+                        Picker("Profile", selection: $profileID) {
                             ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
-                        }.frame(width: 180).disabled(working)
+                        }
+                        .disabled(working)
                     }
-                    Spacer()
-                    if working { ProgressView().controlSize(.small) }
-                    Button("Install Extension…") { install(with: manager) }.disabled(working)
+                    LabeledContent {
+                        if working { ProgressView().controlSize(.small) }
+                        Button("Install Extension…") { install(with: manager) }.disabled(working)
+                    } label: {
+                        Text(String(format: String(localized: "Extensions for %@"), engine.name))
+                        Text(manager.capabilities.supportsProviderBundles
+                             ? "Install a compatible web extension from a folder, bundle, or ZIP file."
+                             : "Install a compatible web extension from an unpacked folder.")
+                    }
                 }
                 let items = extensions(from: manager)
                 if items.isEmpty {
-                    ContentUnavailableView("No Extensions", systemImage: "puzzlepiece.extension",
-                                           description: Text(manager.capabilities.supportsProviderBundles
-                                               ? "Install a compatible web extension from a folder, bundle, or ZIP file."
-                                               : "Install a compatible web extension from an unpacked folder."))
-                        .frame(maxWidth: .infinity, minHeight: 300)
-                } else {
-                    ForEach(items) { item in extensionCard(item, manager: manager) }
+                    Section {
+                        ContentUnavailableView("No Extensions", systemImage: "puzzlepiece.extension")
+                            .frame(maxWidth: .infinity)
+                    }
                 }
-                if let error = message ?? manager.lastError {
-                    Text(error).font(.callout).foregroundStyle(.orange)
-                }
+                ForEach(items) { item in extensionSection(item, manager: manager) }
+                SettingsMessage(text: message ?? manager.lastError)
             }
-        }
-        .onAppear {
-            for engine in engines {
-                engine.extensionManager?.onChange = { revision += 1 }
+            .onAppear {
+                for engine in engines { engine.extensionManager?.onChange = { revision += 1 } }
             }
+        } else {
+            ContentUnavailableView("Extensions Unavailable", systemImage: "puzzlepiece.extension",
+                                   description: Text("None of the installed web engines support extensions."))
         }
     }
 
@@ -758,41 +1201,57 @@ private struct ExtensionSettingsView: View {
         return manager.extensions(profileID: profileID)
     }
 
-    private func extensionCard(_ item: BrowserExtensionInfo, manager: any BrowserExtensionManaging) -> some View {
-                SettingsGroup(verbatim: item.name) {
-            SettingsRow(verbatim: String(format: String(localized: "Version %@"), item.version), detail: item.sourceURL.lastPathComponent) {
-                if item.hasAction {
+    @ViewBuilder private func extensionSection(_ item: BrowserExtensionInfo, manager: any BrowserExtensionManaging) -> some View {
+        Section {
+            Toggle(isOn: Binding(
+                get: { item.isEnabled },
+                set: { enabled in perform { try await manager.setEnabled(enabled, id: item.id, profileID: item.profileID) } }
+            )) {
+                Label {
+                    Text(verbatim: item.name)
+                    Text(verbatim: String(format: String(localized: "Version %@"), item.version) + " · " + item.sourceURL.lastPathComponent)
+                } icon: {
+                    Image(systemName: "puzzlepiece.extension.fill").foregroundStyle(.green)
+                }
+            }
+            .disabled(working)
+            if item.hasAction {
+                LabeledContent {
                     Button("Open") { openAction(item, manager: manager) }
                         .disabled(working || !item.isEnabled || actionPage == nil
                                   || actionPage?.contextID.engineID != engine?.id
                                   || actionPage?.contextID.profileID != profileID
                                   || (actionPage?.contextID.isPrivate == true && !item.allowsPrivateBrowsing))
-                        .help("Open this extension for the browser tab that opened Settings")
+                } label: {
+                    Text("Extension action")
+                    Text("Open this extension for the browser tab that opened Settings")
                 }
-                Toggle("Enabled", isOn: Binding(
-                    get: { item.isEnabled },
-                    set: { enabled in perform { try await manager.setEnabled(enabled, id: item.id, profileID: item.profileID) } }
-                )).toggleStyle(.switch).disabled(working)
             }
             if !item.requestedOrigins.isEmpty {
-                Divider()
-                Text("Website access").font(.callout.weight(.medium))
                 if manager.capabilities.websiteAccess == .declaredPatterns {
-                  ForEach(item.requestedOrigins, id: \.self) { origin in
-                    Toggle(origin, isOn: Binding(
-                        get: { item.allowedOrigins.contains(origin) },
-                        set: { allowed in
-                            var origins = Set(item.allowedOrigins)
-                            if allowed { origins.insert(origin) } else { origins.remove(origin) }
-                            perform { try await manager.setAllowedOrigins(origins.sorted(), id: item.id, profileID: item.profileID) }
+                    ForEach(item.requestedOrigins, id: \.self) { origin in
+                        Toggle(isOn: Binding(
+                            get: { item.allowedOrigins.contains(origin) },
+                            set: { allowed in
+                                var origins = Set(item.allowedOrigins)
+                                if allowed { origins.insert(origin) } else { origins.remove(origin) }
+                                perform { try await manager.setAllowedOrigins(origins.sorted(), id: item.id, profileID: item.profileID) }
+                            }
+                        )) {
+                            Text("Website access")
+                            Text(verbatim: origin)
                         }
-                    )).disabled(working)
-                }
+                        .disabled(working)
+                    }
                 } else {
-                    Text(verbatim: String(format: String(localized: "Requested: %@"), item.requestedOrigins.joined(separator: ", ")))
-                        .font(.caption).foregroundStyle(.secondary)
+                    LabeledContent {
+                        EmptyView()
+                    } label: {
+                        Text("Website access")
+                        Text(verbatim: String(format: String(localized: "Requested: %@"), item.requestedOrigins.joined(separator: ", ")))
+                    }
                     ForEach(item.allowedOrigins, id: \.self) { origin in
-                        SettingsRow(verbatim: origin) {
+                        LabeledContent(origin) {
                             Button("Remove Access") {
                                 perform {
                                     try await manager.setAllowedOrigins(item.allowedOrigins.filter { $0 != origin },
@@ -802,45 +1261,47 @@ private struct ExtensionSettingsView: View {
                         }
                     }
                     HStack {
-                        TextField("https://example.com", text: Binding(
+                        TextField("Website", text: Binding(
                             get: { siteDrafts[item.id] ?? "" },
                             set: { siteDrafts[item.id] = $0 }
-                        )).textFieldStyle(.roundedBorder)
+                        ), prompt: Text(verbatim: "https://example.com")).labelsHidden().textFieldStyle(.roundedBorder)
                         Button("Allow Website") { grantSite(item, manager: manager) }
                             .disabled(working || (siteDrafts[item.id] ?? "").trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
-                    }.disabled(working)
-                }
-            }
-            if !item.deniedPermissions.isEmpty {
-                Divider()
-                SettingsRow("Unavailable permissions",
-                            detailVerbatim: String(format: String(localized: "Cobble does not support: %@"), item.deniedPermissions.joined(separator: ", "))) { }
-            }
-            if !item.allowedOptionalPermissions.isEmpty {
-                Divider()
-                Text("Optional permissions").font(.callout.weight(.medium))
-                ForEach(item.allowedOptionalPermissions, id: \.self) { permission in
-                    SettingsRow(verbatim: permission) {
-                        Button("Remove Access") {
-                            perform {
-                                try await manager.setAllowedOptionalPermissions(
-                                    item.allowedOptionalPermissions.filter { $0 != permission },
-                                    id: item.id, profileID: item.profileID)
-                            }
-                        }.disabled(working)
                     }
                 }
             }
-            Divider()
-            let privateDetail: LocalizedStringKey = manager.capabilities.supportsPrivateBrowsing
-                ? "Private tabs use separate browsing data."
-                : "This engine does not support extensions in private windows."
-            SettingsRow("Allow in Private Browsing", detail: privateDetail) {
-                Toggle("Allow in Private Browsing", isOn: Binding(
-                    get: { item.allowsPrivateBrowsing },
-                    set: { allowed in perform { try await manager.setPrivateBrowsingAllowed(allowed, id: item.id, profileID: item.profileID) } }
-                )).labelsHidden().toggleStyle(.switch).disabled(working || !manager.capabilities.supportsPrivateBrowsing)
+            if !item.deniedPermissions.isEmpty {
+                LabeledContent {
+                    EmptyView()
+                } label: {
+                    Text("Unavailable permissions")
+                    Text(verbatim: String(format: String(localized: "Cobble does not support: %@"), item.deniedPermissions.joined(separator: ", ")))
+                }
             }
+            ForEach(item.allowedOptionalPermissions, id: \.self) { permission in
+                LabeledContent {
+                    Button("Remove Access") {
+                        perform {
+                            try await manager.setAllowedOptionalPermissions(
+                                item.allowedOptionalPermissions.filter { $0 != permission },
+                                id: item.id, profileID: item.profileID)
+                        }
+                    }.disabled(working)
+                } label: {
+                    Text("Optional permissions")
+                    Text(verbatim: permission)
+                }
+            }
+            Toggle(isOn: Binding(
+                get: { item.allowsPrivateBrowsing },
+                set: { allowed in perform { try await manager.setPrivateBrowsingAllowed(allowed, id: item.id, profileID: item.profileID) } }
+            )) {
+                Text("Allow in Private Browsing")
+                Text(manager.capabilities.supportsPrivateBrowsing
+                     ? "Private tabs use separate browsing data."
+                     : "This engine does not support extensions in private windows.")
+            }
+            .disabled(working || !manager.capabilities.supportsPrivateBrowsing)
             HStack {
                 if let error = item.errorMessage { Text(error).font(.callout).foregroundStyle(.orange) }
                 Spacer()
@@ -907,6 +1368,249 @@ private struct ExtensionSettingsView: View {
             do { try await operation() } catch { message = error.localizedDescription }
             revision += 1
             working = false
+        }
+    }
+}
+
+// MARK: - History
+
+private struct LibraryView: View {
+    @Bindable var app: AppModel
+    @Binding var profileID: UUID
+    var openURL: (URL, UUID) -> Void
+    @State private var query = ""
+    @State private var bookmarksOnly = false
+    @State private var retention = 90
+    @State private var clearHours = 0
+    @State private var entries: [LibraryEntry] = []
+    @State private var message: String?
+    @State private var editingBookmark: LibraryEntry?
+    @State private var editingProfile = UUID()
+    @State private var bookmarkTitle = ""
+    @State private var bookmarkURL = ""
+    @State private var editError: String?
+    private var store: LibraryStore { app.library }
+
+    var body: some View {
+        Form {
+            ProfileSection(app: app, profileID: $profileID)
+            Section {
+                Picker(selection: $retention) {
+                    Text("7 days").tag(7)
+                    Text("30 days").tag(30)
+                    Text("90 days").tag(90)
+                    Text("1 year").tag(365)
+                    Text("Until I clear it").tag(0)
+                } label: {
+                    Text("Keep history")
+                    Text("Repeated visits update the last visit. Bookmarks are preserved.")
+                }
+                LabeledContent {
+                    Picker("Clear", selection: $clearHours) {
+                        Text("Last hour").tag(1)
+                        Text("Last 24 hours").tag(24)
+                        Text("Last 7 days").tag(168)
+                        Text("All history").tag(0)
+                    }
+                    .labelsHidden().fixedSize()
+                    Button("Clear History…", action: clearHistory)
+                } label: {
+                    Text("Clear history")
+                    Text("Removes pages last visited in that period. Library bookmarks, pins and website data stay.")
+                }
+                LabeledContent {
+                    Button("Import…", action: importBookmarks)
+                    Button("Export…", action: exportBookmarks)
+                } label: {
+                    Text("Bookmarks")
+                    Text("HTML bookmark files from Safari, Chrome and other browsers.")
+                }
+            }
+            Section {
+                ForEach(entries) { entry in
+                    HStack {
+                        Button {
+                            if let url = URL(string: entry.urlString) { openURL(url, profileID) }
+                        } label: {
+                            Label {
+                                Text(entry.title).lineLimit(1)
+                                Text(entry.urlString).lineLimit(1)
+                            } icon: {
+                                Image(systemName: entry.isBookmark ? "bookmark.fill" : "clock").foregroundStyle(.secondary)
+                            }
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+                        Spacer()
+                        if !bookmarksOnly {
+                            Text(entry.visitedAt, format: .dateTime.month().day().hour().minute())
+                                .font(.caption).foregroundStyle(.secondary)
+                        } else {
+                            Button("Edit…") {
+                                editingProfile = profileID
+                                bookmarkTitle = entry.title
+                                bookmarkURL = entry.urlString
+                                editError = nil
+                                editingBookmark = entry
+                            }
+                        }
+                        RemoveButton(bookmarksOnly ? String(localized: "Remove library bookmark; keep browsing history")
+                                                   : String(localized: "Remove from history; keep library bookmark")) {
+                            if bookmarksOnly { store.removeBookmark(id: entry.id, profileID: profileID) }
+                            else { store.removeHistoryEntry(id: entry.id, profileID: profileID) }
+                            refresh()
+                        }
+                    }
+                }
+                if entries.isEmpty {
+                    Text(bookmarksOnly ? "No bookmarks" : "No history").foregroundStyle(.secondary)
+                }
+            } header: {
+                HStack {
+                    Picker("Show", selection: $bookmarksOnly) {
+                        Text("History").tag(false)
+                        Text("Bookmarks").tag(true)
+                    }
+                    .pickerStyle(.segmented).labelsHidden().fixedSize()
+                    Spacer()
+                    TextField("Search", text: $query, prompt: Text(bookmarksOnly ? "Search bookmarks" : "Search history"))
+                        .textFieldStyle(.roundedBorder).labelsHidden().frame(width: 220)
+                }
+            } footer: {
+                Text("Shows the 100 most recent matching pages.")
+            }
+            SettingsMessage(text: store.lastError ?? message, isError: false)
+        }
+        .onAppear { retention = store.retentionDays(profileID: profileID); refresh() }
+        .onChange(of: profileID) { _, _ in
+            retention = store.retentionDays(profileID: profileID)
+            refresh()
+        }
+        .onChange(of: retention) { old, days in
+            guard days != store.retentionDays(profileID: profileID) else { return }
+            let alert = NSAlert(); alert.messageText = String(localized: "Change history retention?")
+            alert.informativeText = days == 0
+                ? String(localized: "History will remain until you clear it.")
+                : String(format: String(localized: "History older than %@ days will be removed now and automatically as you browse. Bookmarks are preserved."), "\(days)")
+            alert.addButton(withTitle: String(localized: "Change")); alert.addButton(withTitle: String(localized: "Cancel"))
+            if alert.runModal() == .alertFirstButtonReturn {
+                store.setRetentionDays(days, profileID: profileID)
+                retention = store.retentionDays(profileID: profileID)
+                refresh()
+            }
+            else { retention = old }
+        }
+        .onChange(of: store.revision) { _, _ in refresh() }
+        .onChange(of: query) { _, _ in refresh() }
+        .onChange(of: bookmarksOnly) { _, _ in refresh() }
+        .sheet(item: $editingBookmark) { entry in
+            VStack(spacing: 0) {
+                Form {
+                    Section("Edit Bookmark") {
+                        TextField("Title", text: $bookmarkTitle)
+                        TextField("Address", text: $bookmarkURL)
+                        if let editError { Text(editError).foregroundStyle(.red) }
+                    }
+                }
+                .formStyle(.grouped)
+                HStack {
+                    Spacer()
+                    Button("Cancel") { editingBookmark = nil }.keyboardShortcut(.cancelAction)
+                    Button("Save") {
+                        if store.editBookmark(id: entry.id, profileID: editingProfile, urlString: bookmarkURL, title: bookmarkTitle) {
+                            editingBookmark = nil
+                            refresh()
+                        } else { editError = store.lastError }
+                    }.keyboardShortcut(.defaultAction)
+                }
+                .padding([.horizontal, .bottom], 20)
+            }
+            .frame(width: 460)
+        }
+    }
+    private func refresh() { entries = store.search(query, profileID: profileID, bookmarksOnly: bookmarksOnly, historyOnly: !bookmarksOnly) }
+    private func importBookmarks() {
+        let panel = NSOpenPanel(); panel.allowedContentTypes = [.html]; panel.allowsMultipleSelection = false
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do {
+            let attributes = try url.resourceValues(forKeys: [.fileSizeKey])
+            guard (attributes.fileSize ?? 0) <= 10_000_000 else { message = String(localized: "Choose a bookmark file smaller than 10 MB."); return }
+            message = store.importBookmarks(from: try String(contentsOf: url, encoding: .utf8), profileID: profileID)?.message
+            refresh()
+        } catch { message = error.localizedDescription }
+    }
+    private func exportBookmarks() {
+        let panel = NSSavePanel(); panel.allowedContentTypes = [.html]; panel.nameFieldStringValue = "Cobble-bookmarks.html"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        do { try store.exportBookmarks(profileID: profileID).write(to: url, atomically: true, encoding: .utf8) }
+        catch { message = error.localizedDescription }
+    }
+    private func clearHistory() {
+        let alert = NSAlert(); alert.messageText = clearHours == 0
+            ? String(localized: "Clear all browsing history?")
+            : String(format: String(localized: "Clear history from the last %@ hours?"), "\(clearHours)")
+        alert.informativeText = String(localized: "Bookmarks, saved tabs, and website data are preserved.")
+        alert.addButton(withTitle: String(localized: "Clear History")); alert.addButton(withTitle: String(localized: "Cancel"))
+        if alert.runModal() == .alertFirstButtonReturn { store.clearHistory(profileID: profileID, since: clearHours == 0 ? .distantPast : Date().addingTimeInterval(-Double(clearHours) * 3600)); refresh() }
+    }
+}
+
+// MARK: - Keyboard
+
+struct ShortcutSettingsView: View {
+    @Bindable var preferences: BrowserPreferences
+    @State private var query = ""
+    @State private var recording: BrowserCommand?
+
+    var body: some View {
+        Form {
+            Section {
+                TextField("Search", text: $query, prompt: Text("Search shortcuts")).labelsHidden().textFieldStyle(.roundedBorder)
+            }
+            Section {
+                ForEach(BrowserCommand.allCases.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }) { command in
+                    let shortcut = preferences.shortcut(for: command)
+                    LabeledContent(command.title) {
+                        Button {
+                            preferences.errorMessage = nil; recording = command
+                        } label: {
+                            Text(shortcut.label)
+                                .monospaced()
+                                .foregroundStyle(shortcut.key.isEmpty ? .secondary : .primary)
+                                .frame(minWidth: 90, minHeight: 22)
+                                .padding(.horizontal, 6)
+                                .background(.quaternary, in: RoundedRectangle(cornerRadius: 6))
+                        }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel(String(format: String(localized: "Change shortcut for %@: %@"), command.title, shortcut.label))
+                        RemoveButton(String(format: String(localized: "Clear shortcut for %@"), command.title)) {
+                            preferences.set(BrowserShortcut(""), for: command)
+                        }
+                        .disabled(shortcut.key.isEmpty)
+                    }
+                }
+            } footer: {
+                HStack(alignment: .top) {
+                    Text("Editing, Quit, Hide and Minimize use standard macOS shortcuts. Escape cancels; Return confirms dialogs.")
+                    Spacer()
+                    Button("Reset Shortcuts") { preferences.resetShortcuts() }
+                }
+            }
+            SettingsMessage(text: preferences.errorMessage)
+        }
+        .sheet(item: $recording) { command in
+            VStack(spacing: 16) {
+                Text(command.title).font(.headline)
+                Text("Press a shortcut with Command or Control.")
+                Text("Escape cancels.").font(.caption).foregroundStyle(.secondary)
+                ShortcutCapture { shortcut in
+                    if let shortcut {
+                        if preferences.set(shortcut, for: command) { recording = nil }
+                    } else { recording = nil }
+                }.frame(width: 1, height: 1).accessibilityHidden(true)
+                if let error = preferences.errorMessage { Text(error).foregroundStyle(.orange) }
+                Button("Cancel") { recording = nil }
+            }.padding(24).frame(width: 390)
         }
     }
 }
@@ -991,542 +1695,6 @@ struct DownloadsPanel: View {
         DownloadsView(store: store)
             .padding(20)
             .frame(width: 380, height: 380)
-    }
-}
-
-private struct LibraryView: View {
-    @Bindable var app: AppModel
-    var openURL: (URL, UUID) -> Void
-    @State private var selectedProfile: UUID?
-    @State private var query = ""
-    @State private var bookmarksOnly = false
-    @State private var retention = 90
-    @State private var clearHours = 0
-    @State private var entries: [LibraryEntry] = []
-    @State private var message: String?
-    @State private var editingBookmark: LibraryEntry?
-    @State private var editingProfile = UUID()
-    @State private var bookmarkTitle = ""
-    @State private var bookmarkURL = ""
-    @State private var editError: String?
-    private var store: LibraryStore { app.library }
-    private var profileID: UUID {
-        if let selectedProfile, app.profiles.contains(where: { $0.id == selectedProfile }) {
-            return selectedProfile
-        }
-        return app.profiles[0].id
-    }
-    var body: some View {
-        SettingsGroup("Library") {
-            HStack {
-                if app.profiles.count > 1 {
-                    Picker("Profile", selection: Binding(
-                        get: { profileID },
-                        set: { selectedProfile = $0 }
-                    )) {
-                        ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
-                    }.frame(width: 180)
-                }
-                TextField(bookmarksOnly ? "Search bookmarks" : "Search history", text: $query).textFieldStyle(.roundedBorder)
-                Picker("Show", selection: $bookmarksOnly) {
-                    Text("History").tag(false)
-                    Text("Bookmarks").tag(true)
-                }.pickerStyle(.segmented).labelsHidden().frame(width: 200)
-            }
-            List(entries) { entry in
-                HStack {
-                    Button {
-                        if let url = URL(string: entry.urlString) { openURL(url, profileID) }
-                    } label: {
-                        VStack(alignment: .leading) {
-                            Label(entry.title, systemImage: entry.isBookmark ? "bookmark" : "clock").lineLimit(1)
-                            Text(entry.urlString).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-                            if !bookmarksOnly { Text(entry.visitedAt, format: .dateTime.month().day().hour().minute()).font(.caption2).foregroundStyle(.secondary) }
-                        }
-                    }.buttonStyle(.plain)
-                    Spacer()
-                    if bookmarksOnly {
-                        Button("Edit…") {
-                            editingProfile = profileID
-                            bookmarkTitle = entry.title
-                            bookmarkURL = entry.urlString
-                            editError = nil
-                            editingBookmark = entry
-                        }
-                    }
-                    Button("Delete") {
-                        if bookmarksOnly { store.removeBookmark(id: entry.id, profileID: profileID) }
-                        else { store.removeHistoryEntry(id: entry.id, profileID: profileID) }
-                        refresh()
-                    }.help(bookmarksOnly ? "Remove library bookmark; keep browsing history" : "Remove from history; keep library bookmark")
-                }
-            }.listStyle(.inset).clipShape(RoundedRectangle(cornerRadius: 10))
-            HStack {
-                Button("Import…") { importBookmarks() }
-                Button("Export…") { exportBookmarks() }
-                Spacer()
-                Picker("Clear", selection: $clearHours) {
-                    Text("Last hour").tag(1)
-                    Text("Last 24 hours").tag(24)
-                    Text("Last 7 days").tag(168)
-                    Text("All history").tag(0)
-                }.frame(width: 200)
-                Button("Clear History…") { clearHistory() }
-            }
-            HStack {
-                Picker("Keep history", selection: $retention) {
-                    Text("7 days").tag(7)
-                    Text("30 days").tag(30)
-                    Text("90 days").tag(90)
-                    Text("1 year").tag(365)
-                    Text("Until I clear it").tag(0)
-                }.frame(width: 270)
-                Spacer()
-            }
-            Text("Shows the 100 most recent matching pages. Repeated visits update the last visit. Clearing a period removes pages last visited in that period; library bookmarks, pins and website data stay.")
-                .font(.caption).foregroundStyle(.secondary)
-            if let text = store.lastError ?? message { Text(text).font(.callout).foregroundStyle(.secondary) }
-        }.settingsPane().onAppear { retention = store.retentionDays(profileID: profileID); refresh() }
-            .onChange(of: profileID) { _, _ in
-                retention = store.retentionDays(profileID: profileID)
-                refresh()
-            }
-            .onChange(of: retention) { old, days in
-                guard days != store.retentionDays(profileID: profileID) else { return }
-                let alert = NSAlert(); alert.messageText = String(localized: "Change history retention?")
-                alert.informativeText = days == 0
-                    ? String(localized: "History will remain until you clear it.")
-                    : String(format: String(localized: "History older than %@ days will be removed now and automatically as you browse. Bookmarks are preserved."), "\(days)")
-                alert.addButton(withTitle: String(localized: "Change")); alert.addButton(withTitle: String(localized: "Cancel"))
-                if alert.runModal() == .alertFirstButtonReturn {
-                    store.setRetentionDays(days, profileID: profileID)
-                    retention = store.retentionDays(profileID: profileID)
-                    refresh()
-                }
-                else { retention = old }
-            }
-            .onChange(of: store.revision) { _, _ in refresh() }
-            .onChange(of: query) { _, _ in refresh() }
-            .onChange(of: bookmarksOnly) { _, _ in refresh() }
-            .sheet(item: $editingBookmark) { entry in
-                VStack(alignment: .leading, spacing: 16) {
-                    Text("Edit Bookmark").font(.headline)
-                    TextField("Title", text: $bookmarkTitle)
-                    TextField("Address", text: $bookmarkURL)
-                    if let editError { Text(editError).foregroundStyle(.red).font(.callout) }
-                    HStack {
-                        Spacer()
-                        Button("Cancel") { editingBookmark = nil }.keyboardShortcut(.cancelAction)
-                        Button("Save") {
-                            if store.editBookmark(id: entry.id, profileID: editingProfile, urlString: bookmarkURL, title: bookmarkTitle) {
-                                editingBookmark = nil
-                                refresh()
-                            } else { editError = store.lastError }
-                        }.keyboardShortcut(.defaultAction)
-                    }
-                }.textFieldStyle(.roundedBorder).padding(24).frame(width: 440)
-            }
-    }
-    private func refresh() { entries = store.search(query, profileID: profileID, bookmarksOnly: bookmarksOnly, historyOnly: !bookmarksOnly) }
-    private func importBookmarks() {
-        let panel = NSOpenPanel(); panel.allowedContentTypes = [.html]; panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            let attributes = try url.resourceValues(forKeys: [.fileSizeKey])
-            guard (attributes.fileSize ?? 0) <= 10_000_000 else { message = String(localized: "Choose a bookmark file smaller than 10 MB."); return }
-            message = store.importBookmarks(from: try String(contentsOf: url, encoding: .utf8), profileID: profileID)?.message
-            refresh()
-        } catch { message = error.localizedDescription }
-    }
-    private func exportBookmarks() {
-        let panel = NSSavePanel(); panel.allowedContentTypes = [.html]; panel.nameFieldStringValue = "Cobble-bookmarks.html"
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try store.exportBookmarks(profileID: profileID).write(to: url, atomically: true, encoding: .utf8) }
-        catch { message = error.localizedDescription }
-    }
-    private func clearHistory() {
-        let alert = NSAlert(); alert.messageText = clearHours == 0
-            ? String(localized: "Clear all browsing history?")
-            : String(format: String(localized: "Clear history from the last %@ hours?"), "\(clearHours)")
-        alert.informativeText = String(localized: "Bookmarks, saved tabs, and website data are preserved.")
-        alert.addButton(withTitle: String(localized: "Clear History")); alert.addButton(withTitle: String(localized: "Cancel"))
-        if alert.runModal() == .alertFirstButtonReturn { store.clearHistory(profileID: profileID, since: clearHours == 0 ? .distantPast : Date().addingTimeInterval(-Double(clearHours) * 3600)); refresh() }
-    }
-}
-
-private struct SiteIdentityRulesView: View {
-    @Bindable var app: AppModel
-    @State private var selectedProfile: UUID?
-    @State private var newOrigin = ""
-    @State private var newIdentity: SiteBrowserIdentity = .iPhone
-
-    private var profileID: UUID {
-        if let selectedProfile, app.profiles.contains(where: { $0.id == selectedProfile }) {
-            return selectedProfile
-        }
-        return app.profiles[0].id
-    }
-
-    var body: some View {
-        Text("Choose a browser identity for an exact HTTP or HTTPS origin. Changes apply on the next navigation or reload. Page width stays unchanged.")
-            .font(.callout).foregroundStyle(.secondary)
-        ForEach(app.engines.engines.filter { !$0.capabilities.supportsBrowserIdentity }, id: \.id) { engine in
-            Text("Browser identity rules are unavailable in \(engine.name).")
-                .font(.callout).foregroundStyle(.secondary)
-        }
-        if app.profiles.count > 1 {
-            Picker("Profile", selection: Binding(
-                get: { profileID },
-                set: { selectedProfile = $0 }
-            )) {
-                ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
-            }.frame(width: 220)
-        }
-        HStack {
-            TextField("https://example.com", text: $newOrigin)
-                .textFieldStyle(.roundedBorder)
-                .onSubmit { add() }
-            Picker("Browser identity", selection: $newIdentity) {
-                ForEach(SiteBrowserIdentity.allCases, id: \.self) { identity in
-                    Text(identity.title).tag(identity)
-                }
-            }.frame(width: 180)
-            Button("Add") { add() }
-                .disabled(newOrigin.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || newIdentity == .standard)
-        }
-        ForEach(app.siteSettings.summaries(profileID: profileID, engines: app.engines.engines, includeIdentity: true)) { entry in
-            SettingsRow(verbatim: entry.origin) {
-                Picker("Browser identity", selection: Binding(
-                    get: { entry.browserIdentity },
-                    set: { set($0, for: entry.origin) }
-                )) {
-                    ForEach(SiteBrowserIdentity.allCases, id: \.self) { identity in
-                        Text(identity.title).tag(identity)
-                    }
-                }.frame(width: 180)
-            }
-        }
-        if let error = app.siteSettings.lastError {
-            Text(error).font(.callout).foregroundStyle(.orange)
-        }
-    }
-
-    private func add() {
-        let text = newOrigin.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !text.isEmpty, newIdentity != .standard else { return }
-        set(newIdentity, for: text)
-        if app.siteSettings.lastError == nil { newOrigin = "" }
-    }
-
-    private func set(_ identity: SiteBrowserIdentity, for origin: String) {
-        guard let url = URL(string: origin) else {
-            app.siteSettings.lastError = String(localized: "Site rules require a valid HTTP or HTTPS origin.")
-            return
-        }
-        _ = app.siteSettings.setBrowserIdentity(identity, for: url, profileID: profileID)
-    }
-}
-
-private struct SitePermissionsView: View {
-    @Bindable var app: AppModel
-    @State private var selectedProfile: UUID?
-    private var profileID: UUID {
-        if let selectedProfile, app.profiles.contains(where: { $0.id == selectedProfile }) {
-            return selectedProfile
-        }
-        return app.profiles[0].id
-    }
-    var body: some View {
-        SettingsGroup("Saved Website Permissions") {
-            if app.profiles.count > 1 {
-                Picker("Profile", selection: Binding(
-                    get: { profileID },
-                    set: { selectedProfile = $0 }
-                )) {
-                    ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
-                }.frame(width: 220)
-            }
-            Text("Saved decisions apply to normal windows. Private windows ask separately. The address-bar site control can mute or stop capture on the current page without unloading it. Changing a remembered decision here unloads normal pages to stop capture; unsaved page content may be lost.")
-                .font(.callout).foregroundStyle(.secondary)
-            Text("Apple Passwords AutoFill is not available on WebKit pages in third-party macOS browsers. Cobble does not store passwords.")
-                .font(.callout).foregroundStyle(.secondary)
-            let passkeys = ApplePasskeys.status
-            Text(passkeyStatusText(passkeys))
-                .font(.callout).foregroundStyle(.secondary)
-            if passkeys == .denied {
-                Link("Open Passkey Access Settings", destination: ApplePasskeys.settingsURL)
-                    .font(.callout)
-            }
-            Text("Chromium Sign in with Apple uses the system WebKit sheet. Chromium password AutoFill still needs an SDK path. Cobble does not store passwords.")
-                .font(.callout).foregroundStyle(.secondary)
-            let entries = app.siteSettings.summaries(profileID: profileID, engines: app.engines.engines)
-            if entries.isEmpty {
-                Label("No remembered permissions", systemImage: "camera")
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 28)
-            } else {
-                List(entries) { entry in
-                    VStack(alignment: .leading) {
-                        Text(entry.origin).font(.headline)
-                        HStack {
-                            permissionPicker("Camera", .camera, entry)
-                            permissionPicker("Microphone", .microphone, entry)
-                            Button("Forget") {
-                                if confirm(), app.siteSettings.forget(origin: entry.origin, profileID: profileID) {
-                                    for kind in [PermissionKind.camera, .microphone, .windowManagement] {
-                                        app.engines.resetPermission(kind, origin: entry.origin, profileID: profileID)
-                                    }
-                                    unloadPages()
-                                }
-                            }
-                        }
-                        if entry.permissions.keys.contains(.windowManagement) || entry.permissions.keys.contains(.screenSharing) {
-                            HStack {
-                                permissionPicker("Window management", .windowManagement, entry)
-                                permissionPicker("Screen sharing", .screenSharing, entry)
-                            }
-                        }
-                    }.padding(.vertical, 6)
-                }.listStyle(.inset).clipShape(RoundedRectangle(cornerRadius: 10))
-            }
-            if let error = app.siteSettings.lastError { Text(error).foregroundStyle(.orange) }
-        }.settingsPane()
-    }
-    private func confirm() -> Bool {
-        let alert = NSAlert(); alert.messageText = String(localized: "Change site permissions?")
-        alert.informativeText = String(localized: "Normal pages will be unloaded to stop active capture. Unsaved page content may be lost.")
-        alert.addButton(withTitle: String(localized: "Change and Unload")); alert.addButton(withTitle: String(localized: "Cancel"))
-        return alert.runModal() == .alertFirstButtonReturn
-    }
-    private func unloadPages() { app.windows.filter { !$0.isPrivate && $0.record.profileID == profileID }.forEach { $0.unloadPages() } }
-    private func passkeyStatusText(_ status: ApplePasskeys.Status) -> LocalizedStringKey {
-        switch status {
-        case .unentitled: "Passkeys for arbitrary websites need Apple’s macOS browser passkey entitlement on a signed Cobble. This build cannot use iCloud Keychain passkeys."
-        case .notDetermined: "macOS asks whether Cobble may use passkeys when the first page opens."
-        case .denied: "Passkey access is off for Cobble. Turn it on in System Settings to use iCloud Keychain passkeys."
-        case .notConfigured: "This Mac has no passkey provider. Turn on iCloud Keychain or another provider in System Settings → General → AutoFill & Passwords."
-        case .ready: "This signed Cobble can use iCloud Keychain passkeys on WebKit pages."
-        }
-    }
-    private func permissionTitle(_ value: SitePermission) -> String {
-        switch value {
-        case .ask: String(localized: "Ask")
-        case .allow: String(localized: "Allow")
-        case .deny: String(localized: "Deny")
-        }
-    }
-    /// Screen sharing offers Ask and Deny only: its grants are never saved.
-    @ViewBuilder private func permissionPicker(_ title: LocalizedStringKey, _ kind: PermissionKind,
-                                               _ entry: SiteSettingsStore.Summary) -> some View {
-        if let value = entry.permissions[kind] {
-            Picker(title, selection: Binding(get: { value }, set: { if let next = $0 { update(entry, kind, next) } })) {
-                ForEach(SitePermission.allCases.filter { kind != .screenSharing || $0 != .allow }, id: \.self) {
-                    Text(permissionTitle($0)).tag(Optional($0))
-                }
-                Text("Mixed").tag(nil as SitePermission?).disabled(true)
-            }
-        }
-    }
-    private func update(_ original: SiteSettingsStore.Summary, _ kind: PermissionKind, _ value: SitePermission) {
-        guard confirm() else { return }
-        guard app.siteSettings.update(origin: original.origin, profileID: profileID, kind, value,
-                                      engines: app.engines.engines) else { return }
-        if value != .allow { app.engines.resetPermission(kind, origin: original.origin, profileID: profileID) }
-        unloadPages()
-    }
-}
-
-private struct ContentBlockingSettings: View {
-    let app: AppModel
-    @State private var selected: EngineID?
-    @State private var selectedProfile: UUID?
-    private var providers: [any BrowserEngine] { app.engines.engines.filter { $0.contentBlocker != nil } }
-    private var profileID: UUID {
-        if let selectedProfile, app.profiles.contains(where: { $0.id == selectedProfile }) {
-            return selectedProfile
-        }
-        return app.profiles[0].id
-    }
-    var body: some View {
-        VStack {
-            if app.profiles.count > 1 {
-                Picker("Profile", selection: Binding(
-                    get: { profileID },
-                    set: { selectedProfile = $0 }
-                )) {
-                    ForEach(app.profiles) { profile in Text(profile.displayedName).tag(profile.id) }
-                }.frame(width: 220).padding(.top, 12)
-            }
-            if providers.count > 1 {
-                Picker("Rule format", selection: Binding(get: { selected ?? providers[0].id }, set: { selected = $0 })) {
-                    ForEach(providers, id: \.id) { provider in Text(String(format: String(localized: "%@ — %@"), provider.name, provider.contentBlocker!.formatName)).tag(provider.id) }
-                }.frame(width: 320).padding(.top, 12)
-            }
-            if let provider = providers.first(where: { $0.id == selected }) ?? providers.first,
-               let blocker = provider.contentBlocker {
-                ContentBlockerView(app: app, blocker: blocker, profileID: profileID)
-                    .id(ContentBlockerIdentity(profileID: profileID, blocker: ObjectIdentifier(blocker)))
-            }
-            else { ContentUnavailableView("Content Blocking Unavailable", systemImage: "hand.raised") }
-        }
-    }
-}
-
-private struct ContentBlockerIdentity: Hashable {
-    let profileID: UUID
-    let blocker: ObjectIdentifier
-}
-
-private struct ContentBlockerView: View {
-    @Bindable var app: AppModel
-    let blocker: any EngineContentBlocker
-    let profileID: UUID
-    @State private var working = false
-    @State private var message: String?
-    @State private var source = ""
-    var body: some View {
-        SettingsGroup("Content Blocking") {
-            Text("Cobble Basic Tracker Rules block three common third-party tracking or ad hosts. They are a limited original baseline, not broad ad or annoyance filtering. Reload open pages after changing rules.")
-                .font(.callout).foregroundStyle(.secondary)
-            Button("Install Cobble Basic Tracker Rules") { installBundledRules() }
-                .disabled(working || blocker.hasRules(profileID: profileID))
-            Text(String(format: String(localized: "Import a local %@ rule file to replace the current rules."), blocker.formatName))
-                .font(.caption).foregroundStyle(.secondary)
-            Toggle("Enable rules", isOn: Binding(get: { blocker.isEnabled(profileID: profileID) }, set: { enabled in
-                let targetProfile = profileID
-                working = true
-                Task { await blocker.setEnabled(enabled, profileID: targetProfile); working = false }
-            })).disabled(working || !blocker.hasRules(profileID: profileID))
-            Button("Import Rules…") { importRules() }.disabled(working)
-            SettingsRow("Update source", detail: "Updates run only when you select Update Now. HTTPS JSON only; a failed update keeps the current rules.") {
-                TextField("HTTPS JSON URL", text: $source).textFieldStyle(.roundedBorder).frame(minWidth: 240)
-                Button("Save Source") { saveSource() }.disabled(working || !blocker.hasRules(profileID: profileID))
-                Button("Update Now") { updateRules() }.disabled(working || source.isEmpty || !blocker.hasRules(profileID: profileID))
-            }
-            Text("Sites allowed through the blocker").font(.headline)
-            List(blocker.exceptions(profileID: profileID), id: \.self) { origin in
-                HStack {
-                    Text(origin); Spacer()
-                    Button("Remove Exception") {
-                        guard let url = URL(string: origin) else { return }
-                        let targetProfile = profileID
-                        working = true
-                        Task { await blocker.setException(origin: url, enabled: false, profileID: targetProfile); working = false }
-                    }.disabled(working)
-                }
-            }.listStyle(.inset).clipShape(RoundedRectangle(cornerRadius: 10))
-            Text("Use Page Actions to allow a site through the blocker. Exceptions match an exact origin, including its port.")
-                .font(.caption).foregroundStyle(.secondary)
-            if let error = blocker.lastError ?? message { Text(error).foregroundStyle(.orange) }
-        }
-        .settingsPane()
-        .onAppear { source = blocker.updateSource(profileID: profileID)?.absoluteString ?? "" }
-    }
-    private func importRules() {
-        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do {
-            guard (try url.resourceValues(forKeys: [.fileSizeKey]).fileSize ?? 0) <= 1_000_000 else { message = String(localized: "Choose a rule file smaller than 1 MB."); return }
-            let json = try String(contentsOf: url, encoding: .utf8)
-            let targetProfile = profileID
-            working = true
-            Task { await blocker.importRules(json: json, profileID: targetProfile); working = false }
-        } catch { message = error.localizedDescription }
-    }
-    private func installBundledRules() {
-        let targetProfile = profileID
-        working = true
-        Task { await blocker.installBundledRules(profileID: targetProfile); working = false }
-    }
-    private func saveSource() {
-        let targetProfile = profileID
-        let text = source.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard text.isEmpty || URL(string: text) != nil else {
-            message = String(localized: "Enter an HTTPS JSON address or clear the field.")
-            return
-        }
-        let url = text.isEmpty ? nil : URL(string: text)
-        working = true
-        Task { await blocker.setUpdateSource(url, profileID: targetProfile); working = false }
-    }
-    private func updateRules() {
-        let targetProfile = profileID
-        working = true
-        Task { await blocker.updateRules(profileID: targetProfile); working = false }
-    }
-}
-
-struct ShortcutSettingsView: View {
-    @Bindable var preferences: BrowserPreferences
-    @State private var query = ""
-    @State private var recording: BrowserCommand?
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Keyboard Shortcuts")
-                .font(.title3.weight(.semibold))
-                .padding(.leading, 4)
-                .accessibilityAddTraits(.isHeader)
-            TextField("Search shortcuts", text: $query).textFieldStyle(.roundedBorder)
-            ScrollView {
-                LazyVStack(spacing: 0) {
-                    ForEach(BrowserCommand.allCases.filter { query.isEmpty || $0.title.localizedCaseInsensitiveContains(query) }) { command in
-                        HStack {
-                            Text(command.title)
-                            Spacer()
-                            Button {
-                                preferences.errorMessage = nil; recording = command
-                            } label: {
-                                Text(preferences.shortcut(for: command).label)
-                                    .monospaced()
-                                    .frame(minWidth: 110, minHeight: 24)
-                                    .padding(.horizontal, 6)
-                                    .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-                            }
-                            .buttonStyle(.plain)
-                                .accessibilityLabel(String(format: String(localized: "Change shortcut for %@: %@"), command.title, preferences.shortcut(for: command).label))
-                            Button { preferences.set(BrowserShortcut(""), for: command) } label: {
-                                Image(systemName: "xmark")
-                                    .font(.caption.weight(.bold))
-                                    .foregroundStyle(.white)
-                                    .frame(width: 24, height: 24)
-                                    .background(.white.opacity(0.12), in: RoundedRectangle(cornerRadius: 6))
-                            }
-                            .buttonStyle(.plain)
-                                .disabled(preferences.shortcut(for: command).key.isEmpty)
-                                .accessibilityLabel(String(format: String(localized: "Clear shortcut for %@"), command.title))
-                        }.padding(.vertical, 8).padding(.horizontal, 12).accessibilityElement(children: .contain)
-                        Divider().padding(.horizontal, 12)
-                    }
-                }
-            }.frame(maxHeight: .infinity)
-                .background(SettingsStyle.canvas, in: RoundedRectangle(cornerRadius: 10))
-                .overlay {
-                    RoundedRectangle(cornerRadius: 10).stroke(SettingsStyle.groupBorder)
-                }
-            HStack {
-                Text("Editing, Quit, Hide and Minimize use standard macOS shortcuts. Escape cancels; Return confirms dialogs.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Button("Reset Shortcuts") { preferences.resetShortcuts() }
-            }
-            if let error = preferences.errorMessage { Text(error).foregroundStyle(.orange).font(.callout) }
-        }.settingsPane()
-        .sheet(item: $recording) { command in
-            VStack(spacing: 16) {
-                Text(command.title).font(.headline)
-                Text("Press a shortcut with Command or Control.")
-                Text("Escape cancels.").font(.caption).foregroundStyle(.secondary)
-                ShortcutCapture { shortcut in
-                    if let shortcut {
-                        if preferences.set(shortcut, for: command) { recording = nil }
-                    } else { recording = nil }
-                }.frame(width: 1, height: 1).accessibilityHidden(true)
-                if let error = preferences.errorMessage { Text(error).foregroundStyle(.orange) }
-                Button("Cancel") { recording = nil }
-            }.padding(24).frame(width: 390)
-        }
     }
 }
 

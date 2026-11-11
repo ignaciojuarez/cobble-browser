@@ -15,7 +15,7 @@ clients use the same native path. No port, token or extension is involved.
 | Let Apps Use Pages | Click, fill, select, scroll and press keys in pages | Off; needs Read Pages |
 | Private Sites | Hosts (and subdomains) apps can never read or use | Empty |
 
-All switches live in Settings › Browsing › Automation, on this Mac only, and are
+All switches live in Settings › Automation, on this Mac only, and are
 never synced. A toggle in Cobble, not an Apple Event, enables page access, like
 Safari's and Chrome's "Allow JavaScript from Apple Events".
 
@@ -164,7 +164,7 @@ Inspector for them.
 ## Command line and MCP
 
 ```bash
-COBBLE=/Applications/Cobble.app/Contents/Resources/cobble   # Settings › Browsing › Copy Path
+COBBLE=/Applications/Cobble.app/Contents/Resources/cobble   # Settings › Automation › Copy Path
 "$COBBLE" tabs
 "$COBBLE" open https://example.com          # Agents space, background
 "$COBBLE" wait TAB_ID

@@ -19,8 +19,8 @@ Implementation and qualification are separate. Automated checks use isolated loc
 | Native menus and focused-window shortcuts | v1 | Implemented | P1/P3; one searchable command catalog, Spaces/Tabs/History menus, ⌘1–⌘9 reserved for the first nine spaces of the focused window, shortcut recording/clearing/reset, conflict checks, immediate native menu updates; standard macOS editing/application shortcuts remain reserved |
 | Geometry and session restoration | v1 | Implemented | P2; valid frames constrained to current displays |
 | Default browser and external HTTP/HTTPS links | v1 | Implemented | P4/P7; `http`/`https` URL types (Editor), HTML/XHTML document types, and `NSUserActivityTypeBrowsingWeb` are declared. Settings registers http then https (`SettingsView.defaultBrowserSchemes`) and reports scheme failures. Incoming web links open in a normal window; `.html`/`.xhtml` files use the authorized local-file path. System Settings listing still needs signed-app qualification. macOS default browser needs no Apple entitlement; `com.apple.developer.web-browser` is iOS/iPadOS only. Inventory: `docs/features/apple-browser.md` |
-| Settings for supported behavior | v1 | Implemented | P4–P5; engines, site rules, website data, blockers, permissions, history, downloads, shortcuts, design, diagnostics; no placeholder engine/permission controls |
-| English and Spanish native UI | v1 | Implemented | Catalog-backed SwiftUI/AppKit labels and formatted messages; user names, URLs, paths, origins, IDs, and version values remain verbatim. Hosted 820-point Settings captures check bundle and layout behavior; manual accessibility and release qualification remain open. |
+| Settings for supported behavior | v1 | Implemented | P4–P5; System Settings–style sidebar: general, appearance, tabs, search, privacy (website data, blockers, keyboard, passkeys), websites (permissions, pop-ups, identity, zoom), history, engines, extensions, profiles, sync, keyboard, automation, advanced; no placeholder engine/permission controls |
+| English and Spanish native UI | v1 | Implemented | Catalog-backed SwiftUI/AppKit labels and formatted messages; user names, URLs, paths, origins, IDs, and version values remain verbatim. Hosted Settings captures of every pane (light, dark and minimum size) check bundle and layout behavior; manual accessibility and release qualification remain open. |
 | Unified app identity and storage | v1 | Implemented | Fast/Full and Debug/Release use `com.ignacio.cobble`; no macOS App Sandbox; Chromium child sandbox retained; no legacy migration |
 | Web Inspector | v1 | Implemented | P4/P8d; disabled by default, user opt-in exposes individual WebKit pages in Safari’s Develop menu |
 | Developer ID, notarization, stapling | v1 | Planned | P7; required before external release |
@@ -154,7 +154,7 @@ For every qualified capability, record the tested OS/SDK/API, requesting site/fi
 | Keyboard, VoiceOver, IME, contrast/reduced motion | v1 | Partial | P3/P6; native UI accessibility is a release requirement |
 | Seven consecutive personal daily-use days | v1 | Planned | P6; measured budgets and no data-loss/isolation defects |
 | Clean install, upgrade, signed update, rollback | v1 | Planned | P7; oldest supported and latest stable macOS |
-| Local redacted diagnostics and retained symbols | v1 | Implemented | P6/P7; Settings General Save panel; no automatic upload |
+| Local redacted diagnostics and retained symbols | v1 | Implemented | P6/P7; Settings Advanced Save panel; no automatic upload |
 | Exact unsaved forms/DOM/history recovery after death | Not promised | Not promised | Website and engine memory cannot be reconstructed from URL snapshots |
 
 ## Engine direction
