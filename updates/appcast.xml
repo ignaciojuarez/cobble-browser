@@ -10,6 +10,33 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Wed, 11 Nov 2026 00:35:41 -0800</pubDate>
+            <sparkle:version>15</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Settings is redesigned like System Settings: a searchable sidebar with icons and 14 focused panes (General, Appearance, Tabs, Search, Privacy & Security, Websites, History, Web Engines, Extensions, Profiles, iCloud Sync, Keyboard, Automation, Advanced).
+- Privacy & Security gathers website data, content blocking, keyboard privacy and passwords on one page; site data moved into a searchable Manage Website Data sheet.
+- Websites adds per-site pop-up blocking and a list of remembered page zoom levels you can reset.
+- Appearance lets you choose the tab loading indicator.
+- Video calls in Chromium tabs (Zoom, Meet, Teams) can now list and pick your camera and microphone after you allow them. Before, meeting sites saw unnamed devices and an unanswered permission and reported no camera or microphone.
+- Camera, microphone and screen sharing prompts now appear when the sidebar is hidden instead of being refused.
+- If macOS blocks Cobble from the camera or microphone, Cobble now says where to turn it on.
+- Links opened in new tabs from Chromium tabs (⌘-click, middle-click, Open Link in New Tab) now use Automatic engine selection, like WebKit tabs; Settings › Web Engines can keep the current tab's engine instead.
+- ⌘Z reopens a closed tab while a Chromium page is focused.
+
+Includes WebKit, Chromium 157.0.8103.39 and signed in-app updates, using the pinned public ABI 19 SDK (77ab40e) and its matching runtime.
+
+This is an early beta. The Manage Website Data sheet, real camera/microphone hardware and real meeting sites, clean-Mac installation and installed version-to-version updates remain unqualified. After updating, older Cobble betas should not be reopened: Chromium does not support moving a profile back to an older version.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.15/Cobble-v0.1.0-beta.15.zip" length="169556916" type="application/octet-stream" sparkle:edSignature="IxQkn+/KhReELopayUyhZtXvXnzunIOYO0ky9C7SwQEZ/2FiHtcDix8BrcK2VuaxjQYwbheGomebKUOOmbmrBg=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Mon, 09 Nov 2026 11:50:33 -0800</pubDate>
             <sparkle:version>14</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -61,29 +88,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.13/Cobble-v0.1.0-beta.13.zip" length="169410614" type="application/octet-stream" sparkle:edSignature="n/j4375LFztQLuncL85p7KVxZAtEXR/iGte+d1WvfS576o4VvCtkBLATx9KF6ZsrV7UEIY9VEK48dQiJCyoHBA=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Tue, 03 Nov 2026 14:21:33 -0800</pubDate>
-            <sparkle:version>12</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- New Keyboard Privacy setting (Settings → Browsing, off by default). When on, websites no longer see ⌘ or ⌃ keys in WebKit and Chromium tabs or in page full screen, not even when held while typing other keys, moving the pointer or scrolling. Clicks still report them so ⌘-click and ⌃-click work. Cobble shortcuts, copy/paste and text editing keys such as ⌘← or ⌃A keep working; site shortcuts such as ⌘K stop, and Monaco code editors in Chromium tabs lose ⌘-arrow and ⌘⌫.
-- Clicking Cobble in the Dock brings back your window, even when it's minimized or still opening, instead of adding a second one. New windows open only from New Window: ⌘N, the File menu, or the Dock icon's menu. ⌘T from Settings opens the tab in your existing window.
-
-Includes WebKit, Chromium and signed in-app updates. Uses the pinned public ABI 18 SDK (371054c) and its matching Chromium runtime.
-
-This is an early beta. Real-site camera and microphone behavior, interrupted download recovery, real-account authentication, clean-Mac installation and installed version-to-version updates remain unqualified.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.12/Cobble-v0.1.0-beta.12.zip" length="164439119" type="application/octet-stream" sparkle:edSignature="MxMaNqBnR1E2WZN0Ubp1od4ZRStIoM+9D2Z29IfTYlnfSI5nSceH4YpHLFhLoinPSNxo73x4SjdNndPpfFcADw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: mYKG5zofJC0Ht7iq7yVPalUnxDSAZgkr5MlF2bfPXL8s4itNQYwUI+FmOdWafGXQlt8YF/MjqHmwIJzEusulAw==
-length: 8950
+edSignature: oIf0Gyh7yzQzNZ6CELW6XXRd3hBSszhxSmLrWTGMeLVQVyz1Ma+pt1O4sDH5l7KFavh4EMOWm22MGb9OILh5Cg==
+length: 9589
 -->
