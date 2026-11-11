@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Links opened in background tabs from Chromium tabs (Open Link in New Tab,
+  ⌘-click, middle-click) now show their page. Before, the tab stayed dark even
+  though the page had loaded.
 - YouTube ads are blocked in WebKit and Chromium tabs, including ads in
   videos and Shorts and sponsored slots on the site. It is part of each
   profile's content blocking: turn rules off, or allow YouTube through the

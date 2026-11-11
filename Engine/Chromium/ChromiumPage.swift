@@ -525,6 +525,9 @@ import CobbleChromium
         pageView.frame = nativeView.bounds
         pageView.autoresizingMask = [.width, .height]
         nativeView.addSubview(pageView)
+        // Chromium hides pages created in the background (Open Link in New Tab, ⌘-click)
+        // until Chrome's own view host shows them. Cobble hosts the view itself.
+        pageView.isHidden = false
         if isActive { source.focus() }
         source.setVisible(isVisible)
         state.lifecycle = .ready
