@@ -712,7 +712,7 @@ private struct ContentBlockerSection: View {
                 Task { await blocker.setEnabled(enabled, profileID: targetProfile); working = false }
             })) {
                 Text("Enable rules")
-                Text(hasRules ? "Reload open pages after changing rules." : "Install or import rules first.")
+                Text(hasRules ? "Also removes YouTube ads, including those in videos. Reload open pages after changing rules." : "Install or import rules first.")
             }
             .disabled(working || !hasRules)
             LabeledContent {

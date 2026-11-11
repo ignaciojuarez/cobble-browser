@@ -173,6 +173,25 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         Self.appliedRules.setObject(rule, forKey: controller)
     }
 
+    /// One YouTube script per shared controller, rebuilt only when its source changes.
+    private static let youTubeScripts = NSMapTable<WKUserContentController, WKUserScript>.weakToStrongObjects()
+    func applyYouTubeAdBlock(_ source: String?) {
+        guard !closed else { return }
+        let controller = (storedWebView?.configuration ?? configuration).userContentController
+        let previous = Self.youTubeScripts.object(forKey: controller)
+        guard previous?.source != source else { return }
+        if let previous {
+            // WebKit cannot remove a single user script; reinstall the others unchanged.
+            let others = controller.userScripts.filter { $0 !== previous }
+            controller.removeAllUserScripts()
+            others.forEach(controller.addUserScript)
+        }
+        guard let source else { Self.youTubeScripts.removeObject(forKey: controller); return }
+        let script = WKUserScript(source: source, injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page)
+        controller.addUserScript(script)
+        Self.youTubeScripts.setObject(script, forKey: controller)
+    }
+
     func navigate(to url: URL?) {
         guard !closed else { return }
         beginNavigation(to: url)
@@ -1525,7 +1544,12 @@ final class WebKitPage: NSObject, WKNavigationDelegate, WKUIDelegate, BrowserPag
         applyContentRules()
         state.lifecycle = .ready
     }
-    func applyContentRules() { applyContentRules(context?.blocker.rules(for: profileID)) }
+    func applyContentRules() {
+        guard let blocker = context?.blocker else { return applyContentRules(nil) }
+        applyContentRules(blocker.rules(for: profileID))
+        applyYouTubeAdBlock(blocker.isEnabled(profileID: profileID)
+            ? YouTubeAdBlock.script(exceptions: blocker.exceptions(profileID: profileID)) : nil)
+    }
     private static func isPrepared(_ context: WebKitContext, profileID: UUID, isPrivate: Bool) -> Bool {
         context.blocker.isReady && context.blocker.canLoad(profileID: profileID)
             && (isPrivate || context.blocker.hasRules(profileID: profileID))
