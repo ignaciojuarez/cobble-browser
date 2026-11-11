@@ -222,7 +222,7 @@ import CobbleChromium
     }
 
     private func replace(_ next: Configuration) async throws {
-        let files = try ChromiumBlockingRules.files(json: next.json, exceptions: next.exceptions)
+        let files = try Self.files(json: next.json, exceptions: next.exceptions)
         let previous = configurations[next.profileID]
         let directory = ruleDirectory(next.profileID)
         let context = try await engine.extensionContext(next.profileID).context
@@ -232,6 +232,7 @@ import CobbleChromium
             try write(files, to: directory)
             let id = try await runtime.installUnpackedExtension(at: directory, in: context)
             try Task.checkCancellation()
+            let youTubeError = await grantYouTube(id, in: context)
             try await runtime.setExtension(id, enabled: next.enabled, in: context)
             try Task.checkCancellation()
             guard try await runtime.installedExtensions(in: context).contains(where: {
@@ -245,14 +246,15 @@ import CobbleChromium
             configurations = records
             installed[next.profileID] = id
             failed.remove(next.profileID)
-            lastError = nil
+            lastError = youTubeError
             onChange?()
         } catch {
             let original = error
             do {
                 if let previous {
-                    try write(ChromiumBlockingRules.files(json: previous.json, exceptions: previous.exceptions), to: directory)
+                    try write(Self.files(json: previous.json, exceptions: previous.exceptions), to: directory)
                     let id = try await runtime.installUnpackedExtension(at: directory, in: context)
+                    _ = await grantYouTube(id, in: context)
                     try await runtime.setExtension(id, enabled: previous.enabled, in: context)
                     guard try await runtime.installedExtensions(in: context).contains(where: {
                         $0.id == id && URL(fileURLWithPath: $0.path).standardizedFileURL == directory.standardizedFileURL
@@ -271,6 +273,30 @@ import CobbleChromium
                 throw EngineError.notReady(String(format: String(localized: "Content rules failed and the previous state could not be restored: %@. Original error: %@"), error.localizedDescription, original.localizedDescription))
             }
             throw original
+        }
+    }
+
+    /// The SDK's script-free rules plus Cobble's YouTube script in the page's main world.
+    static func files(json: String, exceptions: [String]) throws -> [String: Data] {
+        var files = try ChromiumBlockingRules.files(json: json, exceptions: exceptions)
+        guard var manifest = try files["manifest.json"].flatMap({ try JSONSerialization.jsonObject(with: $0) as? [String: Any] }) else {
+            throw EngineError.notReady(String(localized: "Chromium content rules could not be prepared."))
+        }
+        manifest["content_scripts"] = [["matches": YouTubeAdBlock.matches, "js": ["youtube.js"], "run_at": "document_start",
+                                        "all_frames": true, "world": "MAIN"]]
+        files["manifest.json"] = try JSONSerialization.data(withJSONObject: manifest, options: [.sortedKeys])
+        files["youtube.js"] = Data(YouTubeAdBlock.script(exceptions: exceptions).utf8)
+        return files
+    }
+
+    /// Unpacked extensions start with site access withheld. A failed grant leaves request
+    /// blocking working, so it is reported instead of failing the rules.
+    private func grantYouTube(_ id: String, in context: CobbleChromium.ChromiumContext) async -> String? {
+        do {
+            for origin in YouTubeAdBlock.origins { try await runtime.setExtension(id, siteAccessAt: origin, allowed: true, in: context) }
+            return nil
+        } catch {
+            return String(format: String(localized: "YouTube ad blocking could not start in Chromium: %@"), error.localizedDescription)
         }
     }
 

@@ -18,6 +18,22 @@ import CobbleChromium
         XCTAssertNil(ChromiumEngine.externalApplicationURL(nil))
     }
 
+    func testContentRulesExtensionRunsYouTubeScriptInPageWorld() throws {
+        let files = try ChromiumContentBlocker.files(json: ChromiumBlockingRules.bundledJSON, exceptions: ["https://www.youtube.com"])
+        let manifest = try XCTUnwrap(JSONSerialization.jsonObject(with: XCTUnwrap(files["manifest.json"])) as? [String: Any])
+        let scripts = try XCTUnwrap(manifest["content_scripts"] as? [[String: Any]])
+        XCTAssertEqual(scripts.count, 1)
+        XCTAssertEqual(scripts[0]["world"] as? String, "MAIN")
+        XCTAssertEqual(scripts[0]["run_at"] as? String, "document_start")
+        XCTAssertEqual(scripts[0]["all_frames"] as? Bool, true)
+        XCTAssertEqual(scripts[0]["matches"] as? [String], YouTubeAdBlock.matches)
+        XCTAssertEqual(scripts[0]["js"] as? [String], ["youtube.js"])
+        XCTAssertEqual(manifest["incognito"] as? String, "not_allowed")
+        let script = String(decoding: try XCTUnwrap(files["youtube.js"]), as: UTF8.self)
+        XCTAssertTrue(script.contains(#"["https:\/\/www.youtube.com"].includes("#))
+        XCTAssertNotNil(files["rules.json"])
+    }
+
     func testPopupDispositionPreservesBackgroundOpening() {
         XCTAssertFalse(ChromiumEngine.activatesPopup(.newBackgroundTab))
         for disposition: ChromiumPopupRequest.Disposition in [.newForegroundTab, .newWindow, .newPopup, .unknown] {

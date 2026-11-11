@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- YouTube ads are blocked in WebKit and Chromium tabs, including ads in
+  videos and Shorts and sponsored slots on the site. It is part of each
+  profile's content blocking: turn rules off, or allow YouTube through the
+  blocker, to see ads. When YouTube holds a video back because its ads did not
+  play, Cobble reloads it in a few seconds. Chromium private windows are not
+  covered yet.
 - Settings is redesigned like System Settings: a searchable sidebar with icons
   and 14 focused panes (General, Appearance, Tabs, Search, Privacy & Security,
   Websites, History, Web Engines, Extensions, Profiles, iCloud Sync, Keyboard,

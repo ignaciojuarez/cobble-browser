@@ -109,6 +109,9 @@
     "Chromium block/allow JSON · Normal windows" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "JSON de bloqueo/permisos de Chromium · Ventanas normales"}}}
     },
+    "Chromium content rules could not be prepared." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No se pudieron preparar las reglas de contenido de Chromium."}}}
+    },
     "Chromium content rules could not be read. The original is untouched and changes are disabled: %@" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "No se pudieron leer las reglas de contenido de Chromium. El original no se ha modificado y los cambios están desactivados: %@"}}}
     },
@@ -6804,9 +6807,6 @@
         }
       }
     },
-    "Reload open pages after changing rules." : {
-      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Recarga las páginas abiertas después de cambiar las reglas."}}}
-    },
     "Reload this page?" : {
       "localizations" : {
         "es" : {
@@ -9833,6 +9833,9 @@
         }
       }
     },
+    "YouTube ad blocking could not start in Chromium: %@" : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "El bloqueo de anuncios de YouTube no pudo iniciarse en Chromium: %@"}}}
+    },
     "Zoom" : {
       "localizations" : {
         "es" : {
@@ -10082,6 +10085,9 @@
     },
     "Agents" : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "Agentes"}}}
+    },
+    "Also removes YouTube ads, including those in videos. Reload open pages after changing rules." : {
+      "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "También elimina los anuncios de YouTube, incluidos los de los videos. Recarga las páginas abiertas después de cambiar las reglas."}}}
     },
     "Also set from a website’s site menu in the address bar. Covers subdomains and applies on the next load." : {
       "localizations" : {"es": {"stringUnit": {"state": "translated", "value": "También se puede elegir desde el menú del sitio en la barra de direcciones. Incluye los subdominios y se aplica en la próxima carga."}}}

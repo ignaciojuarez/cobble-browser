@@ -12,7 +12,7 @@ Source presence is not a release gate. Remaining work: `ROADMAP.md`. Why: `DECIS
 | `Browser/` | Shared and window models, prompts, downloads, website-data coordination |
 | `Domain/` | Codable records, engine/context identity, address resolution |
 | `Engine/Contracts/` | Engine, context, page, blocking, transfer — no rendering SDK types |
-| `Engine/Shared/` | Shared adapter implementation: content-rule downloads and favicon normalization |
+| `Engine/Shared/` | Shared adapter implementation: content-rule downloads, favicon normalization and the YouTube ad-blocking page script |
 | `Engine/WebKit/` | System WebKit adapter |
 | `Engine/Chromium/` | Chromium SDK adapter (Full only) |
 | `UI/` | SwiftUI chrome and the retained native page container |

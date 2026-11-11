@@ -112,6 +112,24 @@ does not export browser cookies. Google also documents
 - A reported `safaridriver --mcp` mode is unverified; recheck Safari release
   notes before relying on it.
 
+## YouTube ads (2026-11)
+
+- In-video ads are listed in first-party player JSON (`adPlacements`,
+  `adSlots`, `playerAds`) and served from the same hosts as the video, so
+  network rules cannot block them. Blockers remove those fields in the page
+  before the player reads them ([uAssets quick fixes](https://github.com/uBlockOrigin/uAssets/blob/master/filters/quick-fixes.txt)).
+- YouTube answers removed ads with a server-side stall of roughly the ads'
+  length. uBlock Origin reloads the video with a request context that has no
+  ads; measured in Cobble, that cut the start from 12–17 s to 2–5 s.
+- `WKContentRuleList` cannot edit responses or run scripts, and a
+  `WKUserScript` has no URL matching. uBO Lite's scriptlet bundle is about
+  700 KB per frame, too heavy for every page. A WKWebExtension's
+  `declarativeNetRequest` rules reportedly do not block in third-party
+  WebKit hosts on macOS 26 ([cmux #7340](https://github.com/manaflow-ai/cmux/issues/7340)).
+- Broader blocking could later compile EasyList and uBO lists with AdGuard's
+  GPL-3.0 [SafariConverterLib](https://github.com/AdguardTeam/SafariConverterLib)
+  into split rule lists (150,000 rules each) plus per-site scriptlets.
+
 ## Product choices still requiring evidence
 
 - WebKit's native content-rule lists and Chromium's Declarative Net Request

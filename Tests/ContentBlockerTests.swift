@@ -367,4 +367,86 @@ final class ContentBlockerTests: XCTestCase {
             XCTAssertEqual(try Data(contentsOf: preserved[0]), data)
         }
     }
+
+    private func youTubeFixture(exceptions: [String], at address: String) async throws -> [String: Any] {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = .nonPersistent()
+        configuration.userContentController.addUserScript(WKUserScript(source: YouTubeAdBlock.script(exceptions: exceptions),
+            injectionTime: .atDocumentStart, forMainFrameOnly: false, in: .page))
+        let view = WKWebView(frame: .zero, configuration: configuration)
+        view.loadHTMLString(#"""
+            <title>pending</title>
+            <ytd-rich-item-renderer id="ad"><div id="content"><ytd-ad-slot-renderer></ytd-ad-slot-renderer></div></ytd-rich-item-renderer>
+            <ytd-rich-item-renderer id="video"><div id="content">Video</div></ytd-rich-item-renderer>
+            <script>
+            var ytInitialPlayerResponse = {"adPlacements": [1], "playerAds": [1], "adSlots": [1], "videoDetails": {"videoId": "v"}};
+            const parsed = JSON.parse('{"playerResponse": {"adPlacements": [1], "streamingData": {}}, "entries": [' +
+                '{"command": {"reelWatchEndpoint": {"adClientParams": {"isAd": true}}}}, {"command": {"reelWatchEndpoint": {}}}]}');
+            const response = new Response('[{"playerResponse": {"adSlots": [1], "videoDetails": {}}}]');
+            Object.defineProperty(response, 'url', { value: location.origin + '/youtubei/v1/get_watch?prettyPrint=false' });
+            response.json().then(parts => {
+                window.results = JSON.stringify({
+                    initial: 'adPlacements' in ytInitialPlayerResponse || 'playerAds' in ytInitialPlayerResponse || 'adSlots' in ytInitialPlayerResponse,
+                    video: ytInitialPlayerResponse.videoDetails.videoId,
+                    parsed: 'adPlacements' in parsed.playerResponse, streaming: 'streamingData' in parsed.playerResponse,
+                    shorts: parsed.entries.length, fetched: 'adSlots' in parts[0].playerResponse,
+                    hidden: getComputedStyle(document.getElementById('ad')).display === 'none',
+                    shown: getComputedStyle(document.getElementById('video')).display !== 'none'
+                });
+                document.title = 'done';
+            });
+            </script>
+            """#, baseURL: URL(string: address))
+        try await eventually { view.title == "done" }
+        let results = try await view.evaluateJavaScript("window.results") as? String
+        return try XCTUnwrap(JSONSerialization.jsonObject(with: Data(XCTUnwrap(results).utf8)) as? [String: Any])
+    }
+
+    func testYouTubeScriptRemovesPlayerAdsAndHidesAdSlotsOnlyOnYouTube() async throws {
+        let blocked = try await youTubeFixture(exceptions: [], at: "https://www.youtube.com/watch?v=v")
+        XCTAssertEqual(blocked["initial"] as? Bool, false)
+        XCTAssertEqual(blocked["video"] as? String, "v")
+        XCTAssertEqual(blocked["parsed"] as? Bool, false)
+        XCTAssertEqual(blocked["streaming"] as? Bool, true)
+        XCTAssertEqual(blocked["shorts"] as? Int, 1)
+        XCTAssertEqual(blocked["fetched"] as? Bool, false)
+        XCTAssertEqual(blocked["hidden"] as? Bool, true)
+        XCTAssertEqual(blocked["shown"] as? Bool, true)
+
+        for (exceptions, address) in [([], "https://example.com/watch"), (["https://www.youtube.com"], "https://www.youtube.com/watch?v=v")] {
+            let untouched = try await youTubeFixture(exceptions: exceptions, at: address)
+            XCTAssertEqual(untouched["initial"] as? Bool, true, address)
+            XCTAssertEqual(untouched["parsed"] as? Bool, true, address)
+            XCTAssertEqual(untouched["shorts"] as? Int, 2, address)
+            XCTAssertEqual(untouched["fetched"] as? Bool, true, address)
+            XCTAssertEqual(untouched["hidden"] as? Bool, false, address)
+        }
+    }
+
+    func testYouTubeScriptFollowsBlockerStateAndKeepsOtherUserScripts() async throws {
+        try await withStore { blocker, directory in
+            let profile = UUID()
+            let context = WebKitContext(id: .init(engineID: .webKit, profileID: profile, privateWindowID: nil), dataStore: .nonPersistent(),
+                                        blocker: blocker, siteSettings: SiteSettingsStore(directory: directory), extensionSession: nil)
+            let page = WebKitPage(tabID: UUID(), dataStore: .nonPersistent(), profileID: profile, context: context) { _, _, _ in }
+            defer { page.close() }
+            try await page.prepare()
+            let controller = page.webView.configuration.userContentController
+            let isYouTube = { (script: WKUserScript) in script.source.contains("ytInitialPlayerResponse") }
+            let others = controller.userScripts.filter { !isYouTube($0) }
+            XCTAssertFalse(others.isEmpty)
+            XCTAssertEqual(controller.userScripts.filter(isYouTube).count, 1)
+
+            await blocker.setException(origin: try XCTUnwrap(URL(string: "https://www.youtube.com")), enabled: true, profileID: profile)
+            page.applyContentRules()
+            let excepted = controller.userScripts.filter(isYouTube)
+            XCTAssertEqual(excepted.count, 1)
+            XCTAssertTrue(excepted[0].source.contains(#"["https:\/\/www.youtube.com"]"#))
+            XCTAssertEqual(controller.userScripts.filter { !isYouTube($0) }.map(\.source), others.map(\.source))
+
+            await blocker.setEnabled(false, profileID: profile)
+            page.applyContentRules()
+            XCTAssertEqual(controller.userScripts.map(\.source), others.map(\.source))
+        }
+    }
 }
