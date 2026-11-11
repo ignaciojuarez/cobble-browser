@@ -1315,6 +1315,23 @@ private struct SidebarOrganizationEdit: Identifiable {
     let save: (String, String?, FolderColor) -> Void
 }
 
+/// A title on the leading edge and its control on the trailing edge.
+private struct EditorRow<Accessory: View>: View {
+    let title: LocalizedStringKey
+    let accessory: Accessory
+    init(_ title: LocalizedStringKey, @ViewBuilder accessory: () -> Accessory) {
+        self.title = title
+        self.accessory = accessory()
+    }
+    var body: some View {
+        HStack(spacing: 24) {
+            Text(title).font(.body.weight(.medium))
+            Spacer(minLength: 24)
+            HStack(spacing: 8) { accessory }
+        }
+    }
+}
+
 private struct SidebarOrganizationEditor: View {
     let edit: SidebarOrganizationEdit
     @State private var name = ""
@@ -1336,7 +1353,7 @@ private struct SidebarOrganizationEditor: View {
                 .frame(maxWidth: .infinity)
 
             VStack(spacing: 0) {
-                SettingsRow("Name") {
+                EditorRow("Name") {
                     TextField(edit.kind == .space ? "Space name" : "Folder name", text: $name)
                         .textFieldStyle(.plain)
                         .multilineTextAlignment(.leading)
@@ -1349,19 +1366,19 @@ private struct SidebarOrganizationEditor: View {
                 Divider()
 
                 if edit.kind == .space {
-                    SettingsRow("Icon") { iconChoices }
+                    EditorRow("Icon") { iconChoices }
                         .padding(.vertical, 9)
                 } else {
-                    SettingsRow("Color") { colorChoices }
+                    EditorRow("Color") { colorChoices }
                         .padding(.vertical, 9)
                 }
             }
             .padding(.horizontal, 14)
-            .background(SettingsStyle.groupBackground,
+            .background(Color(nsColor: .controlBackgroundColor),
                         in: RoundedRectangle(cornerRadius: theme.controlCornerRadius))
             .overlay {
                 RoundedRectangle(cornerRadius: theme.controlCornerRadius)
-                    .stroke(SettingsStyle.groupBorder)
+                    .stroke(Color.primary.opacity(0.10))
             }
 
             HStack {

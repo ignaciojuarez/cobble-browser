@@ -10,36 +10,53 @@ struct ProfileSettingsView: View {
     @State private var message: String?
 
     var body: some View {
-        SettingsPage {
-            SettingsGroup("Profiles") {
-                Text("Profiles keep website logins, history, bookmarks, saved permissions, spaces, pins, favorites, and normal windows separate. Private windows are never saved.")
-                    .font(.callout).foregroundStyle(.secondary)
-                HStack {
-                    TextField("New profile name", text: $newName).textFieldStyle(.roundedBorder).onSubmit { create() }
-                    Button("Add", action: create).disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || deleting)
-                }
+        Form {
+            Section {
                 ForEach(app.profiles) { profile in
-                    Divider()
                     if editingID == profile.id {
                         HStack {
-                            TextField("Profile name", text: $editName).textFieldStyle(.roundedBorder).onSubmit { save(profile) }
+                            TextField("Profile name", text: $editName).labelsHidden().textFieldStyle(.roundedBorder).onSubmit { save(profile) }
                             Button("Save") { save(profile) }.disabled(editName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                             Button("Cancel") { editingID = nil }
                         }
                     } else {
-                        SettingsRow(verbatim: profile.displayedName, detail: detail(for: profile)) {
+                        LabeledContent {
                             Button("Open") { _ = app.selectProfile(profile.id) }
-                            if profile.id == Profile.defaultID {
-                                Text("Default").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                            } else {
-                                Button("Rename") { editingID = profile.id; editName = profile.name }
-                                Button("Delete…", role: .destructive) { confirmDelete(profile) }.disabled(deleting)
+                            if profile.id != Profile.defaultID {
+                                Menu {
+                                    Button("Rename") { editingID = profile.id; editName = profile.name }
+                                    Button("Delete…", role: .destructive) { confirmDelete(profile) }.disabled(deleting)
+                                } label: {
+                                    Image(systemName: "ellipsis")
+                                }
+                                .menuStyle(.button).menuIndicator(.hidden).fixedSize()
+                                .accessibilityLabel(String(format: String(localized: "More actions for %@"), profile.displayedName))
+                            }
+                        } label: {
+                            Label {
+                                HStack(spacing: 6) {
+                                    Text(verbatim: profile.displayedName)
+                                    if profile.id == Profile.defaultID {
+                                        Text("Default").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                                            .padding(.horizontal, 6).padding(.vertical, 1)
+                                            .background(.quaternary, in: Capsule())
+                                    }
+                                }
+                                Text(detail(for: profile))
+                            } icon: {
+                                Image(systemName: "person.crop.circle.fill").font(.title2).foregroundStyle(.pink)
                             }
                         }
                     }
                 }
-                if let message { Text(message).font(.callout).foregroundStyle(.orange) }
+                HStack {
+                    TextField("New profile name", text: $newName, prompt: Text("New profile name")).labelsHidden().textFieldStyle(.roundedBorder).onSubmit { create() }
+                    Button("Add", action: create).disabled(newName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || deleting)
+                }
+            } footer: {
+                Text("Profiles keep website logins, history, bookmarks, saved permissions, spaces, pins, favorites, and normal windows separate. Private windows are never saved.")
             }
+            SettingsMessage(text: message)
         }
     }
 

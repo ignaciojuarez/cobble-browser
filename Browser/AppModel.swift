@@ -1,39 +1,50 @@
 import AppKit
 import Observation
 
-enum SettingsSection: Int, CaseIterable {
-    case general = 0, privacy, blockers, permissions, history, shortcuts, browsing, extensions, profiles, design, sync
+/// Settings panes, in sidebar order. `groups` draws the sidebar's separators.
+enum SettingsSection: String, CaseIterable, Identifiable {
+    case general, appearance, tabs, search, privacy, websites, history, engines, extensions, profiles, sync,
+         shortcuts, automation, advanced
 
-    static let toolbarSections: [Self] = [.general, .browsing, .design, .extensions, .profiles, .privacy, .history, .shortcuts, .sync]
-    var toolbarSection: Self { [.privacy, .blockers, .permissions].contains(self) ? .privacy : self }
+    var id: Self { self }
+    static let groups: [[Self]] = [[.general, .appearance, .tabs, .search],
+                                   [.privacy, .websites, .history],
+                                   [.engines, .extensions, .profiles, .sync],
+                                   [.shortcuts, .automation, .advanced]]
     var title: String {
         switch self {
-        case .sync: String(localized: "Sync")
         case .general: String(localized: "General")
-        case .browsing: String(localized: "Browsing")
-        case .design: String(localized: "Design")
+        case .appearance: String(localized: "Appearance")
+        case .tabs: String(localized: "Tabs")
+        case .search: String(localized: "Search")
+        case .privacy: String(localized: "Privacy & Security")
+        case .websites: String(localized: "Websites")
+        case .history: String(localized: "History")
+        case .engines: String(localized: "Web Engines")
         case .extensions: String(localized: "Extensions")
         case .profiles: String(localized: "Profiles")
-        case .privacy: String(localized: "Privacy")
-        case .blockers: String(localized: "Blockers")
-        case .permissions: String(localized: "Permissions")
-        case .history: String(localized: "History")
-        case .shortcuts: String(localized: "Shortcuts")
+        case .sync: String(localized: "iCloud Sync")
+        case .shortcuts: String(localized: "Keyboard")
+        case .automation: String(localized: "Automation")
+        case .advanced: String(localized: "Advanced")
         }
     }
     var symbol: String {
         switch self {
-        case .sync: "icloud"
-        case .general: "gearshape"
-        case .browsing: "globe"
-        case .design: "paintbrush"
-        case .extensions: "puzzlepiece.extension"
-        case .profiles: "person.2"
-        case .privacy: "hand.raised"
-        case .history: "clock.arrow.circlepath"
-        case .shortcuts: "keyboard"
-        case .blockers: "shield.lefthalf.filled"
-        case .permissions: "camera"
+        case .general: "gearshape.fill"
+        case .appearance: "paintbrush.fill"
+        case .tabs: "square.on.square.fill"
+        case .search: "magnifyingglass"
+        case .privacy: "hand.raised.fill"
+        case .websites: "globe"
+        case .history: "clock.fill"
+        case .engines: "engine.combustion.fill"
+        case .extensions: "puzzlepiece.extension.fill"
+        case .profiles: "person.2.fill"
+        case .sync: "icloud.fill"
+        case .shortcuts: "keyboard.fill"
+        case .automation: "gearshape.2.fill"
+        case .advanced: "wrench.and.screwdriver.fill"
         }
     }
 }

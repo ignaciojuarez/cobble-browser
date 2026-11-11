@@ -4,56 +4,68 @@ struct DesignSettingsView: View {
     @Bindable var preferences: BrowserPreferences
 
     var body: some View {
-        SettingsPage {
-            SettingsGroup("Theme") {
+        Form {
+            Section {
                 HStack(spacing: 12) {
                     ForEach([BrowserThemePreset.native, .legacy, .retro]) { theme in
                         themeChoice(theme)
                     }
                 }
+                .frame(maxWidth: .infinity)
+            } header: {
+                Text("Theme")
+            } footer: {
                 if preferences.theme == .custom {
                     Text("Custom, based on \(preferences.themeTemplate.title)")
-                        .font(.callout).foregroundStyle(.secondary)
                 }
             }
-            SettingsGroup("Window style") {
-                Text("Controls the page corners and the space around the page.")
-                    .font(.callout).foregroundStyle(.secondary)
+            Section {
                 HStack(spacing: 12) {
                     ForEach(BrowserWindowStyle.allCases) { style in
                         windowStyleChoice(style)
                     }
                 }
+                .frame(maxWidth: .infinity)
+            } header: {
+                Text("Window style")
+            } footer: {
+                Text("Controls the page corners and the space around the page.")
             }
-            SettingsGroup("Customize") {
-                SettingsRow("Browser interface", detail: "Changes Cobble’s browser chrome, not the content of webpages.") {
-                    Picker("Browser interface font", selection: Binding(
-                        get: { preferences.browserChromeFont },
-                        set: { preferences.setBrowserChromeFont($0) }
-                    )) {
-                        ForEach(BrowserChromeFont.allCases) { font in
-                            Text(font.title).tag(font)
-                        }
+            Section {
+                ColorPicker(selection: Binding(
+                    get: { Color(nsColor: preferences.themeAccentColor) },
+                    set: { preferences.setThemeAccentColor(NSColor($0)) }
+                ), supportsOpacity: false) {
+                    Text("Accent color")
+                    Text("Tabs, pins, previews, and hover states derive from this color.")
+                }
+                Picker(selection: Binding(get: { preferences.browserChromeFont },
+                                          set: { preferences.setBrowserChromeFont($0) })) {
+                    ForEach(BrowserChromeFont.allCases) { font in
+                        Text(font.title).font(font.previewFont).tag(font)
                     }
-                    .labelsHidden()
-                    .frame(width: 180)
+                } label: {
+                    Text("Browser interface")
+                    Text("Changes Cobble’s browser chrome, not the content of webpages.")
                 }
-                Divider()
-                SettingsRow("Accent color", detail: "Tabs, pins, previews, and hover states derive from this color.") {
-                    ColorPicker("Accent color", selection: Binding(
-                        get: { Color(nsColor: preferences.themeAccentColor) },
-                        set: { preferences.setThemeAccentColor(NSColor($0)) }
-                    ), supportsOpacity: false)
-                    .labelsHidden()
+                Picker(selection: Binding(get: { preferences.tabLoadingIndicator },
+                                          set: { preferences.setTabLoadingIndicator($0) })) {
+                    ForEach(TabLoadingIndicatorStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                } label: {
+                    Text("Loading indicator")
+                    Text("Shown on a tab while its page loads.")
                 }
+            } header: {
+                Text("Customize")
+            } footer: {
                 Text("The quick brown fox jumps over the lazy dog.")
                     .font(preferences.browserChromeFont.previewFont)
-                    .foregroundStyle(.secondary)
             }
-            if let error = preferences.errorMessage {
-                Text(error).font(.callout).foregroundStyle(.orange)
-            }
+            SettingsMessage(text: preferences.errorMessage)
         }
+        .disabled(preferences.readError != nil)
     }
 
     private func themeChoice(_ preset: BrowserThemePreset) -> some View {

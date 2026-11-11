@@ -19,7 +19,7 @@ uploaded elsewhere is invisible to Check for Updates.
 
 - A quiet sidebar **Update available** button opens Sparkle’s native dialog.
   Downloaded updates use **Restart to update**; critical updates retain a prompt.
-- **Cobble → Check for Updates…** and Settings → General → Updates are always
+- **Cobble → Check for Updates…** and Settings → General → Software Update are always
   reachable, even with the sidebar hidden.
 - Background checks are enabled by default, once daily while Cobble is running.
   Available updates appear in the sidebar without opening Settings. Users can

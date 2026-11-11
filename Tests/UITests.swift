@@ -12,7 +12,7 @@ final class UITests: XCTestCase {
         defer { NSApp.accessibilitySetValue(previous, forAttribute: enhanced) }
         for source in [nil, Data("not JSON".utf8)] {
             try await withWindow(preferencesData: source) { model, _, _ in
-                model.app.settingsSection = .general
+                model.app.settingsSection = .engines
                 let application = CobbleApp(model: model.app)
                 let priorMenu = NSApp.mainMenu
                 model.app.preferences.onChange = { application.buildMenus() }
@@ -1437,107 +1437,52 @@ final class UITests: XCTestCase {
             await blocker.installBundledRules(profileID: workProfile.id)
             await blocker.setUpdateSource(workSource, profileID: workProfile.id)
 
-            let toolbarDelegate = CobbleApp()
-            let toolbar = NSToolbar(identifier: "settings")
-            toolbar.delegate = toolbarDelegate
-            toolbar.displayMode = .iconAndLabel
-            toolbar.sizeMode = .regular
-            toolbar.allowsUserCustomization = false
-            let settingsWindow = SettingsWindow(
-                contentRect: NSRect(x: 0, y: 0, width: 900, height: 620),
-                styleMask: [.titled, .closable, .resizable], backing: .buffered,
-                defer: false)
+            let settingsWindow = SettingsWindow(rootView: SettingsView(app: model.app))
             XCTAssertFalse(settingsWindow.canBecomeMain)
-            settingsWindow.title = "Cobble Settings"
-            settingsWindow.titleVisibility = .hidden
-            settingsWindow.toolbarStyle = .preference
-            settingsWindow.toolbar = toolbar
-            settingsWindow.minSize = NSSize(width: 760, height: 540)
-            settingsWindow.isReleasedWhenClosed = false
-            let settings = NSHostingView(rootView: SettingsView(app: model.app))
-            settingsWindow.contentView = settings
             settingsWindow.orderFront(nil)
-            let frame = try XCTUnwrap(settingsWindow.contentView?.superview)
+            let settings = try XCTUnwrap(settingsWindow.contentView)
+            var frame: NSView { settingsWindow.contentView?.superview ?? settings }
             defer {
                 settingsWindow.orderOut(nil)
-                settingsWindow.contentView = nil
-                settingsWindow.toolbar = nil
+                settingsWindow.contentViewController = nil
                 settingsWindow.close()
-                withExtendedLifetime(toolbarDelegate) {}
             }
+            XCTAssertEqual(SettingsSection.groups.flatMap { $0 }, SettingsSection.allCases)
+            // Synthetic rows so every list renders.
+            for (offset, site) in ["news", "docs", "mail", "shop"].enumerated() {
+                model.app.library.recordVisit(urlString: "https://\(site).example/", title: "\(site.capitalized) fixture",
+                                              profileID: profileID, at: Date().addingTimeInterval(Double(-offset) * 3_600))
+            }
+            model.app.library.bookmark(urlString: "https://docs.example/", title: "Docs fixture", profileID: profileID)
+            XCTAssertTrue(model.app.siteSettings.update(SiteSetting(profileID: profileID, origin: "https://meet.example",
+                                                                    camera: .allow, microphone: .deny, popups: .allow)))
+            model.app.siteSettings.setZoom(1.25, origin: try XCTUnwrap(URL(string: "https://docs.example")), profileID: profileID)
+            XCTAssertTrue(model.app.siteSettings.setBrowserIdentity(.iPhone, for: try XCTUnwrap(URL(string: "https://m.example")),
+                                                                    profileID: profileID))
+            XCTAssertTrue(model.app.preferences.setEngineRule(for: try XCTUnwrap(URL(string: "https://docs.example")), engineID: .webKit))
+            XCTAssertTrue(model.app.preferences.setAutomationExcluded(try XCTUnwrap(URL(string: "https://bank.example")), excluded: true))
+            XCTAssertTrue(model.app.preferences.addSearchEngine(name: "Wiki fixture", template: "https://wiki.example/?q={searchTerms}", bang: "w"))
+            await blocker.setException(origin: try XCTUnwrap(URL(string: "https://news.example")), enabled: true, profileID: profileID)
 
-            @MainActor func select(_ section: SettingsSection) {
+            @MainActor func show(_ section: SettingsSection, _ appearance: NSAppearance.Name) async throws {
                 model.app.settingsSection = section
-                toolbar.selectedItemIdentifier = NSToolbarItem.Identifier(
-                    "settings.\(section.rawValue)")
+                settingsWindow.appearance = NSAppearance(named: appearance)
+                try await Task.sleep(for: .milliseconds(300))
+                settingsWindow.displayIfNeeded()
+                frame.layoutSubtreeIfNeeded()
+                frame.displayIfNeeded()
+                XCTAssertEqual(settingsWindow.title, section.title)
             }
-            @MainActor func verifyToolbar(selected section: SettingsSection) throws {
-                let visibleItems = toolbar.visibleItems
-                let items = try XCTUnwrap(visibleItems).filter {
-                    $0.itemIdentifier.rawValue.hasPrefix("settings.")
-                }
-                let labels = items.map { $0.label }
-                let allHaveImages = items.allSatisfy { $0.image != nil }
-                let displayMode = toolbar.displayMode
-                let selectedItemIdentifier = toolbar.selectedItemIdentifier
-                XCTAssertEqual(items.count, SettingsSection.toolbarSections.count)
-                XCTAssertEqual(labels, SettingsSection.toolbarSections.map(\.title))
-                XCTAssertTrue(allHaveImages)
-                XCTAssertEqual(displayMode, .iconAndLabel)
-                XCTAssertEqual(selectedItemIdentifier,
-                    NSToolbarItem.Identifier("settings.\(section.rawValue)"))
+            for section in SettingsSection.allCases {
+                try await show(section, .aqua)
+                try capture(frame, name: "Settings \(section.rawValue) light", outputDirectory: settingsRenders)
+            }
+            for section in [SettingsSection.general, .privacy, .shortcuts] {
+                try await show(section, .darkAqua)
+                try capture(frame, name: "Settings \(section.rawValue) dark", outputDirectory: settingsRenders)
             }
 
-            select(.general)
-            var minimumFrame = settingsWindow.frame
-            minimumFrame.size.width = 760
-            settingsWindow.setFrame(minimumFrame, display: true)
-            XCTAssertEqual(settingsWindow.frame.width, 760)
-            settingsWindow.appearance = NSAppearance(named: .darkAqua)
-            await Task.yield()
-            settingsWindow.displayIfNeeded()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Native settings", outputDirectory: settingsRenders)
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "General settings dark", outputDirectory: settingsRenders)
-            settingsWindow.appearance = NSAppearance(named: .aqua)
-            await Task.yield()
-            settingsWindow.displayIfNeeded()
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "General settings light", outputDirectory: settingsRenders)
-            select(.design)
-            await Task.yield()
-            settings.layoutSubtreeIfNeeded()
-            try verifyToolbar(selected: .design)
-            try capture(settings, name: "Design settings", outputDirectory: settingsRenders)
-            select(.shortcuts)
-            await Task.yield()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Keyboard and gesture settings", outputDirectory: settingsRenders)
-            settingsWindow.appearance = NSAppearance(named: .darkAqua)
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "Shortcut settings dark", outputDirectory: settingsRenders)
-            settingsWindow.appearance = NSAppearance(named: .aqua)
-            await Task.yield()
-            settingsWindow.displayIfNeeded()
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "Shortcut settings light", outputDirectory: settingsRenders)
-            select(.history)
-            await Task.yield()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "History controls", outputDirectory: settingsRenders)
-            select(.permissions)
-            await Task.yield()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Profile-scoped permissions", outputDirectory: settingsRenders)
-            select(.blockers)
-            await Task.yield()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Profile-scoped content blocking", outputDirectory: settingsRenders)
+            try await show(.privacy, .aqua)
             let sourcePlaceholder = String(localized: "HTTPS JSON URL")
             let sourceField = try XCTUnwrap(textField(placeholder: sourcePlaceholder, in: settings))
             XCTAssertEqual(sourceField.stringValue, defaultSource.absoluteString)
@@ -1550,56 +1495,13 @@ final class UITests: XCTestCase {
                 }
                 XCTAssertEqual(textField(placeholder: sourcePlaceholder, in: settings)?.stringValue, expectedSource.absoluteString)
             }
-            select(.browsing)
-            await Task.yield()
-            settingsWindow.displayIfNeeded()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Browsing settings 900x620", outputDirectory: settingsRenders)
-            try verifyToolbar(selected: .browsing)
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "Browsing settings toolbar 900 wide", outputDirectory: settingsRenders)
-            select(.extensions)
-            try await Task.sleep(for: .milliseconds(300))
-            settingsWindow.displayIfNeeded()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Extensions settings 900x620", outputDirectory: settingsRenders)
-            try verifyToolbar(selected: .extensions)
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "Extensions settings toolbar 900 wide", outputDirectory: settingsRenders)
-            select(.profiles)
-            await Task.yield()
-            settingsWindow.displayIfNeeded()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Profiles settings 900x620", outputDirectory: settingsRenders)
-            try verifyToolbar(selected: .profiles)
-            minimumFrame = settingsWindow.frame
-            minimumFrame.size.width = 820
+
+            var minimumFrame = settingsWindow.frame
+            minimumFrame.size = NSSize(width: 760, height: 520)
             settingsWindow.setFrame(minimumFrame, display: true)
-            settingsWindow.appearance = NSAppearance(named: .darkAqua)
-            try await Task.sleep(for: .milliseconds(300))
-            settingsWindow.displayIfNeeded()
-            settings.layoutSubtreeIfNeeded()
-            try capture(settings, name: "Profiles settings 820x540", outputDirectory: settingsRenders)
-            try verifyToolbar(selected: .profiles)
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "Profiles settings toolbar 820 wide", outputDirectory: settingsRenders)
-            settingsWindow.appearance = NSAppearance(named: .aqua)
-            await Task.yield()
-            settingsWindow.displayIfNeeded()
-            frame.layoutSubtreeIfNeeded()
-            frame.displayIfNeeded()
-            try capture(frame, name: "Profiles settings toolbar 820 wide light", outputDirectory: settingsRenders)
-            for (section, name) in [(SettingsSection.shortcuts, "Shortcuts"), (.browsing, "Browsing"), (.privacy, "Privacy")] {
-                select(section)
-                await Task.yield()
-                settingsWindow.displayIfNeeded()
-                frame.layoutSubtreeIfNeeded()
-                frame.displayIfNeeded()
-                try verifyToolbar(selected: section)
-                try capture(frame, name: "\(name) settings toolbar 820 wide", outputDirectory: settingsRenders)
+            for section in [SettingsSection.extensions, .websites] {
+                try await show(section, .aqua)
+                try capture(frame, name: "Settings \(section.rawValue) minimum size", outputDirectory: settingsRenders)
             }
         }
     }

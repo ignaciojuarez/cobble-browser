@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+- Settings is redesigned like System Settings: a searchable sidebar with icons
+  and 14 focused panes (General, Appearance, Tabs, Search, Privacy & Security,
+  Websites, History, Web Engines, Extensions, Profiles, iCloud Sync, Keyboard,
+  Automation, Advanced). Website data opens in a searchable Manage Website
+  Data sheet, and one profile picker covers every per-profile pane.
+- Settings › Websites lists each site's pop-up choice and remembered page zoom,
+  so you can allow or block pop-ups and reset zoom without visiting the site.
+- Settings › Appearance can change the tab loading indicator.
 - Video calls in Chromium tabs (Zoom, Meet, Teams) can list and pick your
   camera and microphone after you allow them. Before, Chromium pages saw
   unnamed devices and an unanswered permission, so meeting sites reported no
@@ -12,14 +20,14 @@
   says where to turn it on instead of failing silently.
 - Links opened in new tabs from Chromium tabs (⌘-click, middle-click, Open
   Link in New Tab) now use Automatic engine selection, like WebKit tabs.
-  Settings › Web Engine › Links opened in new tabs can keep the current tab's
+  Settings › Web Engines › Links opened in new tabs can keep the current tab's
   engine instead.
 - ⌘Z reopens a closed tab while a Chromium page is focused, unless you typed
   in one of its text fields after closing the tab.
 - Keyboard Privacy is on by default for settings that have not explicitly chosen otherwise, hides Option/Alt alongside Command and Control, and keeps orphaned key-up events from global hotkeys away from pages.
 - AI agents and scripts can work with Cobble through the bundled `cobble`
-  command (JSON output) or `cobble mcp` (an MCP server). Settings › Browsing ›
-  Automation copies its path.
+  command (JSON output) or `cobble mcp` (an MCP server). Settings › Automation
+  copies its path.
 - AppleScript can navigate, go back or forward, and reload tabs, open
   background tabs, and see which window is in front and each tab's loading,
   engine, audio and dialog state. The window is now optional.

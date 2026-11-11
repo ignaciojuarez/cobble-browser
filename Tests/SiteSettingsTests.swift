@@ -90,6 +90,37 @@ final class SiteSettingsTests: XCTestCase {
         }
     }
 
+    func testSettingsPopupsCoverPopupEnginesAndZoomResetDropsEmptyEntries() throws {
+        try withDirectory { directory in
+            let store = SiteSettingsStore(directory: directory)
+            let profile = UUID(), origin = "https://popups.example"
+            let webKit = TestEngine(.webKit), chromium = TestEngine(EngineID(rawValue: "chromium")), plain = TestEngine(EngineID(rawValue: "plain"))
+            webKit.capabilities.supportsPopupPolicy = true
+            chromium.capabilities.supportsPopupPolicy = true
+            let engines: [any BrowserEngine] = [webKit, chromium, plain]
+            XCTAssertNil(store.summaries(profileID: profile, engines: engines).first)
+            XCTAssertTrue(store.updatePopups(origin: origin, profileID: profile, .allow, engines: engines))
+            let url = try XCTUnwrap(URL(string: origin))
+            XCTAssertEqual(store.setting(origin: url, profileID: profile, engineID: chromium.id).popups, .allow)
+            XCTAssertFalse(store.entries.contains { $0.engineID == plain.id })
+            XCTAssertEqual(SiteSettingsStore(directory: directory).summaries(profileID: profile, engines: engines).first?.popups, .some(.allow))
+            XCTAssertNil(try XCTUnwrap(store.summaries(profileID: profile, engines: [plain]).first).popups)
+            var mixed = store.setting(origin: url, profileID: profile, engineID: chromium.id)
+            mixed.popups = .ask
+            XCTAssertTrue(store.update(mixed))
+            XCTAssertEqual(store.summaries(profileID: profile, engines: engines).first?.popups, .some(nil))
+            XCTAssertTrue(store.updatePopups(origin: origin, profileID: profile, .ask, engines: engines))
+            XCTAssertTrue(store.summaries(profileID: profile, engines: engines).isEmpty)
+
+            let zoomed = try XCTUnwrap(URL(string: "https://zoom.example"))
+            store.setZoom(1.25, origin: zoomed, profileID: profile)
+            XCTAssertEqual(store.setting(origin: zoomed, profileID: profile).zoom, 1.25)
+            store.setZoom(nil, origin: zoomed, profileID: profile)
+            XCTAssertFalse(store.entries.contains { $0.origin == "https://zoom.example" })
+            XCTAssertFalse(SiteSettingsStore(directory: directory).entries.contains { $0.origin == "https://zoom.example" })
+        }
+    }
+
     func testBrowserIdentitySharesOriginAcrossEnginesWithoutChangingPermissionsOrZoom() throws {
         try withDirectory { directory in
             let profile = UUID(), otherProfile = UUID()
