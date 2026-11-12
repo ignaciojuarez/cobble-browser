@@ -175,8 +175,10 @@ struct SidebarView: View {
                     }
                     .contentShape(Rectangle())
                     .sidebarDropTarget(session: dropSession, commit: commitSpaceDrop)
-                    .onChange(of: window.selectedTab?.id) { _, _ in
-                        if swipe == nil { revealSelection(using: proxy) }
+                    .onChange(of: window.selectedTab?.id) { old, _ in
+                        // Closing a tab selects a replacement; keep the scroll position where it was.
+                        let closed = old.map { id in !window.record.tabs.contains { $0.id == id } } ?? false
+                        if swipe == nil, !closed { revealSelection(using: proxy) }
                     }
                     .onChange(of: swipeTopRequest) { _, _ in
                         var transaction = Transaction(); transaction.disablesAnimations = true
