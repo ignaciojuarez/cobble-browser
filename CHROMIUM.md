@@ -306,3 +306,17 @@ both), the rebuilt development runtime passed 256 of 256 native checks,
 including picking a device by ID. Cobble pins `77ab40e`. Fake devices skip
 macOS camera/microphone permission, so real hardware, a Developer ID release
 and real meeting sites remain to be checked.
+
+## HTTPS-First fallback (2026-11-15)
+
+Chromium 157 shows an HTTPS-First fallback (an `http://` site whose HTTPS
+upgrade fails) in a tab-modal Ask-before-HTTP dialog. Host-owned windows have
+no Chrome widget to anchor it, so `TabDialogManager` CHECK-failed and quit the
+app (beta 16, opening an `http://` email link). The SDK fix
+([chrome-sdk#25](https://github.com/ignaciojuarez/chrome-sdk/pull/25),
+`0041-show-https-first-interstitial.patch`, `2d09b63`) shows Chromium's
+full-page interstitial in the tab instead. On the rebuilt development runtime
+the SDK smoke passed, and a locally assembled Full build opened the failing
+`http://` host in a Chromium tab, showed the interstitial, and loaded the site
+after Continue. Cobble pins `2d09b63`. A Developer ID release remains to be
+checked.
