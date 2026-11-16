@@ -47,7 +47,7 @@
       "iconSize": 15,
       "font": "system",
       "weight": "medium",
-      "hideWhenDisabled": true,
+      "hideWhenDisabled": false,
       "hoverOpacity": 0.14
     },
     "space": {
