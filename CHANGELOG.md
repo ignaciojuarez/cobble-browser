@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Back and Forward buttons always stay in the toolbar. When there is no page
+  to go back or forward to, they appear dimmed instead of disappearing.
 - Opening an `http://` link in a Chromium tab no longer quits Cobble when the
   site cannot be reached over HTTPS. Chromium now shows its full-page
   "connection is not secure" warning, with a button to continue, instead of

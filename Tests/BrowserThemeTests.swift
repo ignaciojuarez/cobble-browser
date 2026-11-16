@@ -25,7 +25,7 @@ final class BrowserThemeTests: XCTestCase {
         XCTAssertEqual(native.controls.toolbar.surface.shape, .circle)
         XCTAssertTrue(native.controls.toolbar.surface.interactive)
         XCTAssertTrue(native.controls.toolbar.surface.keepActive)
-        XCTAssertTrue(native.controls.navigation.hideWhenDisabled)
+        XCTAssertFalse(native.controls.navigation.hideWhenDisabled)
         XCTAssertEqual(native.controls.navigation.surface.material, .none)
         XCTAssertEqual(native.groups.navigation.material, .glass)
         XCTAssertEqual(native.groups.spaces.shape, .capsule)
