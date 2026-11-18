@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Chromium tabs run Chromium 158.0.8127.37, the current stable release, with
+  its security fixes.
 - Back and Forward buttons always stay in the toolbar. When there is no page
   to go back or forward to, they appear dimmed instead of disappearing.
 - Opening an `http://` link in a Chromium tab no longer quits Cobble when the

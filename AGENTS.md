@@ -115,6 +115,7 @@ Keep these at the project root. Feature status lives under `docs/features/`.
 - Recovery restores URLs and organization, not unsaved page memory.
 - No AI chrome, telemetry, custom cache, or Cobble password vault. System Apple Passwords is entitlement-gated on WebKit; Chromium may use Apple’s system helper (in scope, not required). Apple browser doors: `docs/features/apple-browser.md`. Passwords: `docs/features/passwords.md`.
 - Never commit Chromium build outputs, signing credentials, browser data, or local evidence. Native Full builds are local.
+- Keep one Chromium on disk. On each Chromium update, build and validate the new version, then delete the previous build tree and unused runtimes (`CHROMIUM.md` → Working setup).
 - WebKit WebExtensions: public APIs, explicit site grants, private access opt-in. No Safari App Extensions.
 - Native tab output mute uses the runtime-checked private bridge in `Engine/WebKit/WebKitAudioMute.swift`. Keep it adapter-local; never substitute playback suspension or bypass its capture-history guard. See W18 in `ROADMAP.md` for qualification and the fresh-tab limitation.
 - WebKit screen sharing uses the runtime-checked private delegate in `Engine/WebKit/WebKitDisplayCapture.swift`. Keep it adapter-local; every grant asks with the origin and sets capture history first, and a missing delegate fails closed. Never emulate, override or filter screen, window or fullscreen information. See W19 in `ROADMAP.md` and `docs/features/screen-sharing.md`.

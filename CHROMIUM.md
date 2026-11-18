@@ -19,12 +19,21 @@ The public app and SDK repositories are the only development sources. Clone
 them once as `~/Developer/cobble` and `~/Developer/chrome-sdk`. Use temporary
 worktrees for branches; do not keep public/private source mirrors.
 
-Keep one incremental Chromium cache outside either repository. On the maintainer
-Mac this is `~/Developer/cobble-chromium-build/chromium-157`; compiled outputs
-reference that path, so do not rename it. The Chromium 153 `next-stable` tree is
-the rollback source until 157 qualifies, then obsolete. Keep immutable packaged
-current/rollback runtimes under `cobble-chromium-build/runtimes/`, not copies of
-full build trees.
+Keep one incremental Chromium build tree outside either repository, at the
+version-neutral `~/Developer/cobble-chromium-build/chromium` (`Scripts/hook_full.sh`
+reads `chromium/src/out/Cobble/Chromium.app`). Keep packaged runtimes under
+`cobble-chromium-build/runtimes/`: only the current one and the one in the latest
+published release.
+
+**On each Chromium update** (one Chromium on disk):
+
+1. Prepare the new version in `cobble-chromium-build/chromium-next` and rebase,
+   build, package and validate it there (see the SDK README).
+2. Only after it passes, delete `chromium` and rename `chromium-next` to
+   `chromium`. Some dependency files record absolute paths, so compile once
+   more (a few hundred steps), package, and rerun the harness there.
+3. Delete runtimes other than the current and latest-published ones, stale
+   `tmp/` folders and old compile logs.
 
 ABI 17 carries exact popup disposition so modified-link children can open in
 the background. The app’s shared page event carries the activation choice for
@@ -34,8 +43,8 @@ both Chromium and WebKit.
 
 | Component | Version |
 | --- | --- |
-| Chromium | `157.0.8103.39` (`9a31f0acec1854d44e49a73fbf8017598151a583`) |
-| depot_tools | `9fc44de94012dc6598ed1e84a9251759ed5ea7f8` |
+| Chromium | `158.0.8127.37` (`b8c2be851f62f6a394ec57955d7f31335d7cb6d4`) |
+| depot_tools | `7a339079d178fbc9c6f6230082843d6e00b2551f` |
 | Cobble SDK | Exact public revision in `Package.swift` and `Package.resolved` |
 | Cobble ABI | 19 |
 
@@ -137,20 +146,21 @@ fixtures now pass it (see Runtime boundaries). The runtime remains a
 development artifact; no new signed app update is published by this source
 migration.
 
-## Chromium 157 validation (2026-11-06)
+## Chromium 158 validation (2026-11-18)
 
-The SDK moved from 153.0.8010.37 to 157.0.8103.39 with all patches rebased and
-the audit's native fixes (see `artifacts/chromium-sdk-audit.md`). The packaged
-development runtime (`release_ready: false`) passed the isolated SDK harness:
-251 of 251 native checks, plus navigation, DOM, forms, rendering, WebGL2,
-downloads, clean shutdown and empty History tables. The former PiP, document
-PiP and display-media containment failures were harness artifacts and pass.
+The SDK runs Chromium 158.0.8127.37 with all patches rebased
+([chrome-sdk#26](https://github.com/ignaciojuarez/chrome-sdk/pull/26)). Chromium 158
+links the framework directly from a minimal app launcher, so the SDK now loads
+Cobble's client at the start of `ChromeMain`. The packaged development runtime
+(`release_ready: false`) passed the isolated SDK harness: 256 of 256 native
+checks, plus navigation, DOM, forms, rendering, WebGL2, downloads, clean
+shutdown and empty History tables. Cobble's adapter tests (13) and hosted suite
+(656) passed against the pinned SDK, and Full assembled, passed deep/strict
+signature checks and launched with an isolated data root.
 
-Chromium 157 refuses page fullscreen unless the page view has focus in the key
-window; a real click provides that, and Cobble focuses the selected tab. The
-Cobble adapter built against the pinned SDK and its 12 tests passed. Full
-assembly and launch, closing a private window during a download, real sites
-and hardware remain to be checked.
+Chromium refuses page fullscreen unless the page view has focus in the key
+window; a real click provides that, and Cobble focuses the selected tab. Real
+sites and hardware remain to be checked.
 
 ## Screen sharing validation (2026-11-04)
 
@@ -303,13 +313,13 @@ The SDK smoke gained device-list checks for camera and microphone. On the beta
 ([chrome-sdk#21](https://github.com/ignaciojuarez/chrome-sdk/pull/21), `77ab40e`:
 status resolver for camera/microphone, one-time grant after Allow, reset for
 both), the rebuilt development runtime passed 256 of 256 native checks,
-including picking a device by ID. Cobble pins `77ab40e`. Fake devices skip
+including picking a device by ID. The fix is part of the current pin. Fake devices skip
 macOS camera/microphone permission, so real hardware, a Developer ID release
 and real meeting sites remain to be checked.
 
 ## HTTPS-First fallback (2026-11-15)
 
-Chromium 157 shows an HTTPS-First fallback (an `http://` site whose HTTPS
+Chromium shows an HTTPS-First fallback (an `http://` site whose HTTPS
 upgrade fails) in a tab-modal Ask-before-HTTP dialog. Host-owned windows have
 no Chrome widget to anchor it, so `TabDialogManager` CHECK-failed and quit the
 app (beta 16, opening an `http://` email link). The SDK fix
@@ -318,5 +328,5 @@ app (beta 16, opening an `http://` email link). The SDK fix
 full-page interstitial in the tab instead. On the rebuilt development runtime
 the SDK smoke passed, and a locally assembled Full build opened the failing
 `http://` host in a Chromium tab, showed the interstitial, and loaded the site
-after Continue. Cobble pins `2d09b63`. A Developer ID release remains to be
+after Continue. The fix is part of the current pin. A Developer ID release remains to be
 checked.
