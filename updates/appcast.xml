@@ -10,6 +10,28 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <language>en</language>
         <item>
             <title>0.1.0</title>
+            <pubDate>Wed, 18 Nov 2026 10:25:23 -0800</pubDate>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
+
+- Chromium tabs now run Chromium 158.0.8127.37, the current stable release, with its security fixes.
+- Opening an `http://` link in a Chromium tab (for example from Mail) no longer quits Cobble when the site cannot be reached over HTTPS. Chromium now shows its full-page "doesn't support a secure connection" warning, with Continue to site.
+- Back and Forward buttons always stay in the toolbar. When there is no page to go back or forward to, they appear dimmed instead of disappearing.
+- Closing a tab keeps the sidebar's scroll position.
+
+Includes WebKit, Chromium 158.0.8127.37 and signed in-app updates, using the pinned public ABI 19 SDK (0b3164f) and its matching runtime.
+
+This is an early beta. Clean-Mac installation and installed version-to-version updates remain unqualified. After updating, older Cobble betas should not be reopened: Chromium does not support moving a profile back to an older version.
+
+Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
+]]></description>
+            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.18/Cobble-v0.1.0-beta.18.zip" length="173389667" type="application/octet-stream" sparkle:edSignature="tEPc7lRr0gOL5Uti3TC5EQx/TovGIJSfMO0MZoyaKqrzWWRj4mbTizu2Ojr6efPWgCe9TZlVjalES4u001YFCg=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Wed, 11 Nov 2026 14:53:32 -0800</pubDate>
             <sparkle:version>16</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -56,31 +78,9 @@ Download the ZIP, extract Cobble, quit the old app and replace it in Application
 ]]></description>
             <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.15/Cobble-v0.1.0-beta.15.zip" length="169556916" type="application/octet-stream" sparkle:edSignature="IxQkn+/KhReELopayUyhZtXvXnzunIOYO0ky9C7SwQEZ/2FiHtcDix8BrcK2VuaxjQYwbheGomebKUOOmbmrBg=="/>
         </item>
-        <item>
-            <title>0.1.0</title>
-            <pubDate>Mon, 09 Nov 2026 11:50:33 -0800</pubDate>
-            <sparkle:version>14</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
-            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
-            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <description sparkle:format="markdown"><![CDATA[Full Cobble browser for Apple silicon and macOS 26+.
-
-- Keyboard Privacy is enabled by default unless you previously chose otherwise, and now hides Option/Alt alongside Command and Control from websites.
-- Global hotkeys can no longer leak orphaned key-up events to pages. This keeps Mica's original Option and Control-Option shortcuts out of Cobble pages.
-- Option-based special characters and site shortcuts are also hidden from pages while Keyboard Privacy is enabled.
-- Includes the latest AI-agent tab automation, AppleScript and privacy fixes from main.
-
-Includes WebKit, Chromium 157.0.8103.39 and signed in-app updates, using the pinned public ABI 19 SDK (93c1dad) and its matching runtime.
-
-This is an early beta. Real-site compatibility, clean-Mac installation and installed version-to-version updates remain unqualified. After updating, older Cobble betas should not be reopened: Chromium does not support moving a profile back to an older version.
-
-Download the ZIP, extract Cobble, quit the old app and replace it in Applications. Beta 1 users need one manual install because that version's updater cannot start.
-]]></description>
-            <enclosure url="https://github.com/ignaciojuarez/cobble-browser/releases/download/v0.1.0-beta.14/Cobble-v0.1.0-beta.14.zip" length="169519976" type="application/octet-stream" sparkle:edSignature="anEorJYUtuMImSVNo29/8c5KT3t1x+t45DhH3e0IUmqMW5EwCf82WZTcv1UXK1FJ8AaSozBux3CcCgljlxqbBw=="/>
-        </item>
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: ghGBwlZgjLOi2i6iHxRQCWxyO4vxH3Hrk+GJ7bd+BYXDMYy/7EJLRYGMlHuTM6LAt+lEyiToG95/0lFpuJpDBw==
-length: 7563
+edSignature: vmAiM0BEr/p2gVF4rrueAzbOkLBdNu0GwA7escDKNNPzgUHqMtX68qLQAY3IvQorxVbfVI22qA70gG8hI34VDg==
+length: 7573
 -->
