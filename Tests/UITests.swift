@@ -99,7 +99,7 @@ final class UITests: XCTestCase {
         XCTAssertEqual(editor.selectedRange().length, model.addressDraft.utf16.count)
     }
 
-    func testThemeNavigationHidesDisabledControls() async throws {
+    func testThemeNavigationKeepsDisabledControlsVisible() async throws {
         let enhanced = NSAccessibility.Attribute(rawValue: "AXEnhancedUserInterface")
         let previous = NSApp.accessibilityAttributeValue(enhanced)
         NSApp.accessibilitySetValue(true, forAttribute: enhanced)
@@ -110,16 +110,13 @@ final class UITests: XCTestCase {
             model.select(tab.id)
             for _ in 0..<100 where model.selectedPage == nil { try await Task.sleep(for: .milliseconds(10)) }
             let page = try XCTUnwrap(model.selectedPage)
+            // Unavailable Back/Forward stay visible (dimmed), not removed.
             var back = await accessibilityButton("Back", in: nativeWindow, hosting: hosting)
-            XCTAssertNil(back)
-            var forward = await accessibilityButton("Forward", in: nativeWindow, hosting: hosting)
-            XCTAssertNil(forward)
-            page.state.canGoBack = true
-            back = await accessibilityButton("Back", in: nativeWindow, hosting: hosting)
             XCTAssertNotNil(back)
-            page.state.canGoForward = true
-            forward = await accessibilityButton("Forward", in: nativeWindow, hosting: hosting)
+            let forward = await accessibilityButton("Forward", in: nativeWindow, hosting: hosting)
             XCTAssertNotNil(forward)
+            page.state.canGoBack = true
+            page.state.canGoForward = true
             XCTAssertTrue(model.app.preferences.setTheme(.legacy))
             page.state.canGoBack = false
             back = await accessibilityButton("Back", in: nativeWindow, hosting: hosting)
