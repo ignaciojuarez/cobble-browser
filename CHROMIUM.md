@@ -330,3 +330,15 @@ the SDK smoke passed, and a locally assembled Full build opened the failing
 `http://` host in a Chromium tab, showed the interstitial, and loaded the site
 after Continue. The fix is part of the current pin. A Developer ID release remains to be
 checked.
+
+## Menu bar search (2026-11-18)
+
+Chromium's testing config, which unbranded builds apply, enables
+`OmniboxEverywhere` on Mac: a "Search with Chromium" menu bar item and global
+shortcut that Cobble never offers. The SDK fix
+([chrome-sdk#27](https://github.com/ignaciojuarez/chrome-sdk/pull/27),
+`0042-disable-menu-bar-search.patch`, `c9ef84d`) adds it to `--disable-features`
+in Cobble mode before field trials are set up. The rebuilt development runtime
+passed the SDK smoke; a harness from the previous runtime showed the status
+item and the patched one showed none. Other testing-config experiments remain
+on. A Developer ID release remains to be checked.

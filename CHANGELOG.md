@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Cobble no longer adds a "Search with Chromium" item to the Mac menu bar
+  or its global search shortcut when Chromium tabs run.
 - Chromium tabs run Chromium 158.0.8127.37, the current stable release, with
   its security fixes.
 - Back and Forward buttons always stay in the toolbar. When there is no page
