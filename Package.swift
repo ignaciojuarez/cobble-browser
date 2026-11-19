@@ -24,7 +24,7 @@ precondition(localSDKABI == 19,
 let chromiumSDK: Package.Dependency = localSDKPath.map {
     .package(name: "chrome-sdk", path: $0)
 } ?? .package(url: "https://github.com/ignaciojuarez/chrome-sdk.git",
-              revision: "0b3164fd7776077b1fed6620b0988e1f89dfd55e")
+              revision: "c9ef84de256cb8191d68bce812a243832b11198c")
 let clientSettings: [SwiftSetting] = [.define("COBBLE_CHROMIUM_CLIENT")]
     + (ProcessInfo.processInfo.environment["COBBLE_AUTH_FIXTURE"] == "1" ? [.define("COBBLE_AUTH_FIXTURE", .when(configuration: .debug))] : [])
 
